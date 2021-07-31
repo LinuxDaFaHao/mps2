@@ -137,6 +137,11 @@ private:
   void LeftCanonicalizeTen_(const size_t);
   void RightCanonicalize_(const size_t);
   void RightCanonicalizeTen_(const size_t);
+
+  template <typename TenElemT2, typename QNT2>
+  friend std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(FiniteMPS<TenElemT2, QNT2> &,
+                                  const std::string&, const size_t);
+
 };
 
 
