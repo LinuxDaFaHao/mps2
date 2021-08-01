@@ -75,10 +75,10 @@ double TwoSiteFiniteVMPSSweep(//also a overload
 
 
 /**
-Function to perform two-site noised update finite vMPS algorithm.
+ Function to perform two-site noised update finite vMPS algorithm.
 
-@note The input MPS will be considered an empty one.
-@note The canonical center of MPS should be set at site 0 or 1
+ @note The input MPS will be considered an empty one.
+ @note The canonical center of MPS should be set at around left side
 */
 template <typename TenElemT, typename QNT>
 GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of SweepParams 
@@ -115,7 +115,7 @@ GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of Sweep
     // the right environments
     if (!IsPathExist(sweep_params.temp_path)) {
       CreatPath(sweep_params.temp_path);
-      InitEnvs(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, 2);
+      InitEnvs(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, left_boundary+2 );
       std::cout << "no exsiting path " <<sweep_params.temp_path
                 << ", thus progress created it and generated environment tensors."
                 << std::endl;
@@ -124,10 +124,8 @@ GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of Sweep
                 << ", thus progress will use the present environment tensors."
                 << std::endl;
     }
-    std::cout << "OK0" <<std::endl;
     UpdateBoundaryEnvs(mps, mpo, sweep_params.mps_path,
                         sweep_params.temp_path, left_boundary, right_boundary, 2 );
-    std::cout << "OK1"<<std::endl; 
     GQTEN_Double e0;
 
     
@@ -181,7 +179,9 @@ double TwoSiteFiniteVMPSSweep(//also a overload
                                                                             // mps[i+1](do not need load), mps[i+2](need load)
                                                                             // lenvs[i](do not need load), and mps[i+1]'s renvs
                                                                             // mps[i+1]'s renvs file can be removed
+    std::cout << "OK0" <<std::endl;
     actual_e0 = CalEnergyEptTwoSite(mps, mpo,lenvs, renvs, i, i+1);
+    std::cout << "OK1" <<std::endl;
     if ((actual_e0 - e0) <= 0.0) {
       // expand and truncate let the energy lower or not change
       // this case is very rare, but include the boundary mps tensor case
@@ -282,7 +282,7 @@ double TwoSiteFiniteVMPSUpdate(
   }
 
   using TenT = GQTensor<TenElemT, QNT>;
-
+  std::cout << "good0" <<std::endl;
 
   std::vector<TenT *>eff_ham(4);
   eff_ham[0] = lenvs(lenv_len);
@@ -292,6 +292,7 @@ double TwoSiteFiniteVMPSUpdate(
   eff_ham[3] = renvs(renv_len);
   auto init_state = new TenT;
   Contract(&mps[lsite_idx], &mps[rsite_idx], init_state_ctrct_axes, init_state);
+  std::cout << "good1" << std::endl;
 #ifdef GQMPS2_TIMING_MODE
    preprocessing_timer.PrintElapsed();
 #endif
@@ -547,15 +548,10 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
     mps.Centralize(i+1);
     TenT& mps_ten = mps[i];
     ShapeT mps_ten_shape = mps_ten.GetShape();
-    if(mps_ten_shape[0]*mps_ten_shape[1]<mps_ten_shape[2]){
-        std::cout << "Impossible!" << std::endl;
-        assert(mps_ten_shape[0]*mps_ten_shape[1]<mps_ten_shape[2]);
-    }else if(mps_ten_shape[0]*mps_ten_shape[1] == mps_ten_shape[2]){
-        //don't care, go on
-    }else if(mps_ten_shape[0]*mps_ten_shape[1]>Dmax ){
+    if(mps_ten_shape[0]*mps_ten_shape[1]>Dmax ){
         left_boundary = i;
         break;
-    }else{
+    }else if(mps_ten_shape[0]*mps_ten_shape[1]>mps_ten_shape[2]){
         GQTenIndexDirType new_dir = mps_ten.GetIndexes()[2].GetDir();
         Index<QNT> index_0 = mps_ten.GetIndexes()[0];
         Index<QNT> index_1 = mps_ten.GetIndexes()[1];
@@ -601,15 +597,10 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
     mps.LoadTen(i-1, GenMPSTenName(mps_path, i-1));
     TenT& mps_ten = mps[i];
     ShapeT mps_ten_shape = mps_ten.GetShape();
-    if(mps_ten_shape[1]*mps_ten_shape[2]<mps_ten_shape[0]){
-        std::cout << "Impossible!" << std::endl;
-        assert(mps_ten_shape[1]*mps_ten_shape[2]<mps_ten_shape[0]);
-    }else if(mps_ten_shape[1]*mps_ten_shape[2] == mps_ten_shape[0]){
-        //don't care, go on
-    }else if(mps_ten_shape[1]*mps_ten_shape[2]>Dmax){
+    if(mps_ten_shape[1]*mps_ten_shape[2]>Dmax){
         right_boundary = i;
         break;
-    }else{
+    }else if(mps_ten_shape[1]*mps_ten_shape[2]>mps_ten_shape[0]){
         TenT index_combiner = IndexCombine<TenElemT,QNT>(
                 mps[i].GetIndexes()[1],
                 mps[i].GetIndexes()[2],
@@ -630,11 +621,7 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
       mps.DumpTen(i, GenMPSTenName(mps_path, i), true);
   }
 
-  for(size_t i=right_boundary-1;i<N;i++){
-    mps.tens_cano_type_[i] = MPSTenCanoType::RIGHT;
-  }
-  mps.center_ = left_boundary +1;
-
+  assert(mps.empty());
   return std::make_pair(left_boundary, right_boundary);
 }
 /**
@@ -698,7 +685,6 @@ void UpdateBoundaryEnvs(
   TenT lenv = TenT({mps_trivial_index_inv, mpo_trivial_index_inv, mps_trivial_index});
   lenv({0, 0, 0}) = 1;
   mps.dealloc(0);
-  std::cout <<"good1" <<std::endl;
   std::cout << "left boundary = " << left_boundary <<std::endl;
   for (size_t i = 0; i < left_boundary; ++i) {
     mps.LoadTen(i, GenMPSTenName(mps_path, i)); 
@@ -711,10 +697,8 @@ void UpdateBoundaryEnvs(
     Contract(&temp2, &mps_ten_dag, {{1,2}, {0,1}}, &lenv);
     mps.dealloc(i);
   }
-std::cout <<"good2" <<std::endl;
   file = GenEnvTenName("l", left_boundary, temp_path);
   WriteGQTensorTOFile(lenv, file);
-std::cout <<"good3" <<std::endl;
   assert(mps.empty());
 }
 
@@ -743,7 +727,7 @@ void LoadRelatedTensTwoSiteAlg(
             GenMPSTenName(sweep_params.mps_path, target_site+2)
         );
 
-        auto renv_len = N - (target_site + 2);
+        auto renv_len = (N - 1) - (target_site + 1);
         auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
         renvs.LoadTen(renv_len, renv_file);
         RemoveFile(renv_file);
@@ -869,7 +853,7 @@ double CalEnergyEptTwoSite(
   TenT *h_mul_state = eff_ham_mul_two_site_state(eff_ham, &wave_function);
   TenT scalar_ten;
   TenT wave_function_dag = Dag(wave_function);
-  Contract(h_mul_state, &wave_function_dag, {{0, 1, 2,3}, {0, 1, 2,3}}, &scalar_ten);
+  Contract(h_mul_state, &wave_function_dag, {{0, 1, 2, 3}, {0, 1, 2, 3}}, &scalar_ten);
   delete h_mul_state;
   double energy = Real(scalar_ten());
   return energy;
