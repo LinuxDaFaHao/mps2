@@ -179,9 +179,7 @@ double TwoSiteFiniteVMPSSweep(//also a overload
                                                                             // mps[i+1](do not need load), mps[i+2](need load)
                                                                             // lenvs[i](do not need load), and mps[i+1]'s renvs
                                                                             // mps[i+1]'s renvs file can be removed
-    std::cout << "OK0" <<std::endl;
     actual_e0 = CalEnergyEptTwoSite(mps, mpo,lenvs, renvs, i, i+1);
-    std::cout << "OK1" <<std::endl;
     if ((actual_e0 - e0) <= 0.0) {
       // expand and truncate let the energy lower or not change
       // this case is very rare, but include the boundary mps tensor case
@@ -282,7 +280,6 @@ double TwoSiteFiniteVMPSUpdate(
   }
 
   using TenT = GQTensor<TenElemT, QNT>;
-  std::cout << "good0" <<std::endl;
 
   std::vector<TenT *>eff_ham(4);
   eff_ham[0] = lenvs(lenv_len);
@@ -292,7 +289,6 @@ double TwoSiteFiniteVMPSUpdate(
   eff_ham[3] = renvs(renv_len);
   auto init_state = new TenT;
   Contract(&mps[lsite_idx], &mps[rsite_idx], init_state_ctrct_axes, init_state);
-  std::cout << "good1" << std::endl;
 #ifdef GQMPS2_TIMING_MODE
    preprocessing_timer.PrintElapsed();
 #endif
@@ -840,7 +836,7 @@ double CalEnergyEptTwoSite(
     const size_t rsite
 ) {
   using TenT = GQTensor<TenElemT, QNT>;
-  std::vector<TenT *> eff_ham(3);
+  std::vector<TenT *> eff_ham(4);
   size_t lenv_len = lsite;
   size_t renv_len = mps.size() - rsite - 1;
   eff_ham[0] = lenvs(lenv_len);
