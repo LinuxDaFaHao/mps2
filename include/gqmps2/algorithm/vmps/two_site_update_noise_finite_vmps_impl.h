@@ -452,21 +452,21 @@ void TwoSiteFiniteVMPSExpand(
     InplaceContract(ten_tmp, eff_ham[1], {{0, 2}, {0, 1}});
     InplaceContract(ten_tmp, eff_ham[2], {{4, 1}, {0, 1}});
     ten_tmp->FuseIndex(1, 4);
-    TenT expanded_ten = noise * (*ten_tmp);
+    (*ten_tmp) *= noise;
     gs_vec->Transpose({3,0,1,2});
-    (*ten_tmp) = TenT();
-    ExpandMC(gs_vec, &expanded_ten, {0},  ten_tmp);
-    ten_tmp->Transpose({1,2,3,0});
-    (*gs_vec) = std::move(*ten_tmp);
+    TenT expanded_ten;
+    ExpandMC(gs_vec, ten_tmp, {0},  &expanded_ten);
+    expanded_ten.Transpose({1,2,3,0});
+    (*gs_vec) = std::move(expanded_ten);
     
-    (*ten_tmp) = TenT();
     size_t next_next_site = target_site + 2;
-    auto expanded_index = InverseIndex(expanded_ten.GetIndexes()[0]);
+    auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
                                  expanded_index,
                                  mps[next_next_site].GetIndexes()[1],
                                  mps[next_next_site].GetIndexes()[2]
                              });
+    (*ten_tmp) = TenT();
     ExpandMC(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
     delete mps(next_next_site);
     mps(next_next_site) = ten_tmp;
@@ -478,19 +478,19 @@ void TwoSiteFiniteVMPSExpand(
     InplaceContract(ten_tmp, eff_ham[1], {{1,3},{1,3}});
     ten_tmp->Transpose({0, 3,4,2,1});
     ten_tmp->FuseIndex(0,1);
-    TenT expanded_ten = noise*(*ten_tmp);
-    (*ten_tmp) = TenT();
-    ExpandMC(gs_vec, &expanded_ten, {0}, ten_tmp);
-    *gs_vec = std::move(*ten_tmp);
+    (*ten_tmp) *= noise;
+    TenT expanded_ten;
+    ExpandMC(gs_vec, ten_tmp, {0}, &expanded_ten);
+    *gs_vec = std::move(expanded_ten);
     
 
-    *ten_tmp = TenT();
-    auto expanded_index = InverseIndex(expanded_ten.GetIndexes()[0]);
+    auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
                                  mps[next_next_site].GetIndexes()[0],
                                  mps[next_next_site].GetIndexes()[1],
                                  expanded_index
                              });
+    *ten_tmp = TenT();
     ExpandMC(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
     delete mps(next_next_site);
     mps(next_next_site) = ten_tmp;
