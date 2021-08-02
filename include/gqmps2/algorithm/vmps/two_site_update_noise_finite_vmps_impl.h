@@ -249,7 +249,7 @@ double TwoSiteFiniteVMPSUpdate(
   Timer update_timer("two_site_fvmps_update");
 
 #ifdef GQMPS2_TIMING_MODE
-  Timer preprocessing_timer("two_site_fvmps_preprocessing");
+  Timer preprocessing_timer("two_site_fvmps_initial_state");
 #endif
   double noise = preset_noise;
   // Assign some parameters
@@ -307,7 +307,7 @@ double TwoSiteFiniteVMPSUpdate(
 
 
 #ifdef GQMPS2_TIMING_MODE
-  Timer expand_timer("two_site_fvmps_expand");
+  Timer expand_timer("two_site_fvmps_add_noise");
 #endif
 
   bool need_expand(true);
@@ -448,17 +448,36 @@ void TwoSiteFiniteVMPSExpand(
   TenT* ten_tmp = new TenT();
   // we suppose mps contain mps[targe_site], mps[next_site],  mps[next_next_site]
   if (dir=='r') {
+#ifdef GQMPS2_TIMING_MODE
+    Timer contract_timer("\t Contract time for expansion");
+#endif
     Contract(eff_ham[0], gs_vec, {{0}, {0}}, ten_tmp);
     InplaceContract(ten_tmp, eff_ham[1], {{0, 2}, {0, 1}});
     InplaceContract(ten_tmp, eff_ham[2], {{4, 1}, {0, 1}});
+#ifdef GQMPS2_TIMING_MODE
+    contract_timer.PrintElapsed();
+    Timer fuse_timer("\t Fuse index time for expansion");
+#endif
     ten_tmp->FuseIndex(1, 4);
+#ifdef GQMPS2_TIMING_MODE
+    fuse_timer.PrintElapsed();
+    Timer scalar_timer("\t Scalar multiplication time fo expansion");
+#endif
     (*ten_tmp) *= noise;
+#ifdef GQMPS2_TIMING_MODE
+    scalar_timer.PrintElapsed();
+    Timer expansion_timer("\t Magic expansion time");
+#endif
     gs_vec->Transpose({3,0,1,2});
     TenT expanded_ten;
     ExpandMC(gs_vec, ten_tmp, {0},  &expanded_ten);
     expanded_ten.Transpose({1,2,3,0});
     (*gs_vec) = std::move(expanded_ten);
+#ifdef GQMPS2_TIMING_MODE
+    expansion_timer.PrintElapsed();
     
+    expansion_timer.ClearAndRestart();
+#endif
     size_t next_next_site = target_site + 2;
     auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
@@ -470,19 +489,41 @@ void TwoSiteFiniteVMPSExpand(
     ExpandMC(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
     delete mps(next_next_site);
     mps(next_next_site) = ten_tmp;
+#ifdef GQMPS2_TIMING_MODE
+    expansion_timer.PrintElapsed();
+#endif
   } else if (dir=='l') {
     size_t next_next_site = target_site - 2;
+#ifdef GQMPS2_TIMING_MODE
+    Timer contract_timer("\t Contract time for expansion");
+#endif
     Contract(gs_vec, eff_ham[3], {{3}, {0}}, ten_tmp);
 
     InplaceContract(ten_tmp, eff_ham[2], {{2,3}, {1, 3}});
     InplaceContract(ten_tmp, eff_ham[1], {{1,3},{1,3}});
+#ifdef GQMPS2_TIMING_MODE
+    contract_timer.PrintElapsed();
+    Timer fuse_timer("\t Fuse index time for expansion");
+#endif
     ten_tmp->Transpose({0, 3,4,2,1});
     ten_tmp->FuseIndex(0,1);
+#ifdef GQMPS2_TIMING_MODE
+    fuse_timer.PrintElapsed();
+    Timer scalar_timer("\t Scalar multiplication time fo expansion");
+#endif
     (*ten_tmp) *= noise;
+#ifdef GQMPS2_TIMING_MODE
+    scalar_timer.PrintElapsed();
+    Timer expansion_timer("\t Magic expansion time");
+#endif
     TenT expanded_ten;
     ExpandMC(gs_vec, ten_tmp, {0}, &expanded_ten);
     *gs_vec = std::move(expanded_ten);
+#ifdef GQMPS2_TIMING_MODE
+    expansion_timer.PrintElapsed();
     
+    expansion_timer.ClearAndRestart();
+#endif
 
     auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
@@ -494,6 +535,9 @@ void TwoSiteFiniteVMPSExpand(
     ExpandMC(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
     delete mps(next_next_site);
     mps(next_next_site) = ten_tmp;
+#ifdef GQMPS2_TIMING_MODE
+    expansion_timer.PrintElapsed();
+#endif
   }
 }
 
@@ -712,7 +756,7 @@ void LoadRelatedTensTwoSiteAlg(
     const size_t boundary
 ) {
 #ifdef GQMPS2_TIMING_MODE
-  Timer preprocessing_timer("two_site_fvmps_preprocessing");
+  Timer preprocessing_timer("two_site_fvmps_load_tensors");
 #endif
   auto N = mps.size();
   switch (dir) {
@@ -785,7 +829,7 @@ void DumpRelatedTensTwoSiteAlg(
     const TwoSiteVMPSSweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
-  Timer postprocessing_timer("two_site_fvmps_postprocessing");
+  Timer postprocessing_timer("two_site_fvmps_dump_tensors");
 #endif
   auto N = mps.size();
   switch (dir) {
@@ -835,6 +879,9 @@ double CalEnergyEptTwoSite(
     const size_t lsite,
     const size_t rsite
 ) {
+#ifdef GQMPS2_TIMING_MODE
+  Timer preprocessing_timer("two_site_fvmps_pre_calculate_energy");
+#endif
   using TenT = GQTensor<TenElemT, QNT>;
   std::vector<TenT *> eff_ham(4);
   size_t lenv_len = lsite;
@@ -852,6 +899,9 @@ double CalEnergyEptTwoSite(
   Contract(h_mul_state, &wave_function_dag, {{0, 1, 2, 3}, {0, 1, 2, 3}}, &scalar_ten);
   delete h_mul_state;
   double energy = Real(scalar_ten());
+#ifdef GQMPS2_TIMING_MODE
+  preprocessing_timer.PrintElapsed();
+#endif
   return energy;
 }
 }
