@@ -796,7 +796,7 @@ void LoadRelatedTensTwoSiteAlg(
         auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
         renvs.LoadTen(renv_len, renv_file);
 
-        auto lenv_len = N-2;
+        auto lenv_len = target_site-1;
         auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
         RemoveFile(lenv_file);
       } else {
