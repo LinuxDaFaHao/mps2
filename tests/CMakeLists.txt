@@ -41,6 +41,28 @@ elseif(UNIX)
 endif()
 
 
+find_package(Boost
+  1.76.0
+  REQUIRED 
+  COMPONENTS serialization mpi)
+
+find_package(MPI REQUIRED)
+
+option(TEST_ACTUAL_COMBAT "test the actual examples of mps tensors" OFF)
+
+if(TEST_ACTUAL_COMBAT)
+  add_definitions(-DACTUALCOMBAT)
+endif()
+
+#set omp flag
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  set(OMP_FLAGS -qopenmp)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(OMP_FLAGS -fopenmp)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  set(OMP_FLAGS -fopenmp)
+endif()
+
 macro(add_unittest
     TEST_NAME TEST_SRC CFLAGS LINK_LIBS LINK_LIB_FLAGS INPUT_ARGS)
   add_executable(${TEST_NAME}
@@ -48,12 +70,15 @@ macro(add_unittest
 
     target_compile_options(${TEST_NAME}
       PRIVATE ${CFLAGS}
+      PRIVATE ${OMP_FLAGS}
     )
 
     target_include_directories(${TEST_NAME}
       PRIVATE ${GQMPS2_HEADER_PATH}
       PRIVATE ${GQMPS2_TENSOR_LIB_HEADER_PATH}
-      PRIVATE ${hptt_INCLUDE_DIR})
+      PRIVATE ${hptt_INCLUDE_DIR}
+      PRIVATE ${Boost_INCLUDE_DIR}
+      PRIVATE ${MPI_CXX_HEADER_DIR})
     target_link_libraries(${TEST_NAME}
       GTest::GTest GTest::Main
       ${hptt_LIBRARY}
@@ -67,6 +92,46 @@ macro(add_unittest
 
   set_target_properties(${TEST_NAME} PROPERTIES FOLDER tests)
 endmacro()
+
+
+
+
+macro(add_mpi_unittest
+    TEST_NAME TEST_SRC CFLAGS LINK_LIBS LINK_LIB_FLAGS PROCESSOR_NUM)
+  add_executable(${TEST_NAME}
+    ${TEST_SRC})
+
+    target_compile_options(${TEST_NAME}
+      PRIVATE ${CFLAGS} 
+      PRIVATE ${OMP_FLAGS}
+    )
+    target_include_directories(${TEST_NAME}
+      PRIVATE ${GQMPS2_HEADER_PATH}
+      PRIVATE ${GQMPS2_TENSOR_LIB_HEADER_PATH}
+      PRIVATE ${hptt_INCLUDE_DIR}
+      PRIVATE ${Boost_INCLUDE_DIR}
+      PRIVATE ${MPI_CXX_HEADER_DIR})
+    target_link_libraries(${TEST_NAME}
+      GTest::GTest GTest::Main
+      ${hptt_LIBRARY}
+      Boost::serialization
+      Boost::mpi
+      ${MPI_CXX_LINK_FLAGS}
+      ${MPI_mpi_LIBRARY}
+      "${LINK_LIBS}" "${LINK_LIB_FLAGS}"
+      )
+
+    if( NOT(MPIEXEC_MAX_NUMPROCS MATCHES "1") )
+      add_test(
+        NAME ${TEST_NAME}
+        COMMAND ${MPIEXEC_EXECUTABLE}
+            ${MPIEXEC_NUMPROC_FLAG} ${PROCESSOR_NUM} 
+            $<TARGET_FILE:${TEST_NAME}>)
+    endif()
+    set_target_properties(${TEST_NAME} PROPERTIES FOLDER tests)
+endmacro()
+
+
 
 
 ## Test sites vector.
@@ -133,3 +198,10 @@ add_unittest(test_case_params_parser
   test_case_params_parser.cc
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
   "${CMAKE_CURRENT_LIST_DIR}/testdata/test-params.json" "")
+
+
+# Test tensor comminutation for mpi
+add_mpi_unittest(test_mpi_lanczos
+  "test_mpi_algorithm/test_mpi_lanczos_solver.cc"
+  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "3"
+)
