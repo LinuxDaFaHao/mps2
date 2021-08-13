@@ -82,6 +82,10 @@ macro(add_unittest
     target_link_libraries(${TEST_NAME}
       GTest::GTest GTest::Main
       ${hptt_LIBRARY}
+      Boost::serialization
+      Boost::mpi
+      ${MPI_CXX_LINK_FLAGS}
+      ${MPI_mpi_LIBRARY}
       ${LINK_LIBS} "${LINK_LIB_FLAGS}")
 
     add_test(
