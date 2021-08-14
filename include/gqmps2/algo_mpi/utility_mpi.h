@@ -20,7 +20,7 @@ namespace gqmps2{
 using namespace gqten;
 const size_t kMasterRank = 0;
 
-enum VMPS_ORDER {program_start, lanczos_start, recv_eff_ham, lanczos_first_iteration,  program_final};
+enum VMPS_ORDER {program_start, lanczos_start, recv_eff_ham, lanczos_mat_vec, lanczos_first_iteration, lanczos_finish,  program_final};
 
 
 const size_t two_site_eff_ham_size = 4;
@@ -39,6 +39,12 @@ inline void MasterSendOrder(const std::string order,
 inline void MasterBroadcastOrder(const VMPS_ORDER order,
                 mpi::communicator world){
     mpi::broadcast(world, const_cast<VMPS_ORDER&>(order), kMasterRank);
+}
+
+inline VMPS_ORDER SlaveGetBroadcastOrder(mpi::communicator world){
+  VMPS_ORDER order;
+  mpi::broadcast(world, order, kMasterRank);
+  return order;
 }
 
 template <typename TenElemT, typename QNT>

@@ -48,9 +48,7 @@ LanczosRes<TenT> MasterLanczosSolver(
   // Take care that init_state will be destroyed after call the solver
   size_t eff_ham_eff_dim = pinit_state->size();
 
-  //Broadcast eff_ham
-  // MasterBroadcastOrder(lanczos_start, world);
-  // MasterBroadcastEffectiveHamiltonian(eff_ham, world);
+  //Broadcast eff_ham, TODO omp parallel
   const size_t eff_ham_size = pinit_state->Rank();//4
   for(size_t i = 0; i < eff_ham_size; i++){
     SendBroadCastGQTensor(world, (*rpeff_ham[i]), kMasterRank);
@@ -76,7 +74,7 @@ LanczosRes<TenT> MasterLanczosSolver(
 #ifdef GQMPS2_TIMING_MODE
   Timer mat_vec_timer("lancz_mat_vec");
 #endif
-
+  //first time matrix multiply state will always be done, so here don't need to send order
   TenT* last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[0]);
 
 #ifdef GQMPS2_TIMING_MODE
@@ -118,6 +116,7 @@ LanczosRes<TenT> MasterLanczosSolver(
         lancz_res.gs_eng = energy0;
         lancz_res.gs_vec = new TenT(*bases[0]);
         LanczosFree(eigvec, bases, last_mat_mul_vec_res);
+        MasterBroadcastOrder(lanczos_finish, world);
         return lancz_res;
       } else {
         TridiagGsSolver(a, b, m, eigval, eigvec, 'V');
@@ -127,6 +126,7 @@ LanczosRes<TenT> MasterLanczosSolver(
         lancz_res.gs_eng = energy0;
         lancz_res.gs_vec = gs_vec;
         LanczosFree(eigvec, bases, last_mat_mul_vec_res);
+        MasterBroadcastOrder(lanczos_finish, world);
         return lancz_res;
       }
     }
@@ -138,7 +138,7 @@ LanczosRes<TenT> MasterLanczosSolver(
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.ClearAndRestart();
 #endif
-
+    MasterBroadcastOrder(lanczos_mat_vec, world);
     last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[m]);
 
 #ifdef GQMPS2_TIMING_MODE
@@ -169,6 +169,7 @@ LanczosRes<TenT> MasterLanczosSolver(
       lancz_res.gs_eng = energy0;
       lancz_res.gs_vec = gs_vec;
       LanczosFree(eigvec, bases, last_mat_mul_vec_res);
+      MasterBroadcastOrder(lanczos_finish, world);
       return lancz_res;
     } else {
       energy0 = energy0_new;
@@ -178,9 +179,10 @@ LanczosRes<TenT> MasterLanczosSolver(
 
 
 template <typename TenT>
-LanczosRes<TenT> SlaveLanczosSolver(
+void SlaveLanczosSolver(
     mpi::communicator world
 ){
+
 std::vector< TenT *> rpeff_ham(two_site_eff_ham_size);
 for(size_t i=0;i<two_site_eff_ham_size;i++){
   rpeff_ham[i] = new TenT();
@@ -190,12 +192,12 @@ for(size_t i=0;i<two_site_eff_ham_size;i++){
   RecvBroadCastGQTensor(world, *rpeff_ham[i], kMasterRank);
 }
 
-
-
-
-
-
-
+VMPS_ORDER order=lanczos_mat_vec ;
+while(order == lanczos_mat_vec){
+  slave_two_site_eff_ham_mul_state(rpeff_ham, world);
+  order = SlaveGetBroadcastOrder(world);
+}
+assert( order==lanczos_finish );
 
 for(size_t i=0;i<two_site_eff_ham_size;i++){
   delete rpeff_ham[i];
@@ -206,6 +208,10 @@ for(size_t i=0;i<two_site_eff_ham_size;i++){
 /**
  * two site effective hamiltonian multiplying on state, the dispatch works of master.
  * 
+ * Once the order lanczos_mat_vec has broadcast to Slave, master will prepare to arrage the tasks.
+ * tasks from 0 to slave_num-1 will automatically done by salves at first,
+ * other tasks will be sorted from difficulty to easy, to get a more balancing assignment.
+ * 
  * @param eff_ham   effective hamiltonian
  * @param state     wave function
  * @param world     boost::mpi::communicator
@@ -213,44 +219,71 @@ for(size_t i=0;i<two_site_eff_ham_size;i++){
  * @return the result of effective hamiltonian multiple 
  */
 template <typename ElemT, typename QNT>
-GQTensor<ElemT, QNT> master_two_site_eff_ham_mul_state(
+GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &eff_ham,
     GQTensor<ElemT, QNT> *state,
     mpi::communicator world
 ) {
   using TenT = GQTensor<ElemT, QNT>;
-#ifdef GQMPS_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer(" broadcast_state_send");
 #endif
   SendBroadCastGQTensor(world, *state, kMasterRank);
-#ifdef GQMPS_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
   //prepare
   const size_t split_idx = 2;
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_num = splited_index.GetQNSctNum();//total task number
+  const QNSectorVec<QNT>& split_qnscts = splited_index.GetQNScts();
   std::vector<TenT> res_list;
   res_list.reserve(task_num);
   const size_t slave_num = world.size() - 1 ; //total number of slaves
   //$1
 
+  TenT res_shell, temp_shell1, temp_shell2;
+  TenCtrctInitResTen(eff_ham[0], state, {{0},{0}}, &temp_shell1 );
+  TenCtrctInitResTen(&temp_shell1, eff_ham[1], {{0, 2}, {0, 1}}, &temp_shell2);
+  TenCtrctInitResTen(&temp_shell2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp_shell1);
+  TenCtrctInitResTen(&temp_shell1, eff_ham[3], {{4, 1}, {1, 0}}, &res_shell);
 
+  std::vector<size_t> arraging_tasks(task_num);
+  std::vector<size_t> task_difficuty(task_num);
+  for(size_t i = 0;i<task_num;i++){
+    arraging_tasks[i] = i+slave_num;//arraging from slave_num
+    task_difficuty[i] = split_qnscts[i].GetDegeneracy();
+  }
+
+  //I don't know if sort function permits end()<=begin(), although the case almostly cannot occur.
+  std::sort(arraging_tasks.begin(), arraging_tasks.end()-slave_num, 
+    [&task_difficuty](size_t task1, size_t task2){
+      return task_difficuty[task1] > task_difficuty[task2];
+       });
+  
   //if task_num > slave_num:
   //below for loop dispatch tasks from slave_num to task_num-1,
   //from task_num to (slave_num+task_num-1), master informs every slave that the jobs are finished.
 
   //if task_num <= slave_num, master informs every working slave that the jobs are finished.
   //$2
-  for(size_t task = slave_num; task < slave_num+task_num ; task++){
-    res_list.push_back( TenT() );
-    mpi::status recv_status=recv_gqten(world, mpi::any_source, mpi::any_tag, res_list.back());
+  // for(size_t task = slave_num; task < slave_num+task_num ; task++){
+  for(size_t i = 0; i<task_num;i++){
+    res_list.push_back( res_shell );
+    // mpi::status recv_status=recv_gqten(world, mpi::any_source, mpi::any_tag, res_list.back());
+    auto& bsdt = res_list.back().GetBlkSparDataTen();
+    mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
     int slave_identifier = recv_status.source();
-    world.send(slave_identifier, 2*slave_identifier, task);
+    world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
   }
-
-  TenT res;
-  CollectiveLinearCombine(res_list, res);
+#ifdef GQMPS2_MPI_TIMING_MODE
+  Timer sum_state_timer(" parallel_summation_reduce");
+#endif
+  TenT* res = new TenT();
+  CollectiveLinearCombine(res_list, *res);
+#ifdef GQMPS2_MPI_TIMING_MODE
+  sum_state_timer.PrintElapsed();
+#endif
   return res;
 }
 
@@ -275,27 +308,33 @@ void slave_two_site_eff_ham_mul_state(
 ){
   using TenT = GQTensor<ElemT, QNT>;
   TenT* state = new TenT();
-#ifdef GQMPS_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer(" broadcast_state_recv");
 #endif
   RecvBroadCastGQTensor(world, *state, kMasterRank);
-#ifdef GQMPS_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
-
+  // Timer slave_prepare_timer(" slave "+ std::to_string(world.rank()) +"'s prepare");
   const size_t split_idx = 2;
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_num = splited_index.GetQNSctNum();
   //slave also need to know the total task number used to judge if finish this works
-
+  size_t task_count = 0;
   const size_t slave_identifier = world.rank();//number from 1
   if(slave_identifier > task_num){
     //no task, happy~
+    std::cout << "Slave has done task_count = " << task_count << std::endl;
     delete state;
     return;
   }
+  // slave_prepare_timer.PrintElapsed();
   //$1
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+  Timer salve_communication_timer(" slave "+std::to_string(slave_identifier) +"'s communication");
+  salve_communication_timer.Suspend();
+  Timer slave_work_timer(" slave "+ std::to_string(slave_identifier) +"'s work");
+#endif
   //first task
   size_t task = slave_identifier-1;
   TenT temp1, temp2, res;
@@ -306,10 +345,19 @@ void slave_two_site_eff_ham_mul_state(
   Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
 
   //$2
-  send_gqten(world, kMasterRank, task, res);//tag = task
-
+  // send_gqten(world, kMasterRank, task, res);//tag = task
+  auto& bsdt = res.GetBlkSparDataTen();
+  // std::cout << "task " << task << " finished, sending " << std::endl;
+  task_count++;
+#ifdef GQMPS2_MPI_TIMING_MODE
+  salve_communication_timer.Restart();
+#endif
+  bsdt.MPISend(world, kMasterRank, task);//tag = task
+  
   world.recv(kMasterRank, 2*slave_identifier, task);//tag = 2*slave_identifier
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+  salve_communication_timer.Suspend();
+#endif
   while(task < task_num){
     TenT temp1, temp2, res;
     Contract1Sector(eff_ham[0],split_idx, task, state, {{0},{0}}, &temp1 );
@@ -317,11 +365,24 @@ void slave_two_site_eff_ham_mul_state(
     temp1 = TenT();
     Contract(&temp2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp1);
     Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
-    send_gqten(world, kMasterRank, task, res);
+    
+
+    auto& bsdt = res.GetBlkSparDataTen();
+    task_count++;
+  #ifdef GQMPS2_MPI_TIMING_MODE
+    salve_communication_timer.Restart();
+  #endif 
+    bsdt.MPISend(world, kMasterRank, task);//tag = task
     world.recv(kMasterRank, 2*slave_identifier, task);
+  #ifdef GQMPS2_MPI_TIMING_MODE
+    salve_communication_timer.Suspend();
+  #endif
   }
-
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+  slave_work_timer.PrintElapsed();
+  salve_communication_timer.PrintElapsed();
+#endif
+  std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
   delete state;
 }
 

@@ -29,8 +29,6 @@
 
 using namespace gqmps2;
 using namespace gqten;
-namespace mpi = boost::mpi;
-
 
 
 using U1U1QN = QN<U1QNVal, U1QNVal>;
@@ -42,11 +40,15 @@ using DGQTensor = GQTensor<GQTEN_Double, U1U1QN>;
 using ZGQTensor = GQTensor<GQTEN_Complex, U1U1QN>;
 
 
-TEST(MPI_LANCZOS_TEST, MatrixMultiplyVector){
+// TEST(MPI_LANCZOS_TEST, MatrixMultiplyVector){
+int main(){
+    namespace mpi = boost::mpi;
     using std::vector;
     mpi::environment env;
     mpi::communicator world;
     if( world.rank() == 0){
+        hp_numeric::SetTensorManipulationTotalThreads(14);
+        hp_numeric::SetTensorTransposeNumThreads(14);
         DGQTensor lenv, renv, mpo1, mpo2, mps1, mps2;
         vector<DGQTensor *> load_ten_list = {&lenv, &renv, &mpo1, &mpo2, &mps1, &mps2};
         vector<std::string > file_name_list = {"lenv.gqten", "renv.gqten", "mpo_ten_l.gqten",
@@ -72,10 +74,21 @@ TEST(MPI_LANCZOS_TEST, MatrixMultiplyVector){
 
         DGQTensor* state = new DGQTensor();
         Contract(&mps1, &mps2, {{2},{0}}, state);
+        state->ConciseShow();
+        Timer mpi_mat_vec_timer("mpi matrix multiply vector");
+        DGQTensor* mpi_res = master_two_site_eff_ham_mul_state(eff_ham, state,world);
+        mpi_mat_vec_timer.PrintElapsed();
+        
+        Timer single_process_mat_vec_timer("single process matrix multiply vector");
+        DGQTensor* single_process_res = eff_ham_mul_two_site_state(eff_ham, state);
+        single_process_mat_vec_timer.PrintElapsed();
 
-        master_two_site_eff_ham_mul_state(eff_ham, state,world);
-
+        DGQTensor diff =  (*mpi_res) +(-(*single_process_res));
+        EXPECT_NEAR(diff.Normalize(), 0.0, 1e-13);
+        
     }else{
+        hp_numeric::SetTensorManipulationTotalThreads(14);
+        hp_numeric::SetTensorTransposeNumThreads(14);
         DGQTensor lenv, renv, mpo1, mpo2, mps1, mps2;
         RecvBroadCastGQTensor(world, lenv, kMasterRank);
         RecvBroadCastGQTensor(world,renv, kMasterRank);
@@ -86,4 +99,6 @@ TEST(MPI_LANCZOS_TEST, MatrixMultiplyVector){
 
         slave_two_site_eff_ham_mul_state(eff_ham, world);
     }
+    
+    return 0;
 }

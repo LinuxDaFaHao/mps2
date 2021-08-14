@@ -30,6 +30,10 @@ option(GQMPS2_TIMING_MODE "Timing mode." OFF)
 if(GQMPS2_TIMING_MODE)
   add_definitions(-DGQMPS2_TIMING_MODE)
 endif()
+option(GQMPS2_MPI_TIMING_MODE "MPI Timing mode." OFF)
+if(GQMPS2_MPI_TIMING_MODE)
+  add_definitions(-DGQMPS2_MPI_TIMING_MODE)
+endif()
 
 option(GQMPS2_BUILD_UNITTEST "Build unittests for GraceQ/mps2." OFF)
 
