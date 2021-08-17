@@ -242,21 +242,18 @@ GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
   const size_t slave_num = world.size() - 1 ; //total number of slaves
   //$1
 
-  TenT res_shell, temp_shell1, temp_shell2;
-  TenCtrctInitResTen(eff_ham[0], state, {{0},{0}}, &temp_shell1 );
-  TenCtrctInitResTen(&temp_shell1, eff_ham[1], {{0, 2}, {0, 1}}, &temp_shell2);
-  TenCtrctInitResTen(&temp_shell2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp_shell1);
-  TenCtrctInitResTen(&temp_shell1, eff_ham[3], {{4, 1}, {1, 0}}, &res_shell);
-
+  TenT res_shell = TenT( state->GetIndexes() );
   std::vector<size_t> arraging_tasks(task_num);
   std::vector<size_t> task_difficuty(task_num);
+  std::iota(arraging_tasks.begin(), arraging_tasks.end(), slave_num );
   for(size_t i = 0;i<task_num;i++){
-    arraging_tasks[i] = i+slave_num;//arraging from slave_num
     task_difficuty[i] = split_qnscts[i].GetDegeneracy();
   }
 
   //I don't know if sort function permits end()<=begin(), although the case almostly cannot occur.
-  std::sort(arraging_tasks.begin(), arraging_tasks.end()-slave_num, 
+  std::partial_sort(arraging_tasks.begin(), 
+                   arraging_tasks.begin()+slave_num,
+                   arraging_tasks.end()-slave_num, 
     [&task_difficuty](size_t task1, size_t task2){
       return task_difficuty[task1] > task_difficuty[task2];
        });
@@ -269,9 +266,20 @@ GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
   //$2
   // for(size_t task = slave_num; task < slave_num+task_num ; task++){
   for(size_t i = 0; i<task_num;i++){
-    res_list.push_back( res_shell );
+    if(i == slave_num){ //when arraged the most large slave_num jobs, sort the other work
+      std::sort(arraging_tasks.begin()+slave_num, 
+                   arraging_tasks.end()-slave_num, 
+          [&task_difficuty](size_t task1, size_t task2){
+              return task_difficuty[task1] > task_difficuty[task2];
+              });
+      for(size_t j = i; j<task_num;j++){
+        res_list.push_back( res_shell );
+      }
+    }else{
+      res_list.push_back( res_shell );
+    }
     // mpi::status recv_status=recv_gqten(world, mpi::any_source, mpi::any_tag, res_list.back());
-    auto& bsdt = res_list.back().GetBlkSparDataTen();
+    auto& bsdt = res_list[i].GetBlkSparDataTen();
     mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
     int slave_identifier = recv_status.source();
     world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
@@ -337,10 +345,21 @@ void slave_two_site_eff_ham_mul_state(
 #endif
   //first task
   size_t task = slave_identifier-1;
+  TenT eff_ham0_times_state;
   TenT temp1, temp2, res;
-  Contract1Sector(eff_ham[0],split_idx, task, state, {{0},{0}}, &temp1 );
-  Contract(&temp1, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
-  temp1 = TenT();
+  //First contract
+  TensorContraction1SectorExecutor<ElemT, QNT> ctrct_executor(
+    eff_ham[0],
+    split_idx,
+    task,
+    state,
+    {{0},{0}},
+    &eff_ham0_times_state
+  );
+  
+  ctrct_executor.Execute();
+
+  Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
   Contract(&temp2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp1);
   Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
 
@@ -360,13 +379,12 @@ void slave_two_site_eff_ham_mul_state(
 #endif
   while(task < task_num){
     TenT temp1, temp2, res;
-    Contract1Sector(eff_ham[0],split_idx, task, state, {{0},{0}}, &temp1 );
-    Contract(&temp1, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
-    temp1 = TenT();
+    ctrct_executor.SetSelectedQNSect(task);
+    ctrct_executor.Execute();
+    Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
     Contract(&temp2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp1);
     Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
     
-
     auto& bsdt = res.GetBlkSparDataTen();
     task_count++;
   #ifdef GQMPS2_MPI_TIMING_MODE

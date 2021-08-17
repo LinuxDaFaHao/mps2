@@ -84,7 +84,7 @@ int main(){
         single_process_mat_vec_timer.PrintElapsed();
 
         DGQTensor diff =  (*mpi_res) +(-(*single_process_res));
-        EXPECT_NEAR(diff.Normalize(), 0.0, 1e-13);
+        EXPECT_NEAR( (diff.Normalize() )/(single_process_res->Normalize()), 0.0, 1e-13);
         
     }else{
         hp_numeric::SetTensorManipulationTotalThreads(14);
