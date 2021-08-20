@@ -230,15 +230,21 @@ add_unittest(test_case_params_parser
   "${CMAKE_CURRENT_LIST_DIR}/testdata/test-params.json" "")
 
 
-# Test tensor comminutation for mpi
+# Test mpi lanczos solver
 add_mpi_unittest(test_mpi_lanczos
   "test_mpi_algorithm/test_mpi_lanczos_solver.cc"
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "3"
 )
 
 
-# Test tensor comminutation for mpi
+# Test single processor matrix multiply vector performance
 compile_unittest(single_processor_lanczos_performance_test
   "test_mpi_algorithm/single_processor_lanczos_performance_test.cc"
+  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
+)
+
+# Test single processor svd performance
+compile_unittest(single_processor_svd_performance_test
+  "test_mpi_algorithm/single_processor_svd_performance_test.cc"
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
 )

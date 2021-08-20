@@ -68,8 +68,6 @@ int Parser(int argc, char *argv[],
  * 
  */
 int main(int argc, char *argv[]){
-
-  
   std::string working_path;
   std::vector<size_t> thread_nums;
   Parser(argc, argv, working_path, thread_nums);
@@ -139,6 +137,10 @@ int main(int argc, char *argv[]){
     single_process_mat_vec_timer.PrintElapsed();
     delete single_process_res;
   }
+
+  std::ofstream ofs("state.gqten", std::ios::binary );
+  ofs << *state;
+  delete state;
   return 0;
 }
 

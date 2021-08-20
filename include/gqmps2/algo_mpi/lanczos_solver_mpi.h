@@ -29,6 +29,25 @@ namespace gqmps2 {
 using namespace gqten;
 
 namespace mpi = boost::mpi;
+
+
+//Forward deceleration
+template <typename ElemT, typename QNT>
+GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
+    const std::vector<GQTensor<ElemT, QNT> *> &,
+    GQTensor<ElemT, QNT> *,
+    mpi::communicator 
+);
+
+template <typename ElemT, typename QNT>
+void slave_two_site_eff_ham_mul_state(
+    const std::vector<GQTensor<ElemT, QNT> *> &,
+    mpi::communicator
+);
+
+
+
+
 /**
 Obtain the lowest energy eigenvalue and corresponding eigenstate from the effective
 Hamiltonian and a initial state using Lanczos algorithm, with the help of distributed paralization.
@@ -75,7 +94,7 @@ LanczosRes<TenT> MasterLanczosSolver(
   Timer mat_vec_timer("lancz_mat_vec");
 #endif
   //first time matrix multiply state will always be done, so here don't need to send order
-  TenT* last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[0]);
+  TenT* last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[0],world);
 
 #ifdef GQMPS2_TIMING_MODE
   mat_vec_timer.PrintElapsed();
@@ -139,7 +158,7 @@ LanczosRes<TenT> MasterLanczosSolver(
     mat_vec_timer.ClearAndRestart();
 #endif
     MasterBroadcastOrder(lanczos_mat_vec, world);
-    last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[m]);
+    last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[m],world);
 
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.PrintElapsed();
@@ -177,9 +196,12 @@ LanczosRes<TenT> MasterLanczosSolver(
   }
 }
 
-
+/**
+ *
+ * @note deceleration the typename TenT when call this function
+*/
 template <typename TenT>
-void SlaveLanczosSolver(
+std::vector<TenT*> SlaveLanczosSolver(
     mpi::communicator world
 ){
 
@@ -199,9 +221,13 @@ while(order == lanczos_mat_vec){
 }
 assert( order==lanczos_finish );
 
-for(size_t i=0;i<two_site_eff_ham_size;i++){
-  delete rpeff_ham[i];
-}
+
+// for(size_t i=0;i<two_site_eff_ham_size;i++){
+//   delete rpeff_ham[i];
+// }
+// the effective hamiltonian will also be used to get the new envs.
+
+return rpeff_ham;
 }
 
 
@@ -257,7 +283,8 @@ GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
     [&task_difficuty](size_t task1, size_t task2){
       return task_difficuty[task1] > task_difficuty[task2];
        });
-  
+  //TODO: add support for multithread, note mpi::environment env( mt::multiple ) outside
+  // Also note omp order, maybe need non-block communication
   //if task_num > slave_num:
   //below for loop dispatch tasks from slave_num to task_num-1,
   //from task_num to (slave_num+task_num-1), master informs every slave that the jobs are finished.
@@ -360,8 +387,11 @@ void slave_two_site_eff_ham_mul_state(
   ctrct_executor.Execute();
 
   Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
+  eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
   Contract(&temp2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp1);
+  temp2.GetBlkSparDataTen().Clear();
   Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
+  temp1.GetBlkSparDataTen().Clear();
 
   //$2
   // send_gqten(world, kMasterRank, task, res);//tag = task
@@ -382,8 +412,11 @@ void slave_two_site_eff_ham_mul_state(
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
     Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
+    eff_ham0_times_state.GetBlkSparDataTen().Clear();
     Contract(&temp2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp1);
+    temp2.GetBlkSparDataTen().Clear();
     Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
+    temp1.GetBlkSparDataTen().Clear();
     
     auto& bsdt = res.GetBlkSparDataTen();
     task_count++;
