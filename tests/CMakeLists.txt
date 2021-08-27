@@ -236,6 +236,11 @@ add_mpi_unittest(test_mpi_lanczos
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "3"
 )
 
+# Test mpi lanczos solver
+add_mpi_unittest(test_mpi_two_site_update_finite_vmps
+  "test_mpi_algorithm/test_mpi_two_site_update_finite_vmps.cc"
+  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
+)
 
 # Test single processor matrix multiply vector performance
 compile_unittest(single_processor_lanczos_performance_test

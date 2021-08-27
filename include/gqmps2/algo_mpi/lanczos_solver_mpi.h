@@ -22,7 +22,7 @@
 #include <stdlib.h>     // size_t
 #include "gqmps2/algorithm/lanczos_solver.h" // Lanczos Params
 #include "boost/mpi.hpp"
-#include "gqmps2/algo_mpi/utility_mpi.h"
+#include "gqmps2/algo_mpi/framework.h"
 #include "gqten/gqten.h"
 
 namespace gqmps2 {
@@ -62,7 +62,7 @@ LanczosRes<TenT> MasterLanczosSolver(
     const std::vector<TenT *> &rpeff_ham,
     TenT *pinit_state,
     const LanczosParams &params,
-    mpi::communicator world
+    mpi::communicator& world
 ) {
   // Take care that init_state will be destroyed after call the solver
   size_t eff_ham_eff_dim = pinit_state->size();
