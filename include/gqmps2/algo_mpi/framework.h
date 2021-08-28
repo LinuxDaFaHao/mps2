@@ -23,21 +23,20 @@ namespace gqmps2{
 using namespace gqten;
 const size_t kMasterRank = 0;
 
-enum VMPS_ORDER {program_start, lanczos, svd, lanczos_mat_vec, lanczos_first_iteration, lanczos_finish,  program_final};
+///< variational mps orders send by master
+enum VMPS_ORDER {
+  program_start,        ///< when vmps start
+  lanczos,              ///< when lanczos start
+  svd,                  ///< before svd
+  lanczos_mat_vec,      ///< before do lanczos' matrix vector multiplication
+  lanczos_first_iteration,  ///< no use up to now
+  lanczos_finish,       ///< when lanczos finished
+  program_final         /// when vmps finished
+};
 
 
 const size_t two_site_eff_ham_size = 4;
 namespace mpi = boost::mpi;
-
-/*
-inline void MasterSendOrder(const std::string order,
-                    const size_t dest,
-                    const size_t tag,
-                    mpi::communicator world){
-    assert(world.rank()==kMasterRank);
-    world.send(dest, tag, order);
-}
-*/
 
 inline void MasterBroadcastOrder(const VMPS_ORDER order,
                 mpi::communicator& world){

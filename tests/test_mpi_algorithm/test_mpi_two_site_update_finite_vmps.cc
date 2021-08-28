@@ -79,7 +79,7 @@ inline void RemoveFolder(const std::string &folder_path) {
 
 
 // Test spin systems
-struct Test2DSpinSystem : public testing::Test {
+// struct Test2DSpinSystem : public testing::Test {
   size_t Lx = 4;
   size_t Ly = 4;
   size_t N = Lx*Ly;
@@ -127,13 +127,14 @@ struct Test2DSpinSystem : public testing::Test {
     for(size_t i = 0; i< Lx;i++){
       for(size_t j = 0; j < Ly; j++){
         size_t site_a = i*Ly+j;
-        iter->first = site_a;
         if(j!=Ly-1){
           size_t site_b = site_a+1;
+          iter->first = site_a;
           iter->second = site_b;
         }else{
           size_t site_b = i*Ly;
-          iter->second = site_b;
+          iter->first = site_b;
+          iter->second = site_a;
         }
         iter++;
       }
@@ -141,7 +142,7 @@ struct Test2DSpinSystem : public testing::Test {
     for(size_t i = 0; i< Lx-1;i++){
       for(size_t j = 0; j < Ly; j++){
         size_t site_a = i*Ly+j;
-        size_t site_b = (i+1)*j;
+        size_t site_b = (i+1)*Ly+j;
         iter->first = site_a;
         iter->second = site_b;
         iter++;
@@ -150,15 +151,16 @@ struct Test2DSpinSystem : public testing::Test {
     assert(iter == nn_pairs.end());
 
   }
-};
+// };
 
 
 
-TEST_F(Test2DSpinSystem, 2DHeisenberg) {
+// TEST_F(Test2DSpinSystem, 2DHeisenberg) {
+int main(){
   namespace mpi = boost::mpi;
   mpi::environment env(mpi::threading::multiple);
   mpi::communicator world;
-
+  SetUp();
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_2d, qn0);
 
   for (auto &p : nn_pairs) {
@@ -170,17 +172,21 @@ TEST_F(Test2DSpinSystem, 2DHeisenberg) {
 
   auto sweep_params1 = SweepParams(
                           4,
-                          50, 50, 1.0E-7,
+                          100, 100, 1.0E-7,
                           LanczosParams(1.0E-7)
                           );
 
   std::vector<size_t> stat_labs;
   for (size_t i = 0; i < N; ++i) { stat_labs.push_back(i % 2); }
   DirectStateInitMps(dmps, stat_labs);
-  dmps.Dump(sweep_params1.mps_path, true);                        
 
   if(world.rank() == 0){
+    dmps.Dump(sweep_params1.mps_path, true); 
+    if (IsPathExist(sweep_params1.temp_path)){
+      RemoveFolder(sweep_params1.temp_path);
+    }
     TwoSiteFiniteVMPS(dmps, dmpo, sweep_params1);
+    std::cout << " work good for single processor vmps. "<< std::endl;
   }
 
 
@@ -188,7 +194,7 @@ TEST_F(Test2DSpinSystem, 2DHeisenberg) {
 
   auto sweep_params = TwoSiteMPIVMPSSweepParams(
                           4,
-                          50, 50, 1.0E-9,
+                          100, 100, 1.0E-9,
                           LanczosParams(1.0E-7)
                           );
 
@@ -197,12 +203,11 @@ TEST_F(Test2DSpinSystem, 2DHeisenberg) {
   
   if(world.rank() == 0 ){
     std::cout << "e0 = " << e0 << std::endl;
-    EXPECT_NEAR(e0, -10.2636825569905081, 1e-5);
+    EXPECT_NEAR(e0, -10.264281906484872, 1e-5);
     RemoveFolder(sweep_params.mps_path);
     RemoveFolder(sweep_params.temp_path);
-
   }
-
+  return 0;
 }
 
 

@@ -266,6 +266,8 @@ GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
   std::vector<TenT> res_list;
   res_list.reserve(task_num);
   const size_t slave_num = world.size() - 1 ; //total number of slaves
+  ///< TODO: support other cases
+  assert(task_num > 2*slave_num);
   //$1
 
   TenT res_shell = TenT( state->GetIndexes() );

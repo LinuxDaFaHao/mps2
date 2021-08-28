@@ -21,9 +21,7 @@
 
 namespace gqmps2 {
 
-const double kMinBondDimensionOfMPIVMPS = 200;
-
-struct TwoSiteMPIVMPSSweepParams {
+struct TwoSiteMPIVMPSSweepParams : public SweepParams {
   TwoSiteMPIVMPSSweepParams(
       const size_t sweeps,
       const size_t dmin, const size_t dmax, const double trunc_err,
@@ -31,27 +29,8 @@ struct TwoSiteMPIVMPSSweepParams {
       const std::string mps_path = kMpsPath,
       const std::string temp_path = kRuntimeTempPath
   ) :
-      sweeps(sweeps),
-      Dmin(dmin), Dmax(dmax), trunc_err(trunc_err),
-      lancz_params(lancz_params),
-      mps_path(mps_path),
-      temp_path(temp_path) {}
-
-  size_t sweeps;
-
-  size_t Dmin;
-  size_t Dmax;
-  double trunc_err;
-
-  LanczosParams lancz_params;
-
-
-  // Advanced parameters
-  /// MPS directory path
-  std::string mps_path;
-
-  /// Runtime temporary files directory path
-  std::string temp_path;
+      SweepParams(sweeps, dmin, dmax, trunc_err,
+      lancz_params, mps_path, temp_path) {}
 };
 
 }//gqmps2

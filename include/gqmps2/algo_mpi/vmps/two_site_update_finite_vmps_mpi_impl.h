@@ -30,13 +30,10 @@ namespace gqmps2{
 using namespace gqten;
 
 namespace mpi = boost::mpi;
-//mpi::environment construct/destruct OR MPI_Init()/MPI_Finalize() are called on main()
-
 //forward decelaration
 
 template <typename TenElemT, typename QNT>
 void SlaveTwoSiteFiniteVMPS(mpi::communicator& world);
-
 
 template <typename TenElemT, typename QNT>
 void LoadRelatedTensOnTwoSiteAlgWhenRightMoving(
@@ -48,11 +45,35 @@ void LoadRelatedTensOnTwoSiteAlgWhenRightMoving(
 );
 
 /**
-Function to perform two-site update finite vMPS algorithm under MPI paralization.
+Function to perform two-site update finite vMPS algorithm with MPI paralization.
 
- @note The input MPS will be considered an empty one.
- @note The canonical center of input MPS should be set at site 0 or 1.
- @note The canonical center of output MPS is set at site 1.
+  Using the API in the following way:
+  in `main()`, codes like below are needed at start:
+  (```)
+      namespace mpi = boost::mpi;
+      mpi::environment env(mpi::threading::multiple);
+      if(env.thread_level() < mpi::threading::multiple){
+        std::cout << "thread level of env is not right." << std::endl;
+        env.abort(-1);
+      }
+      mpi::communicator world;
+  (```)
+  Note that multithreads environment are used to accelerate communications.
+  
+  When calling the function, just call it in all of the processors. No if
+  condition sentences are needed.
+  (```)
+    double e0 = TwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
+  (```)
+  However, except `world`, only variables in master processor
+  (rank 0 processor) are valid, inputs of other processor(s) can be 
+  arbitrary (Of course the types should be right). Outputs of slave(s)
+  are all 0.0. 
+
+  @note  The input MPS will be considered an empty one.
+         The true data has be writed into disk.
+  @note  The canonical center of input MPS should be set <=left_boundary+1.
+        The canonical center of output MPS will move to left_boundary+1.
 */
 template <typename TenElemT, typename QNT>
 inline GQTEN_Double TwoSiteFiniteVMPS(
@@ -63,7 +84,6 @@ inline GQTEN_Double TwoSiteFiniteVMPS(
 ){
   GQTEN_Double e0(0.0);
   if(world.rank()== kMasterRank){
-    //TODO: evn.thread
     e0 = MasterTwoSiteFiniteVMPS(mps,mpo,sweep_params,world);
   }else{
     SlaveTwoSiteFiniteVMPS<TenElemT, QNT>(world);
@@ -127,6 +147,9 @@ void SlaveTwoSiteFiniteVMPS(
         MPISVDSlave<TenElemT>(world);
       } break;
       case program_final:
+        for(size_t i=0;i<two_site_eff_ham_size;i++){
+          delete eff_ham[i];
+        }
         std::cout << "Slave" << world.rank() << " will stop." << std::endl;
         break;
       default:
@@ -187,8 +210,9 @@ double MasterTwoSiteFiniteVMPSUpdate(
 ) {
     //master
   Timer update_timer("two_site_fvmps_update");
-
-
+#ifdef GQMPS2_TIMING_MODE
+  Timer initialize_timer("two_site_fvmps_setup_and_initial_state");
+#endif
   // Assign some parameters
   auto N = mps.size();
   std::vector<std::vector<size_t>> init_state_ctrct_axes;
@@ -228,7 +252,11 @@ double MasterTwoSiteFiniteVMPSUpdate(
 
   auto init_state = new TenT;
   Contract(&mps[lsite_idx], &mps[rsite_idx], init_state_ctrct_axes, init_state);
+#ifdef GQMPS2_TIMING_MODE
+  initialize_timer.PrintElapsed();
+#endif
   Timer lancz_timer("two_site_fvmps_lancz");
+  MasterBroadcastOrder(lanczos, world);
   auto lancz_res = MasterLanczosSolver(
                        eff_ham, init_state,
                        sweep_params.lancz_params,
@@ -294,7 +322,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
 #ifdef GQMPS2_TIMING_MODE
   Timer update_env_ten_timer("two_site_fvmps_update_env_ten");
 #endif
-
+  ///< TODO: parallel this part
   switch (dir) {
     case 'r':{
       TenT temp1, temp2, lenv_ten;
@@ -389,7 +417,7 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenLeftMoving(
   Timer preprocessing_timer("two_site_fvmps_preprocessing");
 #endif
 const size_t N = mps.size();
-if (target_site != N-1) {
+if (target_site != right_boundary) {
   mps.LoadTen(
       target_site - 1,
       GenMPSTenName(sweep_params.mps_path, target_site - 1)
