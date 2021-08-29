@@ -46,10 +46,11 @@ void LoadRelatedTensOnTwoSiteAlgWhenRightMoving(
 
 /**
 Function to perform two-site update finite vMPS algorithm with MPI paralization.
-
+  
+  @example 
   Using the API in the following way:
   in `main()`, codes like below are needed at start:
-  (```)
+  ```
       namespace mpi = boost::mpi;
       mpi::environment env(mpi::threading::multiple);
       if(env.thread_level() < mpi::threading::multiple){
@@ -57,14 +58,14 @@ Function to perform two-site update finite vMPS algorithm with MPI paralization.
         env.abort(-1);
       }
       mpi::communicator world;
-  (```)
+  ```
   Note that multithreads environment are used to accelerate communications.
   
   When calling the function, just call it in all of the processors. No if
   condition sentences are needed.
-  (```)
+  ```
     double e0 = TwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
-  (```)
+  ```
   However, except `world`, only variables in master processor
   (rank 0 processor) are valid, inputs of other processor(s) can be 
   arbitrary (Of course the types should be right). Outputs of slave(s)
@@ -142,14 +143,14 @@ void SlaveTwoSiteFiniteVMPS(
         break;
       case lanczos:{
         eff_ham = SlaveLanczosSolver<TenT>(world);
+        for(size_t i=0;i<two_site_eff_ham_size;i++){
+          delete eff_ham[i];
+        }
       } break;
       case svd:{
         MPISVDSlave<TenElemT>(world);
       } break;
       case program_final:
-        for(size_t i=0;i<two_site_eff_ham_size;i++){
-          delete eff_ham[i];
-        }
         std::cout << "Slave" << world.rank() << " will stop." << std::endl;
         break;
       default:
