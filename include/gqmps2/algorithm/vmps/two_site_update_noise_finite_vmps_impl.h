@@ -715,6 +715,18 @@ void UpdateBoundaryEnvs(
   std::string file = GenEnvTenName("r", N - right_boundary - 1, temp_path);
   WriteGQTensorTOFile(renv, file);
 
+  //right env of site right_boundary-1                            
+  mps.LoadTen(right_boundary, GenMPSTenName(mps_path, right_boundary) );                               
+  TenT temp1;                                           
+  Contract(mps(right_boundary), &renv, {{2}, {0}}, &temp1);                          
+  renv = TenT();
+  TenT temp2;
+  Contract(&temp1, &mpo[right_boundary], {{1, 2}, {1, 3}}, &temp2);
+  auto mps_ten_dag = Dag(mps[right_boundary]);                 
+  Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv);
+  mps.dealloc(right_boundary);
+  file = GenEnvTenName("r", N - right_boundary, temp_path);
+  WriteGQTensorTOFile(renv, file);
 
 
   //Write a trivial left environment tensor to disk
