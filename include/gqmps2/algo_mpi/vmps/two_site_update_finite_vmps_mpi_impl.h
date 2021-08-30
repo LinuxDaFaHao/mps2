@@ -143,12 +143,21 @@ void SlaveTwoSiteFiniteVMPS(
         break;
       case lanczos:{
         eff_ham = SlaveLanczosSolver<TenT>(world);
+      } break;
+      case svd:{
+        MPISVDSlave<TenElemT>(world);
+      } break;
+      case growing_left_env:{
+        SlaveGrowLeftEnvironment(*eff_ham[0], *eff_ham[1], world);
         for(size_t i=0;i<two_site_eff_ham_size;i++){
           delete eff_ham[i];
         }
       } break;
-      case svd:{
-        MPISVDSlave<TenElemT>(world);
+      case growing_right_env:{
+        //SlaveGrowRightEnvironment(*eff_ham[3],*eff_ham[2], world);
+        for(size_t i=0;i<two_site_eff_ham_size;i++){
+          delete eff_ham[i];
+        }
       } break;
       case program_final:
         std::cout << "Slave" << world.rank() << " will stop." << std::endl;
@@ -326,14 +335,20 @@ double MasterTwoSiteFiniteVMPSUpdate(
   ///< TODO: parallel this part
   switch (dir) {
     case 'r':{
+      MasterBroadcastOrder(growing_left_env, world);
+      lenvs(lenv_len + 1) = MasterGrowLeftEnvironment(lenvs[lenv_len], mpo[target_site],mps[target_site], world);
+      /*
       TenT temp1, temp2, lenv_ten;
       Contract(&lenvs[lenv_len], &mps[target_site], {{0}, {0}}, &temp1);
       Contract(&temp1, &mpo[target_site], {{0, 2}, {0, 1}}, &temp2);
       auto mps_ten_dag = Dag(mps[target_site]);
       Contract(&temp2, &mps_ten_dag, {{0 ,2}, {0, 1}}, &lenv_ten);
       lenvs[lenv_len + 1] = std::move(lenv_ten);
+      */
     }break;
     case 'l':{
+      MasterBroadcastOrder(growing_right_env, world);
+      //renvs(renv_len + 1) = MasterGrowRightEnvironment(*eff_ham[3], mpo[target_site],mps[target_site], world);
       TenT temp1, temp2, renv_ten;
       Contract(&mps[target_site], eff_ham[3], {{2}, {0}}, &temp1);
       Contract(&temp1, &mpo[target_site], {{1, 2}, {1, 3}}, &temp2);

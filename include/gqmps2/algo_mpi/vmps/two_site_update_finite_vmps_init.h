@@ -174,20 +174,7 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
   mps.LoadTen(0, GenMPSTenName(mps_path, 0));
   for(size_t i=0;i<left_middle_site;i++){
     mps.LoadTen(i+1, GenMPSTenName(mps_path, i+1));
-
-    ///< left cannonicalize. TODO: using QR decomposition
-    TenT* pu = new TenT();
-    TenT s,vt;
-    mock_gqten::SVD(mps(i), 2, Div(mps[i]), pu, &s, &vt);
-    delete mps(i);
-    mps(i) = pu;
-    TenT temp_ten;
-    Contract(&s, &vt, {{1}, {0}}, &temp_ten);
-    auto pnext_ten = new TenT;
-    Contract(&temp_ten, mps(i+1), {{1}, {0}}, pnext_ten);
-    delete  mps(i+1);
-    mps(i+1) = pnext_ten;
-    ///> left cannonicalize end
+    mps.LeftCanonicalizeTen(i);
 
     TenT& mps_ten = mps[i];
     ShapeT mps_ten_shape = mps_ten.GetShape();
@@ -233,24 +220,7 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
   mps.LoadTen(N-1, GenMPSTenName(mps_path, N-1));
   for(size_t i=N-1;i>right_middle_site;i--){
     mps.LoadTen(i-1, GenMPSTenName(mps_path, i-1));
-    ///< right cannonicalize. TODO: using LU decomposition
-    size_t ldims = 1;
-    TenT u;
-    GQTensor<GQTEN_Double, QNT> s;
-    auto pvt = new TenT;
-    auto qndiv = Div(mps[i]);
-    mock_gqten::SVD(mps(i), ldims, qndiv - qndiv, &u, &s, pvt);
-    delete mps(i);
-    mps(i) = pvt;
-  
-    TenT temp_ten;
-    Contract(&u, &s, {{1}, {0}}, &temp_ten);
-    std::vector<std::vector<size_t>> ctrct_axes = {{2}, {0}};
-    auto pprev_ten = new TenT();
-    Contract(mps(i - 1), &temp_ten, ctrct_axes, pprev_ten);
-    delete mps(i-1);
-    mps(i - 1) = pprev_ten;
-    ///> right cannonicalize end;
+    mps.RightCanonicalizeTen(i);
 
     TenT& mps_ten = mps[i];
     ShapeT mps_ten_shape = mps_ten.GetShape();
