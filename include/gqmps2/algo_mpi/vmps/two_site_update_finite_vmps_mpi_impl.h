@@ -131,7 +131,7 @@ void SlaveTwoSiteFiniteVMPS(
 ){
   using TenT = GQTensor<TenElemT, QNT>;
 
-  //global variables
+  //global variables, and please careful the memory controlling for these variables.
   std::vector< TenT *> eff_ham(two_site_eff_ham_size);
                 
   VMPS_ORDER order = program_start;
@@ -154,7 +154,7 @@ void SlaveTwoSiteFiniteVMPS(
         }
       } break;
       case growing_right_env:{
-        //SlaveGrowRightEnvironment(*eff_ham[3],*eff_ham[2], world);
+        SlaveGrowRightEnvironment(*eff_ham[3],*eff_ham[2], world);
         for(size_t i=0;i<two_site_eff_ham_size;i++){
           delete eff_ham[i];
         }
@@ -348,13 +348,15 @@ double MasterTwoSiteFiniteVMPSUpdate(
     }break;
     case 'l':{
       MasterBroadcastOrder(growing_right_env, world);
-      //renvs(renv_len + 1) = MasterGrowRightEnvironment(*eff_ham[3], mpo[target_site],mps[target_site], world);
+      renvs(renv_len + 1) = MasterGrowRightEnvironment(*eff_ham[3], mpo[target_site],mps[target_site], world);
+      /*
       TenT temp1, temp2, renv_ten;
       Contract(&mps[target_site], eff_ham[3], {{2}, {0}}, &temp1);
       Contract(&temp1, &mpo[target_site], {{1, 2}, {1, 3}}, &temp2);
       auto mps_ten_dag = Dag(mps[target_site]);
       Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv_ten);
       renvs[renv_len + 1] = std::move(renv_ten);
+      */
     }break;
     default:
       assert(false);
