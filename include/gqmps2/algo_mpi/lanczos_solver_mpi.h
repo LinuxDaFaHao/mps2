@@ -69,9 +69,15 @@ LanczosRes<TenT> MasterLanczosSolver(
 
   //Broadcast eff_ham, TODO omp parallel
   const size_t eff_ham_size = pinit_state->Rank();//4
+#ifdef GQMPS_MPI_TIMING_MODE
+  Timer broadcast_eff_ham_timer("broadcast_eff_ham_send");
+#endif
   for(size_t i = 0; i < eff_ham_size; i++){
     SendBroadCastGQTensor(world, (*rpeff_ham[i]), kMasterRank);
   }
+#ifdef GQMPS_MPI_TIMING_MODE
+  broadcast_eff_ham_timer.PrintElapsed();
+#endif
 
 
   LanczosRes<TenT> lancz_res;
@@ -210,9 +216,15 @@ for(size_t i=0;i<two_site_eff_ham_size;i++){
   rpeff_ham[i] = new TenT();
 }
 // Receive Hamiltonian
+#ifdef GQMPS_MPI_TIMING_MODE
+  Timer broadcast_eff_ham_timer("broadcast_eff_ham_recv");
+#endif
 for(size_t i=0;i<two_site_eff_ham_size;i++){
   RecvBroadCastGQTensor(world, *rpeff_ham[i], kMasterRank);
 }
+#ifdef GQMPS_MPI_TIMING_MODE
+  broadcast_eff_ham_timer.PrintElapsed();
+#endif
 
 VMPS_ORDER order=lanczos_mat_vec ;
 while(order == lanczos_mat_vec){
@@ -220,12 +232,6 @@ while(order == lanczos_mat_vec){
   order = SlaveGetBroadcastOrder(world);
 }
 assert( order==lanczos_finish );
-
-
-// for(size_t i=0;i<two_site_eff_ham_size;i++){
-//   delete rpeff_ham[i];
-// }
-// the effective hamiltonian will also be used to get the new envs.
 
 return rpeff_ham;
 }
