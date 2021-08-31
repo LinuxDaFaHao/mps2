@@ -52,7 +52,7 @@ void UpdateBoundaryEnvs(
     const std::string temp_path,
     const size_t left_boundary,
     const size_t right_boundary,
-    const size_t update_site_num = 2 //e.g., two site update or single site update
+    const size_t update_site_num  //e.g., two site update or single site update
 );
 
 inline bool NeedGenerateRightEnvs(
@@ -83,7 +83,7 @@ std::pair<size_t,size_t> TwoSiteFiniteVMPSInit(
 
   std::cout << "=====> Technical Parameters <=====" << "\n";
   std::cout << "The number of processors(including master): \t" << world.size() << "\n";
-  std::cout << "The number of threads per processor: \t" << hp_numeric::GetTensorManipulationTotalThreads() <<"\n";
+  std::cout << "The number of threads per processor: \t" << hp_numeric::GetTensorManipulationThreads() <<"\n";
   
   std::cout << "====> Checking and updating boundary tensors --->" << std::endl;
   using Tensor = GQTensor<TenElemT, QNT>;
