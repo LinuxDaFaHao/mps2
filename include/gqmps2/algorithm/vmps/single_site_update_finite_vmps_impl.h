@@ -44,10 +44,11 @@ namespace gqmps2 {
   inline double MeasureEE(const DTenT &s, const size_t sdim);
 
 /**
-Function to perform single-site update finite vMPS algorithm.
-
-@note The input MPS will be considered an empty one.
-@note The canonical center of MPS should be set at site 0.
+  Function to perform single-site update finite vMPS algorithm.
+  
+  @note The input MPS will be considered an empty one.
+  @note The canonical center of MPS should be set at site 0.
+  TODO: remove update of boundary tensors.
 */
 template <typename TenElemT, typename QNT>
 GQTEN_Double SingleSiteFiniteVMPS(

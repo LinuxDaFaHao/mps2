@@ -18,6 +18,7 @@
 
 #include "gqmps2/consts.h"                      // kMpsPath, kRuntimeTempPath
 #include "gqmps2/algorithm/lanczos_solver.h"    // LanczParams
+#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"  //SweepParams
 
 #include <string>     // string
 
@@ -28,7 +29,7 @@ const double kSingleVMPSNoiseIncrease = 1.02;
 const double kSingleVMPSNoiseDecrease = 0.95;
 const double kSingleVMPSAlpha = 0.3;
 
-struct SingleVMPSSweepParams {
+struct SingleVMPSSweepParams : public SweepParams {
   SingleVMPSSweepParams(
       const size_t sweeps,
       const size_t dmin, const size_t dmax, const double trunc_err,
@@ -41,25 +42,15 @@ struct SingleVMPSSweepParams {
       const std::string mps_path = kMpsPath,
       const std::string temp_path = kRuntimeTempPath
   ) :
-      sweeps(sweeps),
-      Dmin(dmin), Dmax(dmax), trunc_err(trunc_err),
-      lancz_params(lancz_params),
-      noises(noises),
-      max_noise(max_noise),
-      noise_increase(noise_increase),
-      noise_decrease(noise_decrease),
-      alpha(alpha),
-      mps_path(mps_path),
-      temp_path(temp_path) {}
-
-  size_t sweeps;
-
-  size_t Dmin;
-  size_t Dmax;
-  double trunc_err;
-
-  LanczosParams lancz_params;
-
+    SweepParams(
+      sweeps, dmin, dmax, trunc_err, 
+      lancz_params, mps_path, temp_path
+    ), 
+    noises(noises),
+    max_noise(max_noise),
+    noise_increase(noise_increase),
+    noise_decrease(noise_decrease),
+    alpha(alpha){}
 
   /// Noise magnitude each sweep
   std::vector<double> noises;
@@ -67,14 +58,6 @@ struct SingleVMPSSweepParams {
   double noise_increase;
   double noise_decrease;
   double alpha;
-
-  // Advanced parameters
-  /// MPS directory path
-  std::string mps_path;
-
-  /// Runtime temporary files directory path
-  std::string temp_path;
-
 };
 } /* gqmps2 */
 
