@@ -104,8 +104,16 @@ public:
     return DuoVector<LocalTenT>::operator()(idx);
   }
 
-  // MPS global operations.
+  // MPS global operations, that means all of the tensors should in memory when calling these functions.
   void Centralize(const int);
+  
+  // MPS partial global operations.
+  void LeftCanonicalize(const size_t);
+  void RightCanonicalize(const size_t);
+
+  // MPS local operations. Only tensors near the target site are needed in memory.
+  void LeftCanonicalizeTen(const size_t);
+  void RightCanonicalizeTen(const size_t);
 
   // Properties getter.
   /**
@@ -132,16 +140,6 @@ public:
 private:
   int center_;
   std::vector<MPSTenCanoType> tens_cano_type_;
-
-  void LeftCanonicalize_(const size_t);
-  void LeftCanonicalizeTen_(const size_t);
-  void RightCanonicalize_(const size_t);
-  void RightCanonicalizeTen_(const size_t);
-
-  template <typename TenElemT2, typename QNT2>
-  friend std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(FiniteMPS<TenElemT2, QNT2> &,
-                                  const std::string&, const size_t);
-
 };
 
 
@@ -154,28 +152,29 @@ template <typename TenElemT, typename QNT>
 void FiniteMPS<TenElemT, QNT>::Centralize(const int target_center) {
   assert(target_center >= 0);
   auto mps_tail_idx = this->size() - 1;
-  if (target_center != 0) { LeftCanonicalize_(target_center - 1); }
+  if (target_center != 0) { LeftCanonicalize(target_center - 1); }
   if (target_center != mps_tail_idx) {
-    RightCanonicalize_(target_center + 1);
+    RightCanonicalize(target_center + 1);
   }
   center_ = target_center;
 }
 
 
 template <typename TenElemT, typename QNT>
-void FiniteMPS<TenElemT, QNT>::LeftCanonicalize_(const size_t stop_idx) {
+void FiniteMPS<TenElemT, QNT>::LeftCanonicalize(const size_t stop_idx) {
   size_t start_idx;
   for (size_t i = 0; i <= stop_idx; ++i) {
     start_idx = i;
     if (tens_cano_type_[i] != MPSTenCanoType::LEFT) { break; }
     if (i == stop_idx) { return; }    // All related tensors are left canonical, do nothing.
   }
-  for (size_t i = start_idx; i <= stop_idx; ++i) { LeftCanonicalizeTen_(i); }
+  for (size_t i = start_idx; i <= stop_idx; ++i) { LeftCanonicalizeTen(i); }
 }
 
 
 template <typename TenElemT, typename QNT>
-void FiniteMPS<TenElemT, QNT>::LeftCanonicalizeTen_(const size_t site_idx) {
+void FiniteMPS<TenElemT, QNT>::LeftCanonicalizeTen(const size_t site_idx) {
+  ///< TODO: using QR decomposition
   assert(site_idx < this->size() - 1);
   size_t ldims(2);
   GQTensor<GQTEN_Double, QNT> s;
@@ -198,7 +197,7 @@ void FiniteMPS<TenElemT, QNT>::LeftCanonicalizeTen_(const size_t site_idx) {
 
 
 template <typename TenElemT, typename QNT>
-void FiniteMPS<TenElemT, QNT>::RightCanonicalize_(const size_t stop_idx) {
+void FiniteMPS<TenElemT, QNT>::RightCanonicalize(const size_t stop_idx) {
   auto mps_tail_idx = this->size() - 1;
   size_t start_idx;
   for (size_t i = mps_tail_idx; i >= stop_idx; --i) {
@@ -206,12 +205,13 @@ void FiniteMPS<TenElemT, QNT>::RightCanonicalize_(const size_t stop_idx) {
     if (tens_cano_type_[i] != MPSTenCanoType::RIGHT) { break; }
     if (i == stop_idx) { return; }    // All related tensors are right canonical, do nothing.
   }
-  for (size_t i = start_idx; i >= stop_idx; --i) { RightCanonicalizeTen_(i); }
+  for (size_t i = start_idx; i >= stop_idx; --i) { RightCanonicalizeTen(i); }
 }
 
 
 template <typename TenElemT, typename QNT>
-void FiniteMPS<TenElemT, QNT>::RightCanonicalizeTen_(const size_t site_idx) {
+void FiniteMPS<TenElemT, QNT>::RightCanonicalizeTen(const size_t site_idx) {
+  ///< TODO: using LU decomposition
   assert(site_idx > 0);
   size_t ldims = 1;
   LocalTenT u;

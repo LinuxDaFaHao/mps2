@@ -30,6 +30,10 @@ option(GQMPS2_TIMING_MODE "Timing mode." OFF)
 if(GQMPS2_TIMING_MODE)
   add_definitions(-DGQMPS2_TIMING_MODE)
 endif()
+option(GQMPS2_MPI_TIMING_MODE "MPI Timing mode." OFF)
+if(GQMPS2_MPI_TIMING_MODE)
+  add_definitions(-DGQMPS2_MPI_TIMING_MODE)
+endif()
 
 option(GQMPS2_BUILD_UNITTEST "Build unittests for GraceQ/mps2." OFF)
 
@@ -38,7 +42,7 @@ option(TEST_BUILD_USE_EXTERNAL_GQTEN "Use external gqten library when building u
 option(TEST_BUILD_USE_EXTERNAL_HPTT_LIB "Use external hptt library when building unittests for GraceQ/mps2." OFF)
 
 # Compilation and linking control.
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 add_definitions(-g)
 
 
