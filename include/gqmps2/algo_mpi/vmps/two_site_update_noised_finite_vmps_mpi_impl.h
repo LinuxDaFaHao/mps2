@@ -33,7 +33,7 @@ template <typename TenElemT, typename QNT>
 inline GQTEN_Double TwoSiteFiniteVMPS(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPINoisedVMPSSweepParams &sweep_params,
+    TwoSiteMPINoisedVMPSSweepParams &sweep_params,
     mpi::communicator& world
 ){
   GQTEN_Double e0(0.0);
@@ -409,7 +409,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
   Timer broadcast_state_timer("expansion_broadcast_state_send");
 #endif
   SendBroadCastGQTensor(world, *gs_vec, kMasterRank);
-  boost::mpi::broadcast(world, noise, kMasterRank);
+  boost::mpi::broadcast(world, const_cast<double&>(noise), kMasterRank);
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
@@ -428,9 +428,10 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
   ten_tmp_indexes[3] = eff_ham[2]->GetIndexes()[2];
   ten_tmp_indexes[4] = eff_ham[2]->GetIndexes()[3];
   TenT ten_tmp_shell = TenT(ten_tmp_indexes);
-  ten_tmp_shell->FuseIndex(1, 4);
+  ten_tmp_shell.FuseIndex(1, 4);
+  assert(ten_tmp_shell.GetBlkSparDataTen().GetActualRawDataPtr() == nullptr);
   for(size_t j = 0; j<task_size;j++){
-        res_list.push_back( ten_tmp_shell );
+    res_list.push_back( ten_tmp_shell );
   }
   if(slave_size < task_size){
     std::vector<size_t> task_difficuty(task_size);
@@ -625,12 +626,12 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
   Timer broadcast_state_timer("expansion_broadcast_state_send");
 #endif
   SendBroadCastGQTensor(world, *gs_vec, kMasterRank);
-  boost::mpi::broadcast(world, noise, kMasterRank);
+  boost::mpi::broadcast(world, const_cast<double&>(noise), kMasterRank);
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
-  const size_t split_idx = 0;
-  const Index<QNT>& splited_index = gs_vec->GetIndexes()[split_idx];
+  const size_t split_idx = 2;
+  const Index<QNT>& splited_index = eff_ham[3]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();//total task number
   const QNSectorVec<QNT>& split_qnscts = splited_index.GetQNScts();
   std::vector<TenT> res_list;
@@ -638,14 +639,13 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
   const size_t slave_size = world.size() - 1 ; //total number of slaves
 
   IndexVec<QNT> ten_tmp_indexes(5);
-  ten_tmp_indexes[0] = splited_index;
-  ten_tmp_indexes[1] = eff_ham[3]->GetIndexes()[2];
-  ten_tmp_indexes[2] = eff_ham[2]->GetIndexes()[2];
-  ten_tmp_indexes[3] = eff_ham[1]->GetIndexes()[0];
-  ten_tmp_indexes[4] = eff_ham[1]->GetIndexes()[2];
+  ten_tmp_indexes[0] = gs_vec->GetIndexes()[0];
+  ten_tmp_indexes[1] = eff_ham[1]->GetIndexes()[0];
+  ten_tmp_indexes[2] = eff_ham[1]->GetIndexes()[2];
+  ten_tmp_indexes[3] = eff_ham[2]->GetIndexes()[2];
+  ten_tmp_indexes[4] = eff_ham[3]->GetIndexes()[2];
   TenT ten_tmp_shell = TenT(ten_tmp_indexes);
-  ten_tmp_shell->Transpose({0, 3, 4, 2, 1});
-  ten_tmp_shell->FuseIndex(0, 1);
+  ten_tmp_shell.FuseIndex(0, 1);
   for(size_t j = 0; j<task_size;j++){
         res_list.push_back( ten_tmp_shell );
   }
@@ -747,8 +747,8 @@ double noise;
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
-  const size_t split_idx = 0; //index of mps tensor
-  const Index<QNT>& splited_index = ground_state.GetIndexes()[split_idx];
+  const size_t split_idx = 2; //index of mps tensor
+  const Index<QNT>& splited_index = eff_ham[3]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();
   size_t task_count = 0;
   const size_t slave_identifier = world.rank();//number from 1
@@ -766,21 +766,21 @@ double noise;
   TenT temp, res;
   //First contract
   TensorContraction1SectorExecutor<TenElemT, QNT> ctrct_executor(
-    &ground_state,
+    eff_ham[3],
     split_idx,
     task,
-    eff_ham[3],
-    {{3},{0}},
+    &ground_state,
+    {{0},{3}},
     &eff_ham0_times_state
   );
   
   ctrct_executor.Execute();
-  Contract(&eff_ham0_times_state, eff_ham[2], {{2,3}, {1, 3}}, &temp);
+  Contract(&eff_ham0_times_state, eff_ham[2], {{4, 0}, {1, 3}}, &temp);
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
-  Contract(&temp, eff_ham[1],  {{1,3},{1,3}}, &res);
+  Contract(&temp, eff_ham[1],  {{2,3},{1,3}}, &res);
   temp.GetBlkSparDataTen().Clear();
   res *= noise;
-  res.Transpose({0, 3, 4, 2, 1});
+  res.Transpose({1, 3, 4, 2, 0});
   res.FuseIndex(0,1);
   auto& bsdt = res.GetBlkSparDataTen();
   task_count++;
@@ -796,12 +796,12 @@ double noise;
     TenT temp, res;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&eff_ham0_times_state, eff_ham[2], {{2,3}, {1, 3}}, &temp);
+    Contract(&eff_ham0_times_state, eff_ham[2], {{4, 0}, {1, 3}}, &temp);
     eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
-    Contract(&temp, eff_ham[1],  {{1,3},{1,3}}, &res);
+    Contract(&temp, eff_ham[1],  {{2,3},{1,3}}, &res);
     temp.GetBlkSparDataTen().Clear();
     res *= noise;
-    res.Transpose({0, 3, 4, 2, 1});
+    res.Transpose({1, 3, 4, 2, 0});
     res.FuseIndex(0,1);
     auto& bsdt = res.GetBlkSparDataTen();
     task_count++;
