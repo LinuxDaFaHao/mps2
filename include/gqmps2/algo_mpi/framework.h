@@ -31,6 +31,8 @@ enum VMPS_ORDER {
   lanczos_mat_vec,      ///< before do lanczos' matrix vector multiplication
   lanczos_first_iteration,  ///< no use up to now
   lanczos_finish,       ///< when lanczos finished
+  contract_for_right_moving_expansion, ///< contraction and fuse index operations in expansion when right moving
+  contract_for_left_moving_expansion, ///< contraction and fuse index operations in expansion when left moving
   growing_left_env,     ///< growing left environment
   growing_right_env,    ///< growing right environment
   program_final         /// when vmps finished

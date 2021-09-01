@@ -16,15 +16,14 @@
 #define GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_MPI_IMPLY_H
 
 #include <stdlib.h>
-#include "gqmps2/algorithm/lanczos_solver.h"
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
-#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
-#include "boost/mpi.hpp"                                            //boost::mpi
-#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_init.h"  //Initial
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps_impl.h" //LoadRelatedTensor, DumpRelatedTensor
 #include "gqten/gqten.h"
-#include "gqmps2/algo_mpi/framework.h"
-#include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     
+#include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
+#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
+#include "boost/mpi.hpp"                                            //boost::mpi
+#include "gqmps2/algo_mpi/framework.h"                              //VMPSORDER
+#include "gqmps2/algo_mpi/vmps/vmps_mpi_init.h"                     //MPI vmps initial
+#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
+#include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     //MPI Lanczos solver            
 
 namespace gqmps2{
 using namespace gqten;
@@ -42,6 +41,18 @@ void LoadRelatedTensOnTwoSiteAlgWhenRightMoving(
     TenVec<GQTensor<TenElemT, QNT>> &,
     const size_t,   const size_t,
     const TwoSiteMPIVMPSSweepParams &
+);
+
+template <typename TenElemT, typename QNT>
+void SlaveTwoSiteFiniteVMPSRightMovingExpand(
+  const std::vector< GQTensor<TenElemT, QNT> *> &,
+  boost::mpi::communicator&
+);
+
+template <typename TenElemT, typename QNT>
+void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
+  const std::vector< GQTensor<TenElemT, QNT> *> &,
+  boost::mpi::communicator&
 );
 
 /**
@@ -96,33 +107,31 @@ inline GQTEN_Double TwoSiteFiniteVMPS(
 
 template <typename TenElemT, typename QNT>
 GQTEN_Double MasterTwoSiteFiniteVMPS(
-    FiniteMPS<TenElemT, QNT> &mps,
-    const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPIVMPSSweepParams &sweep_params,
-    mpi::communicator world
+  FiniteMPS<TenElemT, QNT> &mps,
+  const MPO<GQTensor<TenElemT, QNT>> &mpo,
+  const TwoSiteMPIVMPSSweepParams &sweep_params,
+  mpi::communicator world
 ) {
-    assert(world.rank() == kMasterRank ); //only master can call this function
-    assert(mps.size() == mpo.size());
+  assert(world.rank() == kMasterRank ); //only master can call this function
+  assert(mps.size() == mpo.size());
+  
+  MasterBroadcastOrder(program_start, world );
+  auto [left_boundary, right_boundary]=TwoSiteFiniteVMPSInit(mps,mpo,sweep_params,world);
+  double e0(0.0);
+  mps.LoadTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1));
+  for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
+    std::cout << "sweep " << sweep << std::endl;
+    Timer sweep_timer("sweep");
+    e0 = TwoSiteFiniteVMPSSweep(mps, mpo, sweep_params, 
+                              left_boundary, right_boundary, world);
     
-    MasterBroadcastOrder(program_start, world );
-    auto [left_boundary, right_boundary]=TwoSiteFiniteVMPSInit(mps,mpo,sweep_params,world);
-    double e0(0.0);
-    mps.LoadTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1));
-    for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
-      std::cout << "sweep " << sweep << std::endl;
-      Timer sweep_timer("sweep");
-      e0 = TwoSiteFiniteVMPSSweep(mps, mpo, sweep_params, 
-                                left_boundary, right_boundary, world);
-      
-      
-      sweep_timer.PrintElapsed();
-      std::cout << std::endl;
-    }
-    mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
-    MasterBroadcastOrder(program_final, world);
-    return e0;
-
-
+    
+    sweep_timer.PrintElapsed();
+    std::cout << std::endl;
+  }
+  mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
+  MasterBroadcastOrder(program_final, world);
+  return e0;
 }
 
 template <typename TenElemT, typename QNT>
@@ -147,6 +156,12 @@ void SlaveTwoSiteFiniteVMPS(
       case svd:{
         MPISVDSlave<TenElemT>(world);
       } break;
+      case contract_for_right_moving_expansion:{//dir='r'
+        SlaveTwoSiteFiniteVMPSRightMovingExpand(eff_ham, world);
+      }break;
+      case contract_for_left_moving_expansion:{//dir='l'
+        SlaveTwoSiteFiniteVMPSLeftMovingExpand(eff_ham, world);
+      }break;
       case growing_left_env:{
         SlaveGrowLeftEnvironment(*eff_ham[0], *eff_ham[1], world);
         for(size_t i=0;i<two_site_eff_ham_size;i++){
@@ -332,7 +347,6 @@ double MasterTwoSiteFiniteVMPSUpdate(
 #ifdef GQMPS2_TIMING_MODE
   Timer update_env_ten_timer("two_site_fvmps_update_env_ten");
 #endif
-  ///< TODO: parallel this part
   switch (dir) {
     case 'r':{
       MasterBroadcastOrder(growing_left_env, world);

@@ -21,8 +21,8 @@
          5. Optional function: check if different processors read/write the same disk
 */
 
-#ifndef GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_INIT_H
-#define GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_INIT_H
+#ifndef GQMPS2_ALGO_MPI_VMPS_VMPS_MPI_INIT_H
+#define GQMPS2_ALGO_MPI_VMPS_VMPS_MPI_INIT_H
 
 
 #include <map>

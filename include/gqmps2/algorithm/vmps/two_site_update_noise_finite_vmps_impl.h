@@ -12,7 +12,8 @@
 @brief Implementation details for noised two-site algorithm.
 */
 
-#pragma once
+#ifndef GQMPS2_ALGORITHM_VMPS_TWO_SITE_UPDATE_NOISE_FINITE_VMPS_IMPL_H
+#define GQMPS2_ALGORITHM_VMPS_TWO_SITE_UPDATE_NOISE_FINITE_VMPS_IMPL_H
 
 
 #include "gqmps2/algorithm/vmps/single_site_update_finite_vmps.h"   // SingleVMPSSweepParams
@@ -59,7 +60,7 @@ void UpdateBoundaryEnvs(
     const std::string temp_path,
     const size_t left_boundary,
     const size_t right_boundary,
-    const size_t update_site_num =2 //e.g., two site update or single site update
+    const size_t update_site_num
 );
 
 template <typename TenElemT, typename QNT>
@@ -88,13 +89,10 @@ GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of Sweep
 ){
     assert(mps.size() == mpo.size());
 
-    std::cout << std::endl;
-    std::cout << "=====> Two-Site (Noised) Update Sweep Parameter <=====" << std::endl;
-    std::cout << "MPS/MPO size: \t " << mpo.size() << std::endl;
-    std::cout << "The number of sweep times: \t " << sweep_params.sweeps << std::endl;
-    std::cout << "Bond dimension: \t " << sweep_params.Dmin << "/" << sweep_params.Dmax << std::endl;
-    std::cout << "Cut off truncation error: \t " <<sweep_params.trunc_err << std::endl;
-    std::cout << "Lanczos max iterations \t" <<sweep_params.lancz_params.max_iterations << std::endl;
+    std::cout << "\n";
+    std::cout << "***** Two-Site Noised Update VMPS Program *****" << "\n";
+    auto [left_boundary, right_boundary] = FiniteVMPSInit(mps, mpo, (SweepParams)sweep_params);
+
     std::cout << "Preseted noises: \t[";
     for(size_t i = 0; i < sweep_params.noises.size(); i++){
       std::cout << sweep_params.noises[i];
@@ -104,28 +102,6 @@ GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of Sweep
         std::cout << "]" << std::endl;
       }
     }
-    std::cout << "MPS path: \t" << sweep_params.mps_path << std::endl;
-    std::cout << "Temp path: \t" << sweep_params.temp_path << std::endl;
-
-    std::cout << "==>Checking and updating boundary tensors" << std::endl;
-    auto [left_boundary, right_boundary] = CheckAndUpdateBoundaryMPSTensors(mps, sweep_params.mps_path, sweep_params.Dmax);
-
-  
-    // If the runtime temporary directory does not exit, create it and initialize
-    // the right environments
-    if (!IsPathExist(sweep_params.temp_path)) {
-      CreatPath(sweep_params.temp_path);
-      InitEnvs(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, left_boundary+2 );
-      std::cout << "no exsiting path " <<sweep_params.temp_path
-                << ", thus progress created it and generated environment tensors."
-                << std::endl;
-    } else {
-      std::cout << "finded exsiting path "<<sweep_params.temp_path
-                << ", thus progress will use the present environment tensors."
-                << std::endl;
-    }
-    UpdateBoundaryEnvs(mps, mpo, sweep_params.mps_path,
-                        sweep_params.temp_path, left_boundary, right_boundary, 2 );
     GQTEN_Double e0;
 
     
@@ -702,4 +678,5 @@ double CalEnergyEptTwoSite(
 #endif
   return energy;
 }
-}
+}//gqmps2
+#endif
