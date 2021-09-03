@@ -104,6 +104,7 @@ inline GQTensor<TenElemT, QNT>* MasterGrowLeftEnvironment(
   #ifdef GQMPS2_MPI_TIMING_MODE
     sort_timer.PrintElapsed();
   #endif
+  /* ** parallel communication 
     #pragma omp parallel default(none)\
                         shared(task_size, slave_size, res_list, world, arraging_tasks)\
                         num_threads(slave_size)
@@ -123,6 +124,19 @@ inline GQTensor<TenElemT, QNT>* MasterGrowLeftEnvironment(
       
       world.send(controlling_slave, 2*controlling_slave, 2*task_size);//finish signal
     }
+  */
+  for(size_t i = 0; i < task_size - slave_size; i++){
+    auto& bsdt = res_list[i].GetBlkSparDataTen();
+    mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+    int slave_identifier = recv_status.source();
+    world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+  }
+  for(size_t i = task_size - slave_size; i < task_size;  i++){
+    auto& bsdt = res_list[i].GetBlkSparDataTen();
+    mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+    int slave_identifier = recv_status.source();
+    world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
+  }
   }else{//slave_size >= task_size
     #pragma omp parallel default(none)\
                         shared(task_size, res_list, world)\
@@ -168,8 +182,9 @@ inline void SlaveGrowLeftEnvironment(
   size_t task_count = 0;
   const size_t slave_identifier = world.rank();//number from 1
   if(slave_identifier > task_size){
-    //no task, happy~
+#ifdef GQMPS2_MPI_TIMING_MODE
     std::cout << "Slave has done task_count = " << task_count << std::endl;
+#endif
     return;
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
@@ -226,8 +241,8 @@ inline void SlaveGrowLeftEnvironment(
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
-#endif
   std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
+#endif
 }
 
 
@@ -281,6 +296,7 @@ inline GQTensor<TenElemT, QNT>* MasterGrowRightEnvironment(
   #ifdef GQMPS2_MPI_TIMING_MODE
     sort_timer.PrintElapsed();
   #endif
+  /*
     #pragma omp parallel default(none)\
                         shared(task_size, slave_size, res_list, world, arraging_tasks)\
                         num_threads(slave_size)
@@ -300,6 +316,19 @@ inline GQTensor<TenElemT, QNT>* MasterGrowRightEnvironment(
       
       world.send(controlling_slave, 2*controlling_slave, 2*task_size);//finish signal
     }
+  */
+  for(size_t i = 0; i < task_size - slave_size; i++){
+    auto& bsdt = res_list[i].GetBlkSparDataTen();
+    mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+    int slave_identifier = recv_status.source();
+    world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+  }
+  for(size_t i = task_size - slave_size; i < task_size; i++){
+    auto& bsdt = res_list[i].GetBlkSparDataTen();
+    mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+    int slave_identifier = recv_status.source();
+    world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
+  }
   }else{//slave_size >= task_size
     #pragma omp parallel default(none)\
                         shared(task_size, res_list, world)\
@@ -347,8 +376,9 @@ inline void SlaveGrowRightEnvironment(
   size_t task_count = 0;
   const size_t slave_identifier = world.rank();//number from 1
   if(slave_identifier > task_size){
-    //no task, happy~
+#ifdef GQMPS2_MPI_TIMING_MODE
     std::cout << "Slave has done task_count = " << task_count << std::endl;
+#endif
     return;
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
@@ -405,8 +435,8 @@ inline void SlaveGrowRightEnvironment(
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
-#endif
   std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
+#endif
 }
 
 
