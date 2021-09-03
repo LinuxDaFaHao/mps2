@@ -69,13 +69,13 @@ LanczosRes<TenT> MasterLanczosSolver(
 
   //Broadcast eff_ham, TODO omp parallel
   const size_t eff_ham_size = pinit_state->Rank();//4
-#ifdef GQMPS_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_eff_ham_timer("broadcast_eff_ham_send");
 #endif
   for(size_t i = 0; i < eff_ham_size; i++){
     SendBroadCastGQTensor(world, (*rpeff_ham[i]), kMasterRank);
   }
-#ifdef GQMPS_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_eff_ham_timer.PrintElapsed();
 #endif
 
@@ -367,7 +367,9 @@ void slave_two_site_eff_ham_mul_state(
   const size_t slave_identifier = world.rank();//number from 1
   if(slave_identifier > task_num){
     //no task, happy~
+#ifdef GQMPS2_MPI_TIMING_MODE
     std::cout << "Slave has done task_count = " << task_count << std::endl;
+#endif
     delete state;
     return;
   }
@@ -440,8 +442,8 @@ void slave_two_site_eff_ham_mul_state(
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
-#endif
   std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
+#endif
   delete state;
 }
 
