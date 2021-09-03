@@ -133,7 +133,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
     const TwoSiteMPINoisedVMPSSweepParams &sweep_params,
     const char dir,
     const size_t target_site,
-    const double noise,
+    double noise,
     mpi::communicator& world
 ) {
     //master
@@ -195,7 +195,56 @@ double MasterTwoSiteFiniteVMPSUpdate(
 #else
   auto lancz_elapsed_time = lancz_timer.Elapsed();
 #endif
-  if (fabs(noise)>=1e-10) {
+
+  bool need_expand(true);
+  if (fabs(noise) < 1e-10) {
+    noise = 0.0;    //just for output
+    need_expand = false;
+  }else{
+    const size_t physical_dim_l = mps[lsite_idx].GetShape()[1];
+    const size_t physical_dim_r = mps[rsite_idx].GetShape()[1];
+    const QNSectorVec<QNT>* qnscts_right;
+    const QNSectorVec<QNT>* qnscts_left;
+    Index<QNT> fused_index1, fused_index2;
+    if (physical_dim_l == 2){
+      qnscts_left  = &(mps[lsite_idx].GetIndexes()[0].GetQNScts());
+    }else{
+      std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
+      fused_index1 = FuseTwoIndexAndRecordInfo(
+            mps[lsite_idx].GetIndexes()[0],
+            InverseIndex(mps[lsite_idx].GetIndexes()[1]),
+            qnscts_offset_info_list
+            );
+      qnscts_left = &(fused_index1.GetQNScts());
+    }
+
+    if (physical_dim_r == 2){
+      qnscts_right = &(mps[rsite_idx].GetIndexes()[2].GetQNScts());
+    }else{
+      std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
+      fused_index2 = FuseTwoIndexAndRecordInfo(
+            mps[rsite_idx].GetIndexes()[1],
+            mps[rsite_idx].GetIndexes()[2],
+            qnscts_offset_info_list
+            );
+      qnscts_right = &(fused_index2.GetQNScts());
+    }
+
+    if( dir == 'r' && 
+        IsQNCovered(*qnscts_right, *qnscts_left) 
+      ){
+      noise = 0.0;            
+      need_expand= false;
+    }else if(dir == 'l' && 
+        IsQNCovered(*qnscts_left, *qnscts_right)
+      ){
+      noise = 0.0;            
+      need_expand= false;
+    }
+  }
+
+
+  if (need_expand) {
     if(dir=='r'){
       MasterBroadcastOrder(contract_for_right_moving_expansion, world);
       MasterTwoSiteFiniteVMPSRightMovingExpand(
@@ -445,6 +494,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
           [&task_difficuty](size_t task1, size_t task2){
               return task_difficuty[task1] > task_difficuty[task2];
               });
+    /*
     #pragma omp parallel default(none)\
                         shared(task_size, slave_size, res_list, world, arraging_tasks)\
                         num_threads(slave_size)
@@ -463,6 +513,19 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
       }
       
       world.send(controlling_slave, 2*controlling_slave, 2*task_size);//finish signal
+    }
+    */
+    for(size_t i = 0; i < task_size - slave_size; i++){
+      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+    }
+    for(size_t i = task_size - slave_size; i < task_size;  i++){
+      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
     }
   }else{//slave_size >= task_size
     #pragma omp parallel default(none)\
@@ -531,14 +594,16 @@ double noise;
   boost::mpi::broadcast(world, noise, kMasterRank);
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
+  size_t task_count = 0;
 #endif
   const size_t split_idx = 2; //index of mps tensor
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();
-  size_t task_count = 0;
   const size_t slave_identifier = world.rank();//number from 1
   if(slave_identifier > task_size){
+#ifdef GQMPS2_MPI_TIMING_MODE
     std::cout << "Slave has done task_count = " << task_count << std::endl;
+#endif
     return;
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
@@ -568,8 +633,8 @@ double noise;
   res *= noise;
   res.FuseIndex(1, 4);
   auto& bsdt = res.GetBlkSparDataTen();
-  task_count++;
 #ifdef GQMPS2_MPI_TIMING_MODE
+  task_count++;
   salve_communication_timer.Restart();
 #endif
   bsdt.MPISend(world, kMasterRank, task);//tag = task
@@ -588,8 +653,8 @@ double noise;
     res *= noise;
     res.FuseIndex(1, 4);
     auto& bsdt = res.GetBlkSparDataTen();
-    task_count++;
   #ifdef GQMPS2_MPI_TIMING_MODE
+    task_count++;
     salve_communication_timer.Restart();
   #endif 
     bsdt.MPISend(world, kMasterRank, task);//tag = task
@@ -601,8 +666,8 @@ double noise;
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
-#endif
   std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
+#endif
 }
   
   
@@ -662,6 +727,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
           [&task_difficuty](size_t task1, size_t task2){
               return task_difficuty[task1] > task_difficuty[task2];
               });
+    /*
     #pragma omp parallel default(none)\
                         shared(task_size, slave_size, res_list, world, arraging_tasks)\
                         num_threads(slave_size)
@@ -680,6 +746,19 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
       }
       
       world.send(controlling_slave, 2*controlling_slave, 2*task_size);//finish signal
+    }
+    */
+    for(size_t i = 0; i < task_size - slave_size; i++){
+      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+    }
+    for(size_t i = task_size - slave_size; i < task_size;  i++){
+      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
     }
   }else{//slave_size >= task_size
     #pragma omp parallel default(none)\
@@ -746,14 +825,16 @@ double noise;
   boost::mpi::broadcast(world, noise, kMasterRank);
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
+  size_t task_count = 0;
 #endif
   const size_t split_idx = 2; //index of mps tensor
   const Index<QNT>& splited_index = eff_ham[3]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();
-  size_t task_count = 0;
   const size_t slave_identifier = world.rank();//number from 1
   if(slave_identifier > task_size){
+#ifdef GQMPS2_MPI_TIMING_MODE
     std::cout << "Slave has done task_count = " << task_count << std::endl;
+#endif
     return;
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
@@ -783,8 +864,8 @@ double noise;
   res.Transpose({1, 3, 4, 2, 0});
   res.FuseIndex(0,1);
   auto& bsdt = res.GetBlkSparDataTen();
-  task_count++;
 #ifdef GQMPS2_MPI_TIMING_MODE
+  task_count++;
   salve_communication_timer.Restart();
 #endif
   bsdt.MPISend(world, kMasterRank, task);//tag = task
@@ -804,8 +885,8 @@ double noise;
     res.Transpose({1, 3, 4, 2, 0});
     res.FuseIndex(0,1);
     auto& bsdt = res.GetBlkSparDataTen();
-    task_count++;
   #ifdef GQMPS2_MPI_TIMING_MODE
+    task_count++;
     salve_communication_timer.Restart();
   #endif 
     bsdt.MPISend(world, kMasterRank, task);//tag = task
@@ -817,8 +898,8 @@ double noise;
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
-#endif
   std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
+#endif
 }
 
 

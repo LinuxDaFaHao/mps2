@@ -73,7 +73,8 @@ double TwoSiteFiniteVMPSSweep(//also a overload
     double& noise_start
 );
 
-
+template <typename QNT>
+bool IsQNCovered(const QNSectorVec<QNT>&, const QNSectorVec<QNT>&);
 
 /**
  Function to perform two-site noised update finite vMPS algorithm.
@@ -288,12 +289,49 @@ double TwoSiteFiniteVMPSUpdate(
 
   bool need_expand(true);
   if (fabs(noise) < 1e-10) {
-    noise = 0.0;
+    noise = 0.0;    //just for output
     need_expand = false;
-  } else if (false // QN cover??
-    ) {
-    noise = 0.0;            //just for output
-    need_expand= false;
+  }else{
+    const size_t physical_dim_l = mps[lsite_idx].GetShape()[1];
+    const size_t physical_dim_r = mps[rsite_idx].GetShape()[1];
+    const QNSectorVec<QNT>* qnscts_right;
+    const QNSectorVec<QNT>* qnscts_left;
+    Index<QNT> fused_index1, fused_index2;
+    if (physical_dim_l == 2){
+      qnscts_left  = &(mps[lsite_idx].GetIndexes()[0].GetQNScts());
+    }else{
+      std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
+      fused_index1 = FuseTwoIndexAndRecordInfo(
+            mps[lsite_idx].GetIndexes()[0],
+            InverseIndex(mps[lsite_idx].GetIndexes()[1]),
+            qnscts_offset_info_list
+            );
+      qnscts_left = &(fused_index1.GetQNScts());
+    }
+
+    if (physical_dim_r == 2){
+      qnscts_right = &(mps[rsite_idx].GetIndexes()[2].GetQNScts());
+    }else{
+      std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
+      fused_index2 = FuseTwoIndexAndRecordInfo(
+            mps[rsite_idx].GetIndexes()[1],
+            mps[rsite_idx].GetIndexes()[2],
+            qnscts_offset_info_list
+            );
+      qnscts_right = &(fused_index2.GetQNScts());
+    }
+
+    if( dir == 'r' && 
+        IsQNCovered(*qnscts_right, *qnscts_left) 
+      ){
+      noise = 0.0;            
+      need_expand= false;
+    }else if(dir == 'l' && 
+        IsQNCovered(*qnscts_left, *qnscts_right)
+      ){
+      noise = 0.0;            
+      need_expand= false;
+    }
   }
 
   if (need_expand) {
@@ -677,6 +715,45 @@ double CalEnergyEptTwoSite(
   preprocessing_timer.PrintElapsed();
 #endif
   return energy;
+}
+
+/**
+ * if qnsectors1's qn set contains qnsectors2's qn set
+ */
+template <typename QNT>
+bool IsQNCovered(const QNSectorVec<QNT>& qnsectors1, 
+                 const QNSectorVec<QNT>& qnsectors2){
+  size_t size1( qnsectors1.size() ), size2( qnsectors2.size() );
+  if(size1 < size2 ){
+    return false;
+  }
+  std::vector<size_t> hash_set_of_qns_in_qnsectors1,hash_set_of_qns_in_qnsectors2;
+  hash_set_of_qns_in_qnsectors1.reserve( size1 );
+  hash_set_of_qns_in_qnsectors2.reserve( size2 );
+  for(const QNSector<QNT>& qnsector : qnsectors1){
+    hash_set_of_qns_in_qnsectors1.push_back( qnsector.GetQn().Hash() );
+  }
+  std::sort(hash_set_of_qns_in_qnsectors1.begin(), 
+            hash_set_of_qns_in_qnsectors1.end());
+  for(const QNSector<QNT>& qnsector : qnsectors2){
+    hash_set_of_qns_in_qnsectors2.push_back( qnsector.GetQn().Hash() );
+  }
+  std::sort(hash_set_of_qns_in_qnsectors2.begin(), 
+            hash_set_of_qns_in_qnsectors2.end());
+  
+  auto iter1 = hash_set_of_qns_in_qnsectors1.begin();
+  auto iter2 = hash_set_of_qns_in_qnsectors2.begin();
+  while(iter2 < hash_set_of_qns_in_qnsectors2.end()){
+    if((*iter1) < (*iter2)){
+      iter1++;
+    }else if( (*iter1) == (*iter2) ){
+      iter1++; 
+      iter2++;
+    }else{
+      return false;
+    }
+  }
+  return true;
 }
 }//gqmps2
 #endif
