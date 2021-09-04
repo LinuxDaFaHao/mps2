@@ -470,15 +470,26 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
   res_list.reserve(task_size);
   const size_t slave_size = world.size() - 1 ; //total number of slaves
 
-  IndexVec<QNT> ten_tmp_indexes(5);
-  ten_tmp_indexes[0] = splited_index;
-  ten_tmp_indexes[1] = gs_vec->GetIndexes()[3];
+  IndexVec<QNT> ten_tmp_indexes(4);
+  ten_tmp_indexes[1] = splited_index;
   ten_tmp_indexes[2] = eff_ham[1]->GetIndexes()[2];
   ten_tmp_indexes[3] = eff_ham[2]->GetIndexes()[2];
-  ten_tmp_indexes[4] = eff_ham[2]->GetIndexes()[3];
+
+  Index<QNT> index_a = gs_vec->GetIndexes()[3];
+  std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
+  Index<QNT> index_b = FuseTwoIndexAndRecordInfo(
+            index_a,
+            eff_ham[2]->GetIndexes()[3],
+            qnscts_offset_info_list
+            );
+  std::map<size_t, int> b_idx_qnsct_coor_expanded_idx_qnsct_coor_map;
+  ten_tmp_indexes[0] = ExpandIndexMCAndRecordInfo(
+            index_a,
+            index_b,
+            b_idx_qnsct_coor_expanded_idx_qnsct_coor_map
+  );
+  
   TenT ten_tmp_shell = TenT(ten_tmp_indexes);
-  ten_tmp_shell.FuseIndex(1, 4);
-  assert(ten_tmp_shell.GetBlkSparDataTen().GetActualRawDataPtr() == nullptr);
   for(size_t j = 0; j<task_size;j++){
     res_list.push_back( ten_tmp_shell );
   }
@@ -596,6 +607,8 @@ double noise;
   broadcast_state_timer.PrintElapsed();
   size_t task_count = 0;
 #endif
+  TenT state_shell( ground_state.GetIndexes() );
+  state_shell.Transpose({3, 0, 1, 2});
   const size_t split_idx = 2; //index of mps tensor
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();
@@ -630,9 +643,13 @@ double noise;
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
   Contract(&temp, eff_ham[2],  {{4, 1}, {0, 1}}, &res);
   temp.GetBlkSparDataTen().Clear();
-  res *= noise;
   res.FuseIndex(1, 4);
-  auto& bsdt = res.GetBlkSparDataTen();
+  TenT res1;
+  ExpandMC(&state_shell, &res, {0},  &res1);
+  res1 *= noise;
+  res.GetBlkSparDataTen().Clear();
+  
+  auto& bsdt = res1.GetBlkSparDataTen();
 #ifdef GQMPS2_MPI_TIMING_MODE
   task_count++;
   salve_communication_timer.Restart();
@@ -650,9 +667,13 @@ double noise;
     eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
     Contract(&temp, eff_ham[2],  {{4, 1}, {0, 1}}, &res);
     temp.GetBlkSparDataTen().Clear();
-    res *= noise;
     res.FuseIndex(1, 4);
-    auto& bsdt = res.GetBlkSparDataTen();
+    TenT res1;
+    ExpandMC(&state_shell, &res, {0},  &res1);
+    res1 *= noise;
+    res.GetBlkSparDataTen().Clear();
+    
+    auto& bsdt = res1.GetBlkSparDataTen();
   #ifdef GQMPS2_MPI_TIMING_MODE
     task_count++;
     salve_communication_timer.Restart();
@@ -703,14 +724,27 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
   res_list.reserve(task_size);
   const size_t slave_size = world.size() - 1 ; //total number of slaves
 
-  IndexVec<QNT> ten_tmp_indexes(5);
-  ten_tmp_indexes[0] = gs_vec->GetIndexes()[0];
-  ten_tmp_indexes[1] = eff_ham[1]->GetIndexes()[0];
-  ten_tmp_indexes[2] = eff_ham[1]->GetIndexes()[2];
-  ten_tmp_indexes[3] = eff_ham[2]->GetIndexes()[2];
-  ten_tmp_indexes[4] = eff_ham[3]->GetIndexes()[2];
+  IndexVec<QNT> ten_tmp_indexes(4);
+  ten_tmp_indexes[1] = eff_ham[1]->GetIndexes()[2];
+  ten_tmp_indexes[2] = eff_ham[2]->GetIndexes()[2];
+  ten_tmp_indexes[3] = eff_ham[3]->GetIndexes()[2];
+
+  Index<QNT> index_a = gs_vec->GetIndexes()[0];
+  std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
+  Index<QNT> index_b = FuseTwoIndexAndRecordInfo(
+            index_a,
+            eff_ham[1]->GetIndexes()[0],
+            qnscts_offset_info_list
+            );
+  std::map<size_t, int> b_idx_qnsct_coor_expanded_idx_qnsct_coor_map;
+  ten_tmp_indexes[0] = ExpandIndexMCAndRecordInfo(
+            index_a,
+            index_b,
+            b_idx_qnsct_coor_expanded_idx_qnsct_coor_map
+  );
+
+
   TenT ten_tmp_shell = TenT(ten_tmp_indexes);
-  ten_tmp_shell.FuseIndex(0, 1);
   for(size_t j = 0; j<task_size;j++){
         res_list.push_back( ten_tmp_shell );
   }
@@ -827,6 +861,7 @@ double noise;
   broadcast_state_timer.PrintElapsed();
   size_t task_count = 0;
 #endif
+  TenT state_shell( ground_state.GetIndexes() );
   const size_t split_idx = 2; //index of mps tensor
   const Index<QNT>& splited_index = eff_ham[3]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();
@@ -860,10 +895,13 @@ double noise;
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
   Contract(&temp, eff_ham[1],  {{2,3},{1,3}}, &res);
   temp.GetBlkSparDataTen().Clear();
-  res *= noise;
   res.Transpose({1, 3, 4, 2, 0});
   res.FuseIndex(0,1);
-  auto& bsdt = res.GetBlkSparDataTen();
+  TenT res1;
+  ExpandMC(&state_shell, &res, {0}, &res1 );
+  res1 *= noise;
+  auto& bsdt = res1.GetBlkSparDataTen();
+  res.GetBlkSparDataTen().Clear();
 #ifdef GQMPS2_MPI_TIMING_MODE
   task_count++;
   salve_communication_timer.Restart();
@@ -881,10 +919,13 @@ double noise;
     eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
     Contract(&temp, eff_ham[1],  {{2,3},{1,3}}, &res);
     temp.GetBlkSparDataTen().Clear();
-    res *= noise;
     res.Transpose({1, 3, 4, 2, 0});
     res.FuseIndex(0,1);
-    auto& bsdt = res.GetBlkSparDataTen();
+    TenT res1;
+    ExpandMC(&state_shell, &res, {0}, &res1);
+
+    res1 *= noise;
+    auto& bsdt = res1.GetBlkSparDataTen();
   #ifdef GQMPS2_MPI_TIMING_MODE
     task_count++;
     salve_communication_timer.Restart();
