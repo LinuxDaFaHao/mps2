@@ -173,7 +173,7 @@ LanczosRes<TenT> LanczosSolver(
       }
     }
 
-    N[m] = std::pow(norm_gamma, 2.0);
+    N[m] = norm_gamma*norm_gamma;
     b[m-1] = norm_gamma;
     bases[m] = gamma;
 

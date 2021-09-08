@@ -322,7 +322,6 @@ double MasterTwoSiteFiniteVMPSUpdate(
 #ifdef GQMPS2_TIMING_MODE
   Timer update_env_ten_timer("two_site_fvmps_update_env_ten");
 #endif
-  ///< TODO: parallel this part
   switch (dir) {
     case 'r':{
       MasterBroadcastOrder(growing_left_env, world);
