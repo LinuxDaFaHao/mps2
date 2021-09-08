@@ -33,9 +33,10 @@ namespace mpi = boost::mpi;
 
 //Forward deceleration
 template <typename ElemT, typename QNT>
-GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
+GQTEN_Double master_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &,
     GQTensor<ElemT, QNT> *,
+    GQTensor<ElemT, QNT> &,
     mpi::communicator 
 );
 
@@ -69,94 +70,124 @@ LanczosRes<TenT> MasterLanczosSolver(
 
   //Broadcast eff_ham, TODO omp parallel
   const size_t eff_ham_size = pinit_state->Rank();//4
-#ifdef GQMPS2_MPI_TIMING_MODE
+#ifdef GQMPS2_TIMING_MODE
   Timer broadcast_eff_ham_timer("broadcast_eff_ham_send");
 #endif
   for(size_t i = 0; i < eff_ham_size; i++){
     SendBroadCastGQTensor(world, (*rpeff_ham[i]), kMasterRank);
   }
-#ifdef GQMPS2_MPI_TIMING_MODE
+#ifdef GQMPS2_TIMING_MODE
   broadcast_eff_ham_timer.PrintElapsed();
+  Timer lancozs_after_send_ham("lancz_total_time_after_send_ham");
 #endif
 
 
   LanczosRes<TenT> lancz_res;
 
-  std::vector<std::vector<size_t>> energy_measu_ctrct_axes;
-
-  energy_measu_ctrct_axes = {{0, 1, 2, 3}, {0, 1, 2, 3}};
-  
-
   std::vector<TenT *> bases(params.max_iterations);
   std::vector<GQTEN_Double> a(params.max_iterations, 0.0);
   std::vector<GQTEN_Double> b(params.max_iterations, 0.0);
-  std::vector<GQTEN_Double> N(params.max_iterations, 0.0);
 
   // Initialize Lanczos iteration.
+#ifdef GQMPS2_TIMING_MODE
+  Timer normalize_timer("lancz_normlize");
+#endif
   pinit_state->Normalize();
   bases[0] = pinit_state;
 
 #ifdef GQMPS2_TIMING_MODE
-  Timer mat_vec_timer("lancz_mat_vec");
+  normalize_timer.PrintElapsed();
+  Timer mat_vec_timer("lancz_mat_vec_and_overlap");
 #endif
   //first time matrix multiply state will always be done, so here don't need to send order
-  TenT* last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[0],world);
+  TenT* last_mat_mul_vec_res = new TenT();
+  a[0] = master_two_site_eff_ham_mul_state(
+                                      rpeff_ham, 
+                                      bases[0], 
+                                      *last_mat_mul_vec_res, 
+                                      world
+                                      );
 
 #ifdef GQMPS2_TIMING_MODE
   mat_vec_timer.PrintElapsed();
 #endif
-
-  TenT temp_scalar_ten;
-  auto base_dag = Dag(*bases[0]);
-  Contract(
-      last_mat_mul_vec_res, &base_dag,
-      energy_measu_ctrct_axes,
-      &temp_scalar_ten
-  );
-  a[0] = Real(temp_scalar_ten());;
-  N[0] = 0.0;
   size_t m = 0;
   GQTEN_Double energy0;
   energy0 = a[0];
   // Lanczos iterations.
   while (true) {
     m += 1;
+#ifdef GQMPS2_TIMING_MODE
+    Timer linear_combine_timer("lancz_linear_combine");
+#endif
     auto gamma = last_mat_mul_vec_res;
     if (m == 1) {
       LinearCombine({-a[m-1]}, {bases[m-1]}, 1.0, gamma);
     } else {
       LinearCombine(
-          {-a[m-1], -std::sqrt(N[m-1])},
+          {-a[m-1], -b[m-2]},
           {bases[m-1], bases[m-2]},
           1.0,
           gamma
       );
     }
+#ifdef GQMPS2_TIMING_MODE
+    linear_combine_timer.PrintElapsed();
+    normalize_timer.ClearAndRestart();
+#endif
     auto norm_gamma = gamma->Normalize();
+#ifdef GQMPS2_TIMING_MODE
+    normalize_timer.PrintElapsed();
+    Timer trigssolver("lancz_triadiag_gs_solver_total");
+    trigssolver.Suspend();
+#endif
     GQTEN_Double eigval;
     GQTEN_Double *eigvec = nullptr;
     if (norm_gamma == 0.0) {
       if (m == 1) {
+#ifdef GQMPS2_TIMING_MODE
+        Timer lancozs_post_precessing("lancz_post_processing");
+#endif
         lancz_res.iters = m;
         lancz_res.gs_eng = energy0;
         lancz_res.gs_vec = new TenT(*bases[0]);
         LanczosFree(eigvec, bases, last_mat_mul_vec_res);
         MasterBroadcastOrder(lanczos_finish, world);
+#ifdef GQMPS2_TIMING_MODE
+        lancozs_post_precessing.PrintElapsed();
+        lancozs_after_send_ham.PrintElapsed();
+#endif
         return lancz_res;
       } else {
+#ifdef GQMPS2_TIMING_MODE
+        trigssolver.Restart();
+#endif
         TridiagGsSolver(a, b, m, eigval, eigvec, 'V');
+#ifdef GQMPS2_TIMING_MODE
+        trigssolver.PrintElapsed();
+        Timer final_linear_combine_timer("lancz_finial_linear_combine");
+#endif
         auto gs_vec = new TenT(bases[0]->GetIndexes());
         LinearCombine(m, eigvec, bases, 0.0, gs_vec);
+#ifdef GQMPS2_TIMING_MODE
+        final_linear_combine_timer.PrintElapsed();
+#endif
+#ifdef GQMPS2_TIMING_MODE
+        Timer lancozs_post_precessing("lancz_post_processing");
+#endif
         lancz_res.iters = m;
         lancz_res.gs_eng = energy0;
         lancz_res.gs_vec = gs_vec;
         LanczosFree(eigvec, bases, last_mat_mul_vec_res);
         MasterBroadcastOrder(lanczos_finish, world);
+#ifdef GQMPS2_TIMING_MODE
+        lancozs_post_precessing.PrintElapsed();
+        lancozs_after_send_ham.PrintElapsed();
+#endif
         return lancz_res;
       }
     }
 
-    N[m] = std::pow(norm_gamma, 2.0);
     b[m-1] = norm_gamma;
     bases[m] = gamma;
 
@@ -164,37 +195,54 @@ LanczosRes<TenT> MasterLanczosSolver(
     mat_vec_timer.ClearAndRestart();
 #endif
     MasterBroadcastOrder(lanczos_mat_vec, world);
-    last_mat_mul_vec_res = master_two_site_eff_ham_mul_state(rpeff_ham, bases[m],world);
-
+    last_mat_mul_vec_res = new TenT();
+    a[m] = master_two_site_eff_ham_mul_state(
+                                      rpeff_ham, 
+                                      bases[m], 
+                                      *last_mat_mul_vec_res, 
+                                      world
+                                      );
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.PrintElapsed();
+    trigssolver.Restart();
 #endif
 
-    TenT temp_scalar_ten;
-    auto base_dag = Dag(*bases[m]);
-    Contract(
-        last_mat_mul_vec_res,
-        &base_dag,
-        energy_measu_ctrct_axes,
-        &temp_scalar_ten
-    );
-    a[m] = Real(temp_scalar_ten());
     TridiagGsSolver(a, b, m+1, eigval, eigvec, 'N');
+#ifdef GQMPS2_TIMING_MODE
+    trigssolver.Suspend();
+#endif    
     auto energy0_new = eigval;
     if (
         ((energy0 - energy0_new) < params.error) ||
         (m == eff_ham_eff_dim) ||
         (m == params.max_iterations - 1)
     ) {
+#ifdef GQMPS2_TIMING_MODE
+      trigssolver.Restart();
+#endif
       TridiagGsSolver(a, b, m+1, eigval, eigvec, 'V');
+#ifdef GQMPS2_TIMING_MODE
+      trigssolver.PrintElapsed();
+      Timer final_linear_combine_timer("lancz_finial_linear_combine");
+#endif    
       energy0 = energy0_new;
       auto gs_vec = new TenT(bases[0]->GetIndexes());
       LinearCombine(m+1, eigvec, bases, 0.0, gs_vec);
+#ifdef GQMPS2_TIMING_MODE
+      final_linear_combine_timer.PrintElapsed();
+#endif
+#ifdef GQMPS2_TIMING_MODE
+        Timer lancozs_post_precessing("lancz_post_processing");
+#endif
       lancz_res.iters = m;
       lancz_res.gs_eng = energy0;
       lancz_res.gs_vec = gs_vec;
       LanczosFree(eigvec, bases, last_mat_mul_vec_res);
       MasterBroadcastOrder(lanczos_finish, world);
+#ifdef GQMPS2_TIMING_MODE
+        lancozs_post_precessing.PrintElapsed();
+        lancozs_after_send_ham.PrintElapsed();
+#endif
       return lancz_res;
     } else {
       energy0 = energy0_new;
@@ -239,6 +287,7 @@ return rpeff_ham;
 
 /**
  * two site effective hamiltonian multiplying on state, the dispatch works of master.
+ * and calculation the overlap by the way
  * 
  * Once the order lanczos_mat_vec has broadcast to Slave, master will prepare to arrage the tasks.
  * tasks from 0 to slave_num-1 will automatically done by salves at first,
@@ -246,16 +295,20 @@ return rpeff_ham;
  * 
  * @param eff_ham   effective hamiltonian
  * @param state     wave function
+ * @param res       the result of effective hamiltonian multiple state,
+ *                  as return, need to be a default tensor
  * @param world     boost::mpi::communicator
  * 
- * @return the result of effective hamiltonian multiple 
+ * @return overlap of <res|(*state)>
  */
 template <typename ElemT, typename QNT>
-GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
+GQTEN_Double master_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &eff_ham,
     GQTensor<ElemT, QNT> *state,
+    GQTensor<ElemT, QNT> &res,
     mpi::communicator world
 ) {
+  assert(res.IsDefault());
   using TenT = GQTensor<ElemT, QNT>;
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer(" broadcast_state_send");
@@ -319,15 +372,20 @@ GQTensor<ElemT, QNT>* master_two_site_eff_ham_mul_state(
     int slave_identifier = recv_status.source();
     world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
   }
+  GQTEN_Double overlap(0.0), overlap_sub;
+  for(size_t i = 0; i< std::min(task_num, slave_num) ;i++){
+    int slave_identifier = i+1;
+    world.recv(slave_identifier, 3*slave_identifier+task_num, overlap_sub);
+    overlap += overlap_sub;
+  }
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer sum_state_timer(" parallel_summation_reduce");
 #endif
-  TenT* res = new TenT();
-  CollectiveLinearCombine(res_list, *res);
+  CollectiveLinearCombine(res_list, res);
 #ifdef GQMPS2_MPI_TIMING_MODE
   sum_state_timer.PrintElapsed();
 #endif
-  return res;
+  return overlap;
 }
 
 
@@ -351,6 +409,7 @@ void slave_two_site_eff_ham_mul_state(
 ){
   using TenT = GQTensor<ElemT, QNT>;
   TenT* state = new TenT();
+  TenT temp_scalar_ten;
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer(" broadcast_state_recv");
 #endif
@@ -358,6 +417,7 @@ void slave_two_site_eff_ham_mul_state(
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
+  auto base_dag = Dag(*state);
   // Timer slave_prepare_timer(" slave "+ std::to_string(world.rank()) +"'s prepare");
   const size_t split_idx = 2;
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
@@ -403,6 +463,12 @@ void slave_two_site_eff_ham_mul_state(
   Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
   temp1.GetBlkSparDataTen().Clear();
 
+  Contract(
+      &res, &base_dag,
+      {{0,1,2,3}, {0,1,2,3}},
+      &temp_scalar_ten
+  );
+  GQTEN_Double overlap = Real( temp_scalar_ten() );
   //$2
   // send_gqten(world, kMasterRank, task, res);//tag = task
   auto& bsdt = res.GetBlkSparDataTen();
@@ -418,7 +484,7 @@ void slave_two_site_eff_ham_mul_state(
   salve_communication_timer.Suspend();
 #endif
   while(task < task_num){
-    TenT temp1, temp2, res;
+    TenT temp1, temp2, res, temp_scalar_ten;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
     Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
@@ -428,6 +494,13 @@ void slave_two_site_eff_ham_mul_state(
     Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
     temp1.GetBlkSparDataTen().Clear();
     
+    Contract(
+      &res, &base_dag,
+      {{0,1,2,3},{0,1,2,3}},
+      &temp_scalar_ten
+    );
+    overlap += Real( temp_scalar_ten() );
+
     auto& bsdt = res.GetBlkSparDataTen();
     task_count++;
   #ifdef GQMPS2_MPI_TIMING_MODE
@@ -439,6 +512,7 @@ void slave_two_site_eff_ham_mul_state(
     salve_communication_timer.Suspend();
   #endif
   }
+  world.send(kMasterRank, 3*slave_identifier+task_num, overlap );
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
