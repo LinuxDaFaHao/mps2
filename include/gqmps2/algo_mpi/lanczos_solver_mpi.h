@@ -375,7 +375,9 @@ GQTEN_Double master_two_site_eff_ham_mul_state(
   GQTEN_Double overlap(0.0), overlap_sub;
   for(size_t i = 0; i< std::min(task_num, slave_num) ;i++){
     int slave_identifier = i+1;
-    world.recv(slave_identifier, 3*slave_identifier+task_num, overlap_sub);
+    int all_final_signal = -1;
+    world.send(slave_identifier, 3*slave_identifier+task_num, all_final_signal);
+    world.recv(slave_identifier, 4*slave_identifier+task_num, overlap_sub);
     overlap += overlap_sub;
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
@@ -512,13 +514,16 @@ void slave_two_site_eff_ham_mul_state(
     salve_communication_timer.Suspend();
   #endif
   }
-  world.send(kMasterRank, 3*slave_identifier+task_num, overlap );
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
   std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
 #endif
   delete state;
+  int all_final_signal;
+  world.recv(kMasterRank, 3*slave_identifier+task_num, all_final_signal );
+  assert(all_final_signal = -1);
+  world.send(kMasterRank, 4*slave_identifier+task_num, overlap );
 }
 
 
