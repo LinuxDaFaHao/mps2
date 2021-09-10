@@ -165,7 +165,7 @@ endmacro()
 
 
 ## Test sites vector.
-add_unittest(test_site_vec test_site_vec.cc "${MATH_LIB_COMPILE_FLAGS}" "" "" "")
+add_unittest(test_site_vec test_site_vec.cc "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "")
 
 ## Test one-dimensional tensor networks.
 # Test DuoVector class
@@ -190,7 +190,7 @@ add_unittest(test_finite_mps_measu
 # Test MPO class
 add_unittest(test_mpo
     "test_one_dim_tn/test_mpo.cc"
-    "${MATH_LIB_COMPILE_FLAGS}" "" "" ""
+    "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
 )
 # Test MPO generation.
 add_unittest(test_mpogen_coef_op_alg
