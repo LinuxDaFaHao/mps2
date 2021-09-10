@@ -26,9 +26,38 @@
 #include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteMPINoisedVMPSSweepParams
 #include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     //MPI Lanczos solver  
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl.h" //SlaveTwoSiteFiniteVMPS
+#include <thread>                                                       //thread
 
 namespace gqmps2 {
 using namespace gqten;
+
+//forward decelaration
+template <typename TenElemT, typename QNT>
+inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(
+    FiniteMPS<TenElemT, QNT> &mps,
+    TenVec<GQTensor<TenElemT, QNT>> &lenvs,
+    TenVec<GQTensor<TenElemT, QNT>> &renvs,
+    const size_t target_site,
+    const size_t left_boundary,
+    const TwoSiteMPINoisedVMPSSweepParams &sweep_params
+);
+
+
+template <typename TenElemT, typename QNT>
+inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(
+    FiniteMPS<TenElemT, QNT> &mps,
+    TenVec<GQTensor<TenElemT, QNT>> &lenvs,
+    TenVec<GQTensor<TenElemT, QNT>> &renvs,
+    const size_t target_site,
+    const size_t right_boundary,
+    const TwoSiteMPINoisedVMPSSweepParams &sweep_params
+);
+
+
+/**
+ * @note It's better master the tensor manipulation thread number = slave's -2.
+ *       For the other threads used to read/dump tensors.
+ */
 template <typename TenElemT, typename QNT>
 inline GQTEN_Double TwoSiteFiniteVMPS(
     FiniteMPS<TenElemT, QNT> &mps,
@@ -102,23 +131,85 @@ double TwoSiteFiniteVMPSSweep(
     mpi::communicator world
 ) {
   auto N = mps.size();
+  TwoSiteMPIVMPSSweepParams sweep_params_no_noise = (TwoSiteMPIVMPSSweepParams) sweep_params;
   using TenT = GQTensor<TenElemT, QNT>;
   TenVec<TenT> lenvs(N - 1);
   TenVec<TenT> renvs(N - 1);
   double e0;
-
+  const size_t update_site_size = right_boundary - left_boundary -1;
+  std::thread load_related_tens_thread;
+  std::thread* dump_related_tens_threads = new std::thread[update_site_size];
+  size_t thread_num = 0;
+  LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(mps, lenvs, renvs, left_boundary, left_boundary, sweep_params);
   for (size_t i = left_boundary; i <= right_boundary - 2; ++i) {
     // Load to-be-used tensors
-    LoadRelatedTensOnTwoSiteAlgWhenRightMoving(mps, lenvs, renvs, i, left_boundary, sweep_params);
+    if( i <  right_boundary - 2 ){
+      load_related_tens_thread = std::thread(
+        LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving<TenElemT, QNT>,
+        std::ref(mps),
+        std::ref(lenvs),
+        std::ref(renvs),
+        i + 1, //note here is different,
+        left_boundary,
+        std::ref(sweep_params) 
+      );
+    }
+    // LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(mps, lenvs, renvs, i, left_boundary, sweep_params);
     e0 = MasterTwoSiteFiniteVMPSUpdate(mps, lenvs, renvs, mpo, sweep_params, 'r', i, noise,world);
     // Dump related tensor to HD and remove unused tensor from RAM
-    DumpRelatedTensOnTwoSiteAlgWhenRightMoving(mps, lenvs, renvs, i, (TwoSiteMPIVMPSSweepParams) sweep_params);
+    if ( i < right_boundary - 2 ){
+      load_related_tens_thread.join();
+    }
+    dump_related_tens_threads[thread_num] = std::thread(
+      DumpRelatedTensOnTwoSiteAlgWhenRightMoving<TenElemT, QNT>,
+      std::ref(mps),
+      std::ref(lenvs),
+      std::ref(renvs),
+      i,
+      std::ref(sweep_params_no_noise)
+    );
+    thread_num++;
   }
+  // std::cout << "left_boundary = " << left_boundary << std::endl;
+  // std::cout << "right_boundary = " << right_boundary << std::endl;
+  // std::cout << "update_site_size = " << update_site_size << std::endl;
+  // std::cout << "now thread_num = " << thread_num << std::endl;
+  for(size_t i = 0; i < update_site_size; i++){
+    dump_related_tens_threads[i].join();
+  }
+  thread_num = 0;
+  LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(mps, lenvs, renvs, right_boundary, right_boundary, sweep_params);
   for (size_t i = right_boundary; i >= left_boundary+2; --i) {
-    LoadRelatedTensOnTwoSiteAlgWhenLeftMoving(mps, lenvs, renvs, i, right_boundary, sweep_params);
+    if(i > left_boundary+2){
+      load_related_tens_thread = std::thread(
+        LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving<TenElemT, QNT>,
+        std::ref(mps),
+        std::ref(lenvs),
+        std::ref(renvs),
+        i - 1, //note here is different,
+        right_boundary,
+        std::ref(sweep_params) 
+      );
+    }
+    // LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(mps, lenvs, renvs, i, right_boundary, sweep_params);
     e0 = MasterTwoSiteFiniteVMPSUpdate(mps, lenvs, renvs, mpo, sweep_params, 'l', i, noise, world);
-    DumpRelatedTensOnTwoSiteAlgWhenLeftMoving(mps, lenvs, renvs, i,  (TwoSiteMPIVMPSSweepParams) sweep_params);
+    if(i > left_boundary+2){
+      load_related_tens_thread.join();
+    }
+    dump_related_tens_threads[thread_num] = std::thread(
+      DumpRelatedTensOnTwoSiteAlgWhenLeftMoving<TenElemT, QNT>,
+      std::ref(mps),
+      std::ref(lenvs),
+      std::ref(renvs),
+      i,
+      std::ref(sweep_params_no_noise)
+    );
+    thread_num++;
   }
+  for(size_t i = 0; i < update_site_size; i++){
+    dump_related_tens_threads[i].join();
+  }
+  delete[] dump_related_tens_threads;
   return e0;
 }
 
@@ -356,7 +447,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
 
 
 template <typename TenElemT, typename QNT>
-inline void LoadRelatedTensOnTwoSiteAlgWhenRightMoving(
+inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(
     FiniteMPS<TenElemT, QNT> &mps,
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
@@ -397,7 +488,7 @@ if (target_site != left_boundary) {
 
 
 template <typename TenElemT, typename QNT>
-inline void LoadRelatedTensOnTwoSiteAlgWhenLeftMoving(
+inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(
     FiniteMPS<TenElemT, QNT> &mps,
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
