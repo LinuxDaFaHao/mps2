@@ -630,7 +630,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
     }
   }else{//slave_size >= task_size
     #pragma omp parallel default(none)\
-                        shared(task_size, res_list, world)\
+                        shared(res_list, world)\
                         num_threads(task_size)
     {
       size_t controlling_slave = omp_get_thread_num() + 1;
@@ -886,7 +886,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
     }
   }else{//slave_size >= task_size
     #pragma omp parallel default(none)\
-                        shared(task_size, res_list, world)\
+                        shared(res_list, world)\
                         num_threads(task_size)
     {
       size_t controlling_slave = omp_get_thread_num() + 1;
