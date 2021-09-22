@@ -140,8 +140,7 @@ inline GQTensor<TenElemT, QNT>* MasterGrowLeftEnvironment(
     world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
   }
   }else{//slave_size >= task_size
-    #pragma omp parallel default(none)\
-                        shared(task_size, res_list, world)\
+    #pragma omp parallel default(shared)\
                         num_threads(task_size)
     {
       size_t controlling_slave = omp_get_thread_num() + 1;
@@ -332,8 +331,7 @@ inline GQTensor<TenElemT, QNT>* MasterGrowRightEnvironment(
     world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
   }
   }else{//slave_size >= task_size
-    #pragma omp parallel default(none)\
-                        shared(task_size, res_list, world)\
+    #pragma omp parallel default(shared)\
                         num_threads(task_size)
     {
       size_t controlling_slave = omp_get_thread_num() + 1;
