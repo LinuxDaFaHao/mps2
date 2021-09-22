@@ -200,7 +200,11 @@ TEST(TestOpRepr, Initialization){
     rand_op_labels.push_back(rand());
   }
   OpRepr op_repr(rand_coef_reprs, rand_op_labels);
-  EXPECT_EQ(op_repr.GetCoefReprList(), rand_coef_reprs);
+  auto geted_coef_repr_list = op_repr.GetCoefReprList();
+  EXPECT_TRUE( std::is_permutation(geted_coef_repr_list.begin(), geted_coef_repr_list.end(),
+          rand_coef_reprs.begin(), rand_coef_reprs.end() ) );
+  // EXPECT_EQ(op_repr.GetCoefReprList(), rand_coef_reprs);
+  std::sort( rand_op_labels.begin(), rand_op_labels.end() );
   EXPECT_EQ(op_repr.GetOpLabelList(), rand_op_labels);
 
   auto coef1 = RandCoefRepr();

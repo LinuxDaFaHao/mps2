@@ -45,6 +45,10 @@ public:
     }
   }
 
+  void Reserve(const size_t size){
+    data.reserve(size);
+  }
+
   void SetElem(const size_t x, const size_t y, const ElemType &elem) {
     if (elem == nullelem) { return; }
     auto offset = CalcOffset(x, y);
@@ -152,9 +156,7 @@ public:
     for (size_t y = 0; y < cols; ++y) {
       auto offset1 = CalcOffset(row_idx1, y);
       auto offset2 = CalcOffset(row_idx2, y);
-      auto temp = indexes[offset1];
-      indexes[offset1] = indexes[offset2];
-      indexes[offset2] = temp;
+      std::swap(indexes[offset1], indexes[offset2]);
     }
   }
 
@@ -164,9 +166,7 @@ public:
     for (size_t x = 0; x < rows; ++x) {
       auto offset1 = CalcOffset(x, col_idx1);
       auto offset2 = CalcOffset(x, col_idx2);
-      auto temp = indexes[offset1];
-      indexes[offset1] = indexes[offset2];
-      indexes[offset2] = temp;
+      std::swap(indexes[offset1], indexes[offset2] );
     }
   }
 

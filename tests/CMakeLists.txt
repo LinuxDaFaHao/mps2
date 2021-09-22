@@ -195,11 +195,11 @@ add_unittest(test_mpo
 # Test MPO generation.
 add_unittest(test_mpogen_coef_op_alg
     "test_one_dim_tn/test_mpogen/test_mpogen_coef_op_alg.cc"
-    "" "" "" ""
+    "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
 )
 add_unittest(test_mpogen_fsm
     "test_one_dim_tn/test_mpogen/test_mpogen_fsm.cc"
-    "" "" "" ""
+    "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
 )
 add_unittest(test_mpogen
   "test_one_dim_tn/test_mpogen/test_mpogen.cc"
