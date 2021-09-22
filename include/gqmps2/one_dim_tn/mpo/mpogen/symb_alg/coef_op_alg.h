@@ -50,8 +50,16 @@ public:
   CoefRepr(const CoefRepr &coef_repr) :
       coef_label_list_(coef_repr.coef_label_list_) {}
 
+  CoefRepr(CoefRepr&& coef_repr ) :
+      coef_label_list_(std::move( coef_repr.coef_label_list_ )) {}
+
   CoefRepr &operator=(const CoefRepr &rhs) {
     coef_label_list_ = rhs.coef_label_list_;
+    return *this;
+  }
+
+  CoefRepr& operator=(CoefRepr&& rhs) {
+    coef_label_list_ = std::move( rhs.coef_label_list_ );
     return *this;
   }
 
@@ -414,7 +422,7 @@ public:
     CoefReprVec cmb_coefs;
     cmb_coefs.reserve( row_idx );
     for (size_t x = 0; x < row_idx; ++x) {
-      cmb_coefs.push_back(CalcRowOverlap_(row, x));
+      cmb_coefs.emplace_back(CalcRowOverlap_(row, x));
     }
     return cmb_coefs;
   }
@@ -424,7 +432,7 @@ public:
     CoefReprVec cmb_coefs;
     cmb_coefs.reserve(col_idx);
     for (size_t y = 0; y < col_idx; ++y) {
-      cmb_coefs.push_back(CalcColOverlap_(col, y));
+      cmb_coefs.emplace_back(CalcColOverlap_(col, y));
     }
     return cmb_coefs;
   }
@@ -474,19 +482,19 @@ private:
         } else {
           std::pair<CoefRepr, OpRepr> tgt_coef_and_base_op = SeparateCoefAndBase(tgt_op);
           if (tgt_coef_and_base_op.second == base_op) {
-            poss_overlaps.push_back(tgt_coef_and_base_op.first);
+            poss_overlaps.emplace_back(tgt_coef_and_base_op.first);
           } else {
+            return kNullCoefRepr;
+          }
+        }
+        if ( poss_overlaps.size() > 1 ) {
+          if( poss_overlaps.back() != poss_overlaps[0] ) {
             return kNullCoefRepr;
           }
         }
       }
     }
     if (poss_overlaps.empty()) { return kNullCoefRepr; }
-    for (auto &poss_overlap : poss_overlaps) {
-      if (poss_overlap != poss_overlaps[0]) {
-        return kNullCoefRepr;
-      }
-    }
     return poss_overlaps[0];
   }
 
@@ -503,19 +511,19 @@ private:
         } else {
           auto tgt_coef_and_base_op = SeparateCoefAndBase(tgt_op);
           if (tgt_coef_and_base_op.second == base_op) {
-            poss_overlaps.push_back(tgt_coef_and_base_op.first);
+            poss_overlaps.emplace_back(tgt_coef_and_base_op.first);
           } else {
+            return kNullCoefRepr;
+          }
+        }
+        if ( poss_overlaps.size() > 1 ) {
+          if( poss_overlaps.back() != poss_overlaps[0] ) {
             return kNullCoefRepr;
           }
         }
       }
     }
     if (poss_overlaps.empty()) { return kNullCoefRepr; }
-    for (auto &poss_overlap : poss_overlaps) {
-      if (poss_overlap != poss_overlaps[0]) {
-        return kNullCoefRepr;
-      }
-    }
     return poss_overlaps[0];
   }
 };
@@ -689,32 +697,31 @@ inline OpReprVec CalcSparOpReprMatColLinCmb(
 inline void SparOpReprMatRowDelinearize(
     SparOpReprMat &target, SparOpReprMat &follower) {
   auto row_num = target.rows;
-  size_t i;
-  for (i = 1; i < row_num; ++i) {
+  SparCoefReprMat trans_mat(row_num, row_num);
+  trans_mat.Reserve( row_num * row_num );
+  size_t deleted_row_size = 0;
+  trans_mat.SetElem(0, 0, kIdCoefRepr);
+
+  //Find linearlization rows,  remove the rows, and construct transition matrix
+  for (size_t i = 1; i < row_num; ++i) {
     auto cmb = target.CalcRowLinCmb(i);
     if (CalcSparOpReprMatRowLinCmb(target, cmb) == target.GetRow(i)) {
-      // Remove the row.
       target.RemoveRow(i);
-      // Construct transform matrix.
-      SparCoefReprMat trans_mat(row_num, row_num-1);
-      trans_mat.Reserve( row_num + i );
+      row_num = row_num - 1;
+      trans_mat.RemoveCol( trans_mat.cols - 1 );//remove the last cols
       for (size_t j = 0; j < i; ++j) {
-        trans_mat.SetElem(j, j, kIdCoefRepr);
+        trans_mat.SetElem(i + deleted_row_size, j, cmb[j]);
       }
-      for (size_t j = 0; j < i; ++j) {
-        trans_mat.SetElem(i, j, cmb[j]);
-      }
-      for (size_t j = i+1; j < row_num; ++j) {
-        trans_mat.SetElem(j, j-1, kIdCoefRepr);
-      }
-      // Calculate new follower.
-      follower = SparOpReprMatSparCoefReprMatIncompleteMulti(
-                     follower, trans_mat);
-      break;
+      i--;
+      deleted_row_size++;
+    }else{
+      trans_mat.SetElem(i + deleted_row_size, i, kIdCoefRepr);
     }
   }
-  if (i < row_num) {
-    SparOpReprMatRowDelinearize(target, follower);
+  // Calculate new follower.
+  if (trans_mat.cols < trans_mat.rows) {
+    follower = SparOpReprMatSparCoefReprMatIncompleteMulti(
+                follower, trans_mat);
   }
 }
 
@@ -724,32 +731,31 @@ inline void SparOpReprMatRowDelinearize(
 inline void SparOpReprMatColDelinearize(
     SparOpReprMat &target, SparOpReprMat &follower) {
   auto col_num = target.cols;
-  size_t i;
-  for (i = 1; i < col_num; ++i) {
+  SparCoefReprMat trans_mat(col_num, col_num);
+  trans_mat.Reserve(col_num * col_num);
+  size_t deleted_col_size = 0;
+  trans_mat.SetElem(0, 0, kIdCoefRepr);
+  //Find linearlization cols,  remove the cols, and construct transition matrix
+  for (size_t i = 1; i < col_num; ++i) {
     auto cmb = target.CalcColLinCmb(i);
     if (CalcSparOpReprMatColLinCmb(target, cmb) == target.GetCol(i)) {
       // Remove the col.
       target.RemoveCol(i);
-      // Construct transform matrix.
-      SparCoefReprMat trans_mat(col_num-1, col_num);
-      trans_mat.Reserve(col_num + i);
+      col_num = col_num - 1;
+      trans_mat.RemoveRow( trans_mat.rows - 1 );//remove the last row
       for (size_t j = 0; j < i; ++j) {
-        trans_mat.SetElem(j, j, kIdCoefRepr);
+        trans_mat.SetElem(j, i + deleted_col_size, cmb[j]);
       }
-      for (size_t j = 0; j < i; ++j) {
-        trans_mat.SetElem(j, i, cmb[j]);
-      }
-      for (size_t j = i+1; j < col_num; ++j) {
-        trans_mat.SetElem(j-1, j, kIdCoefRepr);
-      }
-      // Calculate new follower.
-      follower = SparCoefReprMatSparOpReprMatIncompleteMulti(
-                     trans_mat, follower);
-      break;
+      i--;
+      deleted_col_size++;
+    }else{
+      trans_mat.SetElem(i, i + deleted_col_size, kIdCoefRepr);
     }
   }
-  if (i < col_num) {
-    SparOpReprMatColDelinearize(target, follower);
+  // Calculate new follower.
+  if( trans_mat.rows < trans_mat.cols ){
+    follower = SparCoefReprMatSparOpReprMatIncompleteMulti(
+            trans_mat, follower);
   }
 }
 
