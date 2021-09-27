@@ -186,10 +186,7 @@ int main(){
       RemoveFolder(sweep_params1.temp_path);
     }
     TwoSiteFiniteVMPS(dmps, dmpo, sweep_params1);
-    std::cout << " work good for single processor vmps. "<< std::endl;
   }
-
-
 
 
   auto sweep_params = TwoSiteMPIVMPSSweepParams(
@@ -201,6 +198,36 @@ int main(){
   double e0 = TwoSiteFiniteVMPS(dmps, dmpo,sweep_params, world);
   
   
+  if(world.rank() == 0 ){
+    std::cout << "e0 = " << e0 << std::endl;
+    EXPECT_NEAR(e0, -10.264281906484872, 1e-5);
+    RemoveFolder(sweep_params.mps_path);
+    RemoveFolder(sweep_params.temp_path);
+  }
+
+  //Complex case
+  auto zmpo_gen = MPOGenerator<GQTEN_Complex, U1QN>(zsite_vec_2d, qn0);
+
+  for (auto &p : nn_pairs) {
+    zmpo_gen.AddTerm(1,   {zsz, zsz}, {p.first, p.second});
+    zmpo_gen.AddTerm(0.5, {zsp, zsm}, {p.first, p.second});
+    zmpo_gen.AddTerm(0.5, {zsm, zsp}, {p.first, p.second});
+  }
+  auto zmpo = zmpo_gen.Gen();
+
+  DirectStateInitMps(zmps, stat_labs);
+  if(world.rank() == 0){
+    zmps.Dump(sweep_params1.mps_path, true);
+    if (IsPathExist(sweep_params1.temp_path)){
+      RemoveFolder(sweep_params1.temp_path);
+    }
+    TwoSiteFiniteVMPS(zmps, zmpo, sweep_params1);
+  }
+
+
+  e0 = TwoSiteFiniteVMPS(zmps, zmpo,sweep_params, world);
+
+
   if(world.rank() == 0 ){
     std::cout << "e0 = " << e0 << std::endl;
     EXPECT_NEAR(e0, -10.264281906484872, 1e-5);

@@ -320,66 +320,77 @@ GQTEN_Double master_two_site_eff_ham_mul_state(
   //prepare
   const size_t split_idx = 2;
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
-  const size_t task_num = splited_index.GetQNSctNum();//total task number
+  const size_t task_size = splited_index.GetQNSctNum();//total task number
   const QNSectorVec<QNT>& split_qnscts = splited_index.GetQNScts();
   std::vector<TenT> res_list;
-  res_list.reserve(task_num);
-  const size_t slave_num = world.size() - 1 ; //total number of slaves
-  ///< TODO: support other cases
-  assert(task_num > 2*slave_num);
-  //$1
-
+  res_list.reserve(task_size);
+  const size_t slave_size = world.size() - 1 ; //total number of slaves
   TenT res_shell = TenT( state->GetIndexes() );
-  std::vector<size_t> arraging_tasks(task_num);
-  std::vector<size_t> task_difficuty(task_num);
-  std::iota(arraging_tasks.begin(), arraging_tasks.end(), slave_num );
-  for(size_t i = 0;i<task_num;i++){
+  std::vector<size_t> arraging_tasks(task_size);
+  std::vector<size_t> task_difficuty(task_size);
+  std::iota(arraging_tasks.begin(), arraging_tasks.end(), slave_size );
+  for(size_t i = 0;i<task_size;i++){
     task_difficuty[i] = split_qnscts[i].GetDegeneracy();
   }
-
-  //I don't know if sort function permits end()<=begin(), although the case almostly cannot occur.
-  std::partial_sort(arraging_tasks.begin(), 
-                   arraging_tasks.begin()+slave_num,
-                   arraging_tasks.end()-slave_num, 
-    [&task_difficuty](size_t task1, size_t task2){
-      return task_difficuty[task1] > task_difficuty[task2];
-       });
-  //TODO: add support for multithread, note mpi::environment env( mt::multiple ) outside
-  // Also note omp order, maybe need non-block communication
-  //if task_num > slave_num:
-  //below for loop dispatch tasks from slave_num to task_num-1,
-  //from task_num to (slave_num+task_num-1), master informs every slave that the jobs are finished.
-
-  //if task_num <= slave_num, master informs every working slave that the jobs are finished.
-  //$2
-  // for(size_t task = slave_num; task < slave_num+task_num ; task++){
-  for(size_t i = 0; i<task_num;i++){
-    if(i == slave_num){ //when arraged the most large slave_num jobs, sort the other work
-      std::sort(arraging_tasks.begin()+slave_num, 
-                   arraging_tasks.end()-slave_num, 
-          [&task_difficuty](size_t task1, size_t task2){
-              return task_difficuty[task1] > task_difficuty[task2];
-              });
-      for(size_t j = i; j<task_num;j++){
+  if(task_size > 2*slave_size){
+    std::partial_sort(arraging_tasks.begin(),
+                      arraging_tasks.begin()+slave_size,
+                      arraging_tasks.end()-slave_size,
+                      [&task_difficuty](size_t task1, size_t task2){
+                        return task_difficuty[task1] > task_difficuty[task2];
+                      });
+    //TODO: add support for multithread, note mpi::environment env( mt::multiple ) outside
+    //      Also note omp order, maybe need non-block communication
+    for(size_t i = 0; i<task_size;i++){
+      if(i == slave_size){ //when arraged the most large slave_size jobs, sort the other work
+        std::sort(arraging_tasks.begin()+slave_size,
+                  arraging_tasks.end()-slave_size,
+                  [&task_difficuty](size_t task1, size_t task2){
+                    return task_difficuty[task1] > task_difficuty[task2];
+                  });
+        for(size_t j = i; j<task_size;j++){
+          res_list.push_back( res_shell );
+        }
+      }else{
         res_list.push_back( res_shell );
       }
-    }else{
-      res_list.push_back( res_shell );
+      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
     }
-    // mpi::status recv_status=recv_gqten(world, mpi::any_source, mpi::any_tag, res_list.back());
-    auto& bsdt = res_list[i].GetBlkSparDataTen();
-    mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
-    int slave_identifier = recv_status.source();
-    world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+  }else if(task_size > slave_size){
+    std::sort(arraging_tasks.begin(),
+              arraging_tasks.end() - slave_size,
+              [&task_difficuty](size_t task1, size_t task2){
+                return task_difficuty[task1] > task_difficuty[task2];
+              });
+    for(size_t i = 0; i < task_size; i++){
+      res_list.push_back( res_shell );
+      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+    }
+  }else{
+    for(size_t i = 0; i < task_size; i++){
+      res_list.push_back( res_shell );
+      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+    }
   }
+
   GQTEN_Double overlap(0.0), overlap_sub;
-  for(size_t i = 0; i< std::min(task_num, slave_num) ;i++){
+  for(size_t i = 0; i< std::min(task_size, slave_size) ;i++){
     int slave_identifier = i+1;
     int all_final_signal = -1;
-    world.send(slave_identifier, 3*slave_identifier+task_num, all_final_signal);
-    world.recv(slave_identifier, 4*slave_identifier+task_num, overlap_sub);
+    world.send(slave_identifier, 3*slave_identifier+task_size, all_final_signal);
+    world.recv(slave_identifier, 4*slave_identifier+task_size, overlap_sub);
     overlap += overlap_sub;
   }
+
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer sum_state_timer(" parallel_summation_reduce");
 #endif
