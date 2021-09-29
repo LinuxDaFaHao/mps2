@@ -14,7 +14,7 @@
          1. Find the left/right boundaries, only between which the tensors need to be update.
             Also make sure the bond dimensions of tensors out of boundaries are sufficient large.
             Move the centre on the left_boundary+1 site (Assuming the before the centre <= left_boundary+1)
-         2. Check if .temp exsits, if exsits, check if temp tensors are complete. 
+         2. Check if .temp exsits, if exsits, check if temp tensors are complete.
             if one of above if is not, regenerate the environment.
          3. Generate the environment of boundary tensors
 */
@@ -50,20 +50,20 @@ void UpdateBoundaryEnvs(
 );
 
 inline bool NeedGenerateRightEnvs(
-  const size_t N, //mps size
-  const size_t left_boundary,
-  const size_t right_boundary,
-  const std::string& temp_path
+    const size_t N, //mps size
+    const size_t left_boundary,
+    const size_t right_boundary,
+    const std::string& temp_path
 );
 
 
 template <typename TenElemT, typename QNT>
 std::pair<size_t,size_t> FiniteVMPSInit(
-  FiniteMPS<TenElemT, QNT> &mps,
-  const MPO<GQTensor<TenElemT, QNT>> &mpo,
-  const SweepParams &sweep_params
+    FiniteMPS<TenElemT, QNT> &mps,
+    const MPO<GQTensor<TenElemT, QNT>> &mpo,
+    const SweepParams &sweep_params
 ){
-  
+
   std::cout << "\n";
   std::cout << "=====> Sweep Parameters <=====" << "\n";
   std::cout << "MPS/MPO size: \t " << mpo.size() << "\n";
@@ -76,21 +76,21 @@ std::pair<size_t,size_t> FiniteVMPSInit(
 
   std::cout << "=====> Technical Parameters <=====" << "\n";
   std::cout << "The number of threads: \t" << hp_numeric::GetTensorManipulationThreads() <<"\n";
-  
+
   std::cout << "=====> Checking and updating boundary tensors =====>" << std::endl;
   using Tensor = GQTensor<TenElemT, QNT>;
   auto [left_boundary, right_boundary] = CheckAndUpdateBoundaryMPSTensors(
-     mps,
-     sweep_params.mps_path,
-     sweep_params.Dmax
+      mps,
+      sweep_params.mps_path,
+      sweep_params.Dmax
   );
-   
+
   if(NeedGenerateRightEnvs(
-      mpo.size(), 
+      mpo.size(),
       left_boundary,
       right_boundary,
       sweep_params.temp_path )
-  ){
+      ){
     std::cout << "=====> Creating the environment tensors =====>" << std::endl;
     InitEnvs(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, left_boundary+2 );
   }else {
@@ -99,7 +99,7 @@ std::pair<size_t,size_t> FiniteVMPSInit(
 
   //update the left env of left_boundary site and right env of right_boundary site
   UpdateBoundaryEnvs(mps, mpo, sweep_params.mps_path,
-                    sweep_params.temp_path, left_boundary, right_boundary, 2 );
+                     sweep_params.temp_path, left_boundary, right_boundary, 2 );
   return std::make_pair(left_boundary, right_boundary);
 }
 
@@ -108,11 +108,11 @@ std::pair<size_t,size_t> FiniteVMPSInit(
  *
  * This function makes sure the bond dimension
  * of tensors near ends are sufficiently large. If the bond dimension is not sufficient,
- * the tensor will replaced by combiner, and one more contract to make sure the mps is 
+ * the tensor will replaced by combiner, and one more contract to make sure the mps is
  * not changed. Left/right cannonicalization condition of tensors on each sides
- * are also promised in this procedure, so that the later vmps only need doing between 
+ * are also promised in this procedure, so that the later vmps only need doing between
  * left and right boundary.
- * The first tensors that need to be truncate gives the left boundary and 
+ * The first tensors that need to be truncate gives the left boundary and
  * right boundary.
  *
  * Thus a design is for comptiblity with other vmps function's results. (2021-08-27)
@@ -133,13 +133,13 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
   assert(mps.empty());
   //TODO: check if central file, add this function to the friend of FiniteMPS
   using TenT = GQTensor<TenElemT, QNT>;
-  
+
   using std::cout;
   using std::endl;
   size_t N = mps.size();
   size_t left_boundary(0);  //the most left site which needs to update.
   size_t right_boundary(0); //the most right site which needs to update
-  
+
   size_t left_middle_site, right_middle_site;
   if(N%2==0){
     left_middle_site = N/2-1;
@@ -161,44 +161,41 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
 
     TenT& mps_ten = mps[i];
     ShapeT mps_ten_shape = mps_ten.GetShape();
-    if(mps_ten_shape[0]*mps_ten_shape[1]>Dmax ){
-        left_boundary = i;
-        break;
-    }else if(mps_ten_shape[0]*mps_ten_shape[1]>mps_ten_shape[2]){
-        GQTenIndexDirType new_dir = mps_ten.GetIndexes()[2].GetDir();
-        Index<QNT> index_0 = mps_ten.GetIndexes()[0];
-        Index<QNT> index_1 = mps_ten.GetIndexes()[1];
+    if (mps_ten_shape[0] * mps_ten_shape[1] > Dmax ) {
+      left_boundary = i;
+      break;
+    }else if (mps_ten_shape[0] * mps_ten_shape[1] > mps_ten_shape[2]) {
+      GQTenIndexDirType new_dir = mps_ten.GetIndexes()[2].GetDir();
+      Index<QNT> index_0 = mps_ten.GetIndexes()[0];
+      Index<QNT> index_1 = mps_ten.GetIndexes()[1];
 
-        TenT index_combiner_for_fuse = IndexCombine<TenElemT,QNT>(
-                                    InverseIndex(index_0),
-                                    InverseIndex(index_1),
-                                    IN
-        );
-        TenT ten_tmp;
-        Contract(&index_combiner_for_fuse, &mps_ten, {{0,1},{0,1}},&ten_tmp);
-        mps_ten = std::move(ten_tmp);
+      TenT index_combiner_for_fuse = IndexCombine<TenElemT,QNT>(
+          InverseIndex(index_0),
+          InverseIndex(index_1),
+          IN
+      );
+      TenT ten_tmp;
+      Contract(&index_combiner_for_fuse, &mps_ten, {{0,1},{0,1}},&ten_tmp);
+      TenT mps_next_tmp;
+      Contract(&ten_tmp, mps(i+1),{{1},{0}}, &mps_next_tmp );
+      mps[i+1] = std::move(mps_next_tmp);
 
-        TenT index_combiner =  IndexCombine<TenElemT,QNT>(
-                                index_0,
-                                index_1,
-                                new_dir
-                                );
-        
-        assert(mps[i].GetIndexes()[0] == InverseIndex( index_combiner.GetIndexes()[2] ) );
-        TenT mps_next_tmp;
-        Contract(mps(i), mps(i+1),{{1},{0}}, &mps_next_tmp );
-        mps[i+1] = std::move(mps_next_tmp);
-        mps[i] = std::move(index_combiner);
+      mps[i] = std::move(IndexCombine<TenElemT,QNT>(
+          index_0,
+          index_1,
+          new_dir
+      ) );
+      assert(ten_tmp.GetIndexes()[0] == InverseIndex( mps[i].GetIndexes()[2] ) );
     }
     if(i == left_middle_site-1){
-        left_boundary = i;
+      left_boundary = i;
     }
   }
-  
+
   for(size_t i=0;i<=left_boundary+1;i++){
-      mps.DumpTen(i, GenMPSTenName(mps_path, i), true);
+    mps.DumpTen(i, GenMPSTenName(mps_path, i), true);
   }
-  
+
   //Right Side
   mps.LoadTen(N-1, GenMPSTenName(mps_path, N-1));
   for(size_t i=N-1;i>right_middle_site;i--){
@@ -208,19 +205,19 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
     TenT& mps_ten = mps[i];
     ShapeT mps_ten_shape = mps_ten.GetShape();
     if(mps_ten_shape[1]*mps_ten_shape[2]>Dmax){
-        right_boundary = i;
-        break;
+      right_boundary = i;
+      break;
     }else if(mps_ten_shape[1]*mps_ten_shape[2]>mps_ten_shape[0]){
-        TenT index_combiner = IndexCombine<TenElemT,QNT>(
-                mps[i].GetIndexes()[1],
-                mps[i].GetIndexes()[2],
-                mps[i].GetIndexes()[0].GetDir()
-                );
-        index_combiner.Transpose({2,0,1});
-        mps[i].FuseIndex(1,2);
-        assert(mps[i].GetIndexes()[0] == InverseIndex( index_combiner.GetIndexes()[0] ) );
-        InplaceContract(mps(i-1), mps(i),{{2},{1}});
-        mps[i] = std::move(index_combiner);
+      TenT index_combiner = IndexCombine<TenElemT,QNT>(
+          mps[i].GetIndexes()[1],
+          mps[i].GetIndexes()[2],
+          mps[i].GetIndexes()[0].GetDir()
+      );
+      index_combiner.Transpose({2,0,1});
+      mps[i].FuseIndex(1,2);
+      assert(mps[i].GetIndexes()[0] == InverseIndex( index_combiner.GetIndexes()[0] ) );
+      InplaceContract(mps(i-1), mps(i),{{2},{1}});
+      mps[i] = std::move(index_combiner);
     }
 
     if(i ==right_middle_site+1 ){
@@ -228,7 +225,7 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
     }
   }
   for(size_t i=N-1;i>=right_boundary-1;i--){
-      mps.DumpTen(i, GenMPSTenName(mps_path, i), true);
+    mps.DumpTen(i, GenMPSTenName(mps_path, i), true);
   }
 
   assert(mps.empty());
@@ -241,25 +238,25 @@ std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(
   If no temp_path, it will be generate by the way.
 */
 inline bool NeedGenerateRightEnvs(
-  const size_t N, //mps size
-  const size_t left_boundary,
-  const size_t right_boundary,
-  const std::string& temp_path
+    const size_t N, //mps size
+    const size_t left_boundary,
+    const size_t right_boundary,
+    const std::string& temp_path
 ){
-if (IsPathExist(temp_path)) {
-   for(size_t env_num = (N-1)-right_boundary; env_num <= (N-1) - (left_boundary+1); env_num++ ){
-     std::string file = GenEnvTenName("r", env_num, temp_path);
-    if( access( file.c_str(), 4) != 0){
-      std::cout << "Lost file" << file << "." << "\n";
-      return true;
+  if (IsPathExist(temp_path)) {
+    for(size_t env_num = (N-1)-right_boundary; env_num <= (N-1) - (left_boundary+1); env_num++ ){
+      std::string file = GenEnvTenName("r", env_num, temp_path);
+      if( access( file.c_str(), 4) != 0){
+        std::cout << "Lost file" << file << "." << "\n";
+        return true;
+      }
     }
-   }
-   return false;
-}else{
-  std::cout << "No temp path " << temp_path << "\n";
-  CreatPath(temp_path);
-  return true;
-}
+    return false;
+  }else{
+    std::cout << "No temp path " << temp_path << "\n";
+    CreatPath(temp_path);
+    return true;
+  }
 }
 
 /** UpdateBoundaryEnvs
@@ -295,7 +292,7 @@ void UpdateBoundaryEnvs(
 
   //bulk right environment tensors
   for (size_t i = 1; i <= N - right_boundary - 1; ++i) {
-    mps.LoadTen(N-i, GenMPSTenName(mps_path, N-i)); 
+    mps.LoadTen(N-i, GenMPSTenName(mps_path, N-i));
     TenT temp1;
     Contract(&mps[N-i], &renv, {{2}, {0}}, &temp1);
     renv = TenT();
@@ -333,7 +330,7 @@ void UpdateBoundaryEnvs(
   mps.dealloc(0);
   std::cout << "left boundary = " << left_boundary <<std::endl;
   for (size_t i = 0; i < left_boundary; ++i) {
-    mps.LoadTen(i, GenMPSTenName(mps_path, i)); 
+    mps.LoadTen(i, GenMPSTenName(mps_path, i));
     TenT temp1;
     Contract(&mps[i], &lenv, {{0}, {0}}, &temp1);
     lenv = TenT();

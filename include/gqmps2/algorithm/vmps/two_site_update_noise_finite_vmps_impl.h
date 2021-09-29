@@ -49,8 +49,8 @@ inline double MeasureEE(const DTenT &s, const size_t sdim);
 
 template <typename TenElemT, typename QNT>
 std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(FiniteMPS<TenElemT, QNT> &,
-                                                            const std::string&,
-                                                            const size_t);
+                                                          const std::string&,
+                                                          const size_t);
 
 template <typename TenElemT, typename QNT>
 void UpdateBoundaryEnvs(
@@ -83,47 +83,47 @@ bool IsQNCovered(const QNSectorVec<QNT>&, const QNSectorVec<QNT>&);
  @note The canonical center of MPS should be set at around left side
 */
 template <typename TenElemT, typename QNT>
-GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of SweepParams 
+GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of SweepParams
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
     TwoSiteVMPSSweepParams &sweep_params
 ){
-    assert(mps.size() == mpo.size());
+  assert(mps.size() == mpo.size());
 
-    std::cout << "\n";
-    std::cout << "***** Two-Site Noised Update VMPS Program *****" << "\n";
-    auto [left_boundary, right_boundary] = FiniteVMPSInit(mps, mpo, (SweepParams)sweep_params);
+  std::cout << "\n";
+  std::cout << "***** Two-Site Noised Update VMPS Program *****" << "\n";
+  auto [left_boundary, right_boundary] = FiniteVMPSInit(mps, mpo, (SweepParams)sweep_params);
 
-    std::cout << "Preseted noises: \t[";
-    for(size_t i = 0; i < sweep_params.noises.size(); i++){
-      std::cout << sweep_params.noises[i];
-      if (i!=sweep_params.noises.size()-1) {
-        std::cout << ", ";
-      } else {
-        std::cout << "]" << std::endl;
-      }
+  std::cout << "Preseted noises: \t[";
+  for(size_t i = 0; i < sweep_params.noises.size(); i++){
+    std::cout << sweep_params.noises[i];
+    if (i!=sweep_params.noises.size()-1) {
+      std::cout << ", ";
+    } else {
+      std::cout << "]" << std::endl;
     }
-    GQTEN_Double e0;
+  }
+  GQTEN_Double e0;
 
-    
-    if (sweep_params.noises.size() == 0) { sweep_params.noises.push_back(0.0); }
-    double noise_start;
-    mps.LoadTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary));
-    mps.LoadTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1));
-    for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
-      if ((sweep - 1) < sweep_params.noises.size()) {
-        noise_start = sweep_params.noises[sweep-1];
-      }
-      std::cout << "sweep " << sweep << std::endl;
-      Timer sweep_timer("sweep");
-      e0 = TwoSiteFiniteVMPSSweep(mps, mpo, sweep_params, 
+
+  if (sweep_params.noises.size() == 0) { sweep_params.noises.push_back(0.0); }
+  double noise_start;
+  mps.LoadTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary));
+  mps.LoadTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1));
+  for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
+    if ((sweep - 1) < sweep_params.noises.size()) {
+      noise_start = sweep_params.noises[sweep-1];
+    }
+    std::cout << "sweep " << sweep << std::endl;
+    Timer sweep_timer("sweep");
+    e0 = TwoSiteFiniteVMPSSweep(mps, mpo, sweep_params,
                                 left_boundary, right_boundary, noise_start);
-      sweep_timer.PrintElapsed();
-      std::cout << std::endl;
-    }
-    mps.DumpTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary), true);
-    mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
-    return e0;
+    sweep_timer.PrintElapsed();
+    std::cout << std::endl;
+  }
+  mps.DumpTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary), true);
+  mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
+  return e0;
 }
 
 
@@ -153,9 +153,9 @@ double TwoSiteFiniteVMPSSweep(//also a overload
   for (size_t i = left_boundary; i < right_boundary-1; ++i) {
     //The last two site [right_boudary-1, right_boundary] will update when sweep back
     LoadRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params, left_boundary);    // note: here we need mps[i](do not need load),
-                                                                            // mps[i+1](do not need load), mps[i+2](need load)
-                                                                            // lenvs[i](do not need load), and mps[i+1]'s renvs
-                                                                            // mps[i+1]'s renvs file can be removed
+    // mps[i+1](do not need load), mps[i+2](need load)
+    // lenvs[i](do not need load), and mps[i+1]'s renvs
+    // mps[i+1]'s renvs file can be removed
     actual_e0 = CalEnergyEptTwoSite(mps, mpo,lenvs, renvs, i, i+1);
     if ((actual_e0 - e0) <= 0.0) {
       // expand and truncate let the energy lower or not change
@@ -168,15 +168,15 @@ double TwoSiteFiniteVMPSSweep(//also a overload
       noise_running = std::min(noise_running*noise_increase, max_noise);
     }
     e0 = TwoSiteFiniteVMPSUpdate(
-             mps,
-             lenvs, renvs,
-             mpo,
-             sweep_params, 'r', i,
-             noise_running
-         );
+        mps,
+        lenvs, renvs,
+        mpo,
+        sweep_params, 'r', i,
+        noise_running
+    );
     actual_laststep_e0 = actual_e0;
     DumpRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params);    // note: here we need dump mps[i](free memory),
-                                                                              // lenvs[i+1](without free memory)
+    // lenvs[i+1](without free memory)
   }
 
   for (size_t i = right_boundary; i > left_boundary+1; --i) {
@@ -189,12 +189,12 @@ double TwoSiteFiniteVMPSSweep(//also a overload
       noise_running = std::min(noise_running * noise_increase, max_noise);
     }
     e0 = TwoSiteFiniteVMPSUpdate(
-             mps,
-             lenvs, renvs,
-             mpo,
-             sweep_params, 'l', i,
-             noise_running
-         );
+        mps,
+        lenvs, renvs,
+        mpo,
+        sweep_params, 'l', i,
+        noise_running
+    );
     actual_laststep_e0 = actual_e0;
     DumpRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'l', sweep_params);
   }
@@ -267,15 +267,15 @@ double TwoSiteFiniteVMPSUpdate(
   auto init_state = new TenT;
   Contract(&mps[lsite_idx], &mps[rsite_idx], init_state_ctrct_axes, init_state);
 #ifdef GQMPS2_TIMING_MODE
-   preprocessing_timer.PrintElapsed();
+  preprocessing_timer.PrintElapsed();
 #endif
-    // Lanczos
+  // Lanczos
   Timer lancz_timer("two_site_fvmps_lancz");
   auto lancz_res = LanczosSolver(
-                       eff_ham, init_state,
-                       &eff_ham_mul_two_site_state,
-                       sweep_params.lancz_params
-                   );//Note here init_state is deleted
+      eff_ham, init_state,
+      &eff_ham_mul_two_site_state,
+      sweep_params.lancz_params
+  );//Note here init_state is deleted
 #ifdef GQMPS2_TIMING_MODE
   auto lancz_elapsed_time = lancz_timer.PrintElapsed();
 #else
@@ -302,10 +302,10 @@ double TwoSiteFiniteVMPSUpdate(
     }else{
       std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
       fused_index1 = FuseTwoIndexAndRecordInfo(
-            mps[lsite_idx].GetIndexes()[0],
-            InverseIndex(mps[lsite_idx].GetIndexes()[1]),
-            qnscts_offset_info_list
-            );
+          mps[lsite_idx].GetIndexes()[0],
+          InverseIndex(mps[lsite_idx].GetIndexes()[1]),
+          qnscts_offset_info_list
+      );
       qnscts_left = &(fused_index1.GetQNScts());
     }
 
@@ -314,22 +314,22 @@ double TwoSiteFiniteVMPSUpdate(
     }else{
       std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
       fused_index2 = FuseTwoIndexAndRecordInfo(
-            mps[rsite_idx].GetIndexes()[1],
-            mps[rsite_idx].GetIndexes()[2],
-            qnscts_offset_info_list
-            );
+          mps[rsite_idx].GetIndexes()[1],
+          mps[rsite_idx].GetIndexes()[2],
+          qnscts_offset_info_list
+      );
       qnscts_right = &(fused_index2.GetQNScts());
     }
 
-    if( dir == 'r' && 
-        IsQNCovered(*qnscts_right, *qnscts_left) 
-      ){
-      noise = 0.0;            
+    if( dir == 'r' &&
+        IsQNCovered(*qnscts_right, *qnscts_left)
+        ){
+      noise = 0.0;
       need_expand= false;
-    }else if(dir == 'l' && 
+    }else if(dir == 'l' &&
         IsQNCovered(*qnscts_left, *qnscts_right)
-      ){
-      noise = 0.0;            
+        ){
+      noise = 0.0;
       need_expand= false;
     }
   }
@@ -489,16 +489,16 @@ void TwoSiteFiniteVMPSExpand(
     (*gs_vec) = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
     expansion_timer.PrintElapsed();
-    
+
     expansion_timer.ClearAndRestart();
 #endif
     size_t next_next_site = target_site + 2;
     auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
-                                 expanded_index,
-                                 mps[next_next_site].GetIndexes()[1],
-                                 mps[next_next_site].GetIndexes()[2]
-                             });
+                                      expanded_index,
+                                      mps[next_next_site].GetIndexes()[1],
+                                      mps[next_next_site].GetIndexes()[2]
+                                  });
     (*ten_tmp) = TenT();
     ExpandMC(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
     delete mps(next_next_site);
@@ -535,16 +535,16 @@ void TwoSiteFiniteVMPSExpand(
     *gs_vec = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
     expansion_timer.PrintElapsed();
-    
+
     expansion_timer.ClearAndRestart();
 #endif
 
     auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
-                                 mps[next_next_site].GetIndexes()[0],
-                                 mps[next_next_site].GetIndexes()[1],
-                                 expanded_index
-                             });
+                                      mps[next_next_site].GetIndexes()[0],
+                                      mps[next_next_site].GetIndexes()[1],
+                                      expanded_index
+                                  });
     *ten_tmp = TenT();
     ExpandMC(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
     delete mps(next_next_site);
@@ -721,7 +721,7 @@ double CalEnergyEptTwoSite(
  * if qnsectors1's qn set contains qnsectors2's qn set
  */
 template <typename QNT>
-bool IsQNCovered(const QNSectorVec<QNT>& qnsectors1, 
+bool IsQNCovered(const QNSectorVec<QNT>& qnsectors1,
                  const QNSectorVec<QNT>& qnsectors2){
   size_t size1( qnsectors1.size() ), size2( qnsectors2.size() );
   if(size1 < size2 ){
@@ -733,21 +733,21 @@ bool IsQNCovered(const QNSectorVec<QNT>& qnsectors1,
   for(const QNSector<QNT>& qnsector : qnsectors1){
     hash_set_of_qns_in_qnsectors1.push_back( qnsector.GetQn().Hash() );
   }
-  std::sort(hash_set_of_qns_in_qnsectors1.begin(), 
+  std::sort(hash_set_of_qns_in_qnsectors1.begin(),
             hash_set_of_qns_in_qnsectors1.end());
   for(const QNSector<QNT>& qnsector : qnsectors2){
     hash_set_of_qns_in_qnsectors2.push_back( qnsector.GetQn().Hash() );
   }
-  std::sort(hash_set_of_qns_in_qnsectors2.begin(), 
+  std::sort(hash_set_of_qns_in_qnsectors2.begin(),
             hash_set_of_qns_in_qnsectors2.end());
-  
+
   auto iter1 = hash_set_of_qns_in_qnsectors1.begin();
   auto iter2 = hash_set_of_qns_in_qnsectors2.begin();
   while(iter2 < hash_set_of_qns_in_qnsectors2.end()){
     if((*iter1) < (*iter2)){
       iter1++;
     }else if( (*iter1) == (*iter2) ){
-      iter1++; 
+      iter1++;
       iter2++;
     }else{
       return false;

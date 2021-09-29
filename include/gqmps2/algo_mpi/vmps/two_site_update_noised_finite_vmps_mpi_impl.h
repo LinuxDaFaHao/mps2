@@ -24,7 +24,7 @@
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
 #include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteMPINoisedVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     //MPI Lanczos solver  
+#include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     //MPI Lanczos solver
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl.h" //SlaveTwoSiteFiniteVMPS
 #include <thread>                                                       //thread
 
@@ -77,47 +77,47 @@ inline GQTEN_Double TwoSiteFiniteVMPS(
 
 template <typename TenElemT, typename QNT>
 GQTEN_Double MasterTwoSiteFiniteVMPS(
-  FiniteMPS<TenElemT, QNT> &mps,
-  const MPO<GQTensor<TenElemT, QNT>> &mpo,
-  TwoSiteMPINoisedVMPSSweepParams &sweep_params,
-  mpi::communicator world
+    FiniteMPS<TenElemT, QNT> &mps,
+    const MPO<GQTensor<TenElemT, QNT>> &mpo,
+    TwoSiteMPINoisedVMPSSweepParams &sweep_params,
+    mpi::communicator world
 ) {
-assert(mps.size() == mpo.size());
-std::cout << "***** Two-Site Noised Update VMPS Program (with MPI Parallel) *****" << "\n";
-MasterBroadcastOrder(program_start, world );
-auto [left_boundary, right_boundary]=TwoSiteFiniteVMPSInit(mps,mpo,(TwoSiteMPIVMPSSweepParams)sweep_params,world);
-std::cout << "Preseted noises: \t[";
-for(size_t i = 0; i < sweep_params.noises.size(); i++){
-  std::cout << sweep_params.noises[i];
-  if (i!=sweep_params.noises.size()-1) {
-    std::cout << ", ";
-  } else {
-    std::cout << "]" << std::endl;
+  assert(mps.size() == mpo.size());
+  std::cout << "***** Two-Site Noised Update VMPS Program (with MPI Parallel) *****" << "\n";
+  MasterBroadcastOrder(program_start, world );
+  auto [left_boundary, right_boundary]=TwoSiteFiniteVMPSInit(mps,mpo,(TwoSiteMPIVMPSSweepParams)sweep_params,world);
+  std::cout << "Preseted noises: \t[";
+  for(size_t i = 0; i < sweep_params.noises.size(); i++){
+    std::cout << sweep_params.noises[i];
+    if (i!=sweep_params.noises.size()-1) {
+      std::cout << ", ";
+    } else {
+      std::cout << "]" << std::endl;
+    }
   }
-}
-if (sweep_params.noises.empty()) { sweep_params.noises.push_back(0.0); }
-double e0(0.0);
-double noise;
-mps.LoadTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary));
-mps.LoadTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1));
-for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
-  if ((sweep - 1) < sweep_params.noises.size()) {
-    noise = sweep_params.noises[sweep-1];
+  if (sweep_params.noises.empty()) { sweep_params.noises.push_back(0.0); }
+  double e0(0.0);
+  double noise;
+  mps.LoadTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary));
+  mps.LoadTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1));
+  for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
+    if ((sweep - 1) < sweep_params.noises.size()) {
+      noise = sweep_params.noises[sweep-1];
+    }
+    std::cout << "sweep " << sweep << std::endl;
+    Timer sweep_timer("sweep");
+    e0 = TwoSiteFiniteVMPSSweep(mps, mpo, sweep_params,
+                                left_boundary, right_boundary,
+                                noise,  world);
+
+
+    sweep_timer.PrintElapsed();
+    std::cout << "\n";
   }
-  std::cout << "sweep " << sweep << std::endl;
-  Timer sweep_timer("sweep");
-  e0 = TwoSiteFiniteVMPSSweep(mps, mpo, sweep_params, 
-                            left_boundary, right_boundary,
-                            noise,  world);
-  
-  
-  sweep_timer.PrintElapsed();
-  std::cout << "\n";
-}
-mps.DumpTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary), true);
-mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
-MasterBroadcastOrder(program_final, world);
-return e0;
+  mps.DumpTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary), true);
+  mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
+  MasterBroadcastOrder(program_final, world);
+  return e0;
 }
 
 template <typename TenElemT, typename QNT>
@@ -138,78 +138,72 @@ double TwoSiteFiniteVMPSSweep(
   double e0;
   const size_t update_site_size = right_boundary - left_boundary -1;
   std::thread load_related_tens_thread;
-  std::thread* dump_related_tens_threads = new std::thread[update_site_size];
-  size_t thread_num = 0;
+  std::thread dump_related_tens_thread;
   LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(mps, lenvs, renvs, left_boundary, left_boundary, sweep_params);
   for (size_t i = left_boundary; i <= right_boundary - 2; ++i) {
     // Load to-be-used tensors
     if( i <  right_boundary - 2 ){
       load_related_tens_thread = std::thread(
-        LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving<TenElemT, QNT>,
-        std::ref(mps),
-        std::ref(lenvs),
-        std::ref(renvs),
-        i + 1, //note here is different,
-        left_boundary,
-        std::ref(sweep_params) 
+          LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving<TenElemT, QNT>,
+          std::ref(mps),
+          std::ref(lenvs),
+          std::ref(renvs),
+          i + 1, //note here is different,
+          left_boundary,
+          std::ref(sweep_params)
       );
     }
     // LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(mps, lenvs, renvs, i, left_boundary, sweep_params);
     e0 = MasterTwoSiteFiniteVMPSUpdate(mps, lenvs, renvs, mpo, sweep_params, 'r', i, noise,world);
     // Dump related tensor to HD and remove unused tensor from RAM
+    if( i > left_boundary ){
+      dump_related_tens_thread.join();
+    }
+    dump_related_tens_thread= std::thread(
+        DumpRelatedTensOnTwoSiteAlgWhenRightMoving<TenElemT, QNT>,
+        std::ref(mps),
+        std::ref(lenvs),
+        std::ref(renvs),
+        i,
+        std::ref(sweep_params_no_noise)
+    );
     if ( i < right_boundary - 2 ){
       load_related_tens_thread.join();
     }
-    dump_related_tens_threads[thread_num] = std::thread(
-      DumpRelatedTensOnTwoSiteAlgWhenRightMoving<TenElemT, QNT>,
-      std::ref(mps),
-      std::ref(lenvs),
-      std::ref(renvs),
-      i,
-      std::ref(sweep_params_no_noise)
-    );
-    thread_num++;
   }
-  // std::cout << "left_boundary = " << left_boundary << std::endl;
-  // std::cout << "right_boundary = " << right_boundary << std::endl;
-  // std::cout << "update_site_size = " << update_site_size << std::endl;
-  // std::cout << "now thread_num = " << thread_num << std::endl;
-  for(size_t i = 0; i < update_site_size; i++){
-    dump_related_tens_threads[i].join();
-  }
-  thread_num = 0;
+  dump_related_tens_thread.join();
+
   LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(mps, lenvs, renvs, right_boundary, right_boundary, sweep_params);
   for (size_t i = right_boundary; i >= left_boundary+2; --i) {
     if(i > left_boundary+2){
       load_related_tens_thread = std::thread(
-        LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving<TenElemT, QNT>,
-        std::ref(mps),
-        std::ref(lenvs),
-        std::ref(renvs),
-        i - 1, //note here is different,
-        right_boundary,
-        std::ref(sweep_params) 
+          LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving<TenElemT, QNT>,
+          std::ref(mps),
+          std::ref(lenvs),
+          std::ref(renvs),
+          i - 1, //note here is different,
+          right_boundary,
+          std::ref(sweep_params)
       );
     }
     // LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(mps, lenvs, renvs, i, right_boundary, sweep_params);
     e0 = MasterTwoSiteFiniteVMPSUpdate(mps, lenvs, renvs, mpo, sweep_params, 'l', i, noise, world);
+    if( i < right_boundary ) {
+      dump_related_tens_thread.join();
+    }
+    dump_related_tens_thread = std::thread(
+        DumpRelatedTensOnTwoSiteAlgWhenLeftMoving<TenElemT, QNT>,
+        std::ref(mps),
+        std::ref(lenvs),
+        std::ref(renvs),
+        i,
+        std::ref(sweep_params_no_noise)
+    );
     if(i > left_boundary+2){
       load_related_tens_thread.join();
     }
-    dump_related_tens_threads[thread_num] = std::thread(
-      DumpRelatedTensOnTwoSiteAlgWhenLeftMoving<TenElemT, QNT>,
-      std::ref(mps),
-      std::ref(lenvs),
-      std::ref(renvs),
-      i,
-      std::ref(sweep_params_no_noise)
-    );
-    thread_num++;
   }
-  for(size_t i = 0; i < update_site_size; i++){
-    dump_related_tens_threads[i].join();
-  }
-  delete[] dump_related_tens_threads;
+  dump_related_tens_thread.join();
   return e0;
 }
 
@@ -227,7 +221,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
     double noise,
     mpi::communicator& world
 ) {
-    //master
+  //master
   Timer update_timer("two_site_fvmps_update");
 #ifdef GQMPS2_TIMING_MODE
   Timer initialize_timer("two_site_fvmps_setup_and_initial_state");
@@ -267,7 +261,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
   eff_ham[1] = const_cast<TenT *>(&mpo[lsite_idx]);
   eff_ham[2] = const_cast<TenT *>(&mpo[rsite_idx]);
   eff_ham[3] = renvs(renv_len);
-  
+
 
   auto init_state = new TenT;
   Contract(&mps[lsite_idx], &mps[rsite_idx], init_state_ctrct_axes, init_state);
@@ -277,10 +271,10 @@ double MasterTwoSiteFiniteVMPSUpdate(
   Timer lancz_timer("two_site_fvmps_lancz");
   MasterBroadcastOrder(lanczos, world);
   auto lancz_res = MasterLanczosSolver(
-                       eff_ham, init_state,
-                       sweep_params.lancz_params,
-                       world
-                   );
+      eff_ham, init_state,
+      sweep_params.lancz_params,
+      world
+  );
 #ifdef GQMPS2_TIMING_MODE
   auto lancz_elapsed_time = lancz_timer.PrintElapsed();
 #else
@@ -302,10 +296,10 @@ double MasterTwoSiteFiniteVMPSUpdate(
     }else{
       std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
       fused_index1 = FuseTwoIndexAndRecordInfo(
-            mps[lsite_idx].GetIndexes()[0],
-            InverseIndex(mps[lsite_idx].GetIndexes()[1]),
-            qnscts_offset_info_list
-            );
+          mps[lsite_idx].GetIndexes()[0],
+          InverseIndex(mps[lsite_idx].GetIndexes()[1]),
+          qnscts_offset_info_list
+      );
       qnscts_left = &(fused_index1.GetQNScts());
     }
 
@@ -314,22 +308,22 @@ double MasterTwoSiteFiniteVMPSUpdate(
     }else{
       std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
       fused_index2 = FuseTwoIndexAndRecordInfo(
-            mps[rsite_idx].GetIndexes()[1],
-            mps[rsite_idx].GetIndexes()[2],
-            qnscts_offset_info_list
-            );
+          mps[rsite_idx].GetIndexes()[1],
+          mps[rsite_idx].GetIndexes()[2],
+          qnscts_offset_info_list
+      );
       qnscts_right = &(fused_index2.GetQNScts());
     }
 
-    if( dir == 'r' && 
-        IsQNCovered(*qnscts_right, *qnscts_left) 
-      ){
-      noise = 0.0;            
+    if( dir == 'r' &&
+        IsQNCovered(*qnscts_right, *qnscts_left)
+        ){
+      noise = 0.0;
       need_expand= false;
-    }else if(dir == 'l' && 
+    }else if(dir == 'l' &&
         IsQNCovered(*qnscts_left, *qnscts_right)
-      ){
-      noise = 0.0;            
+        ){
+      noise = 0.0;
       need_expand= false;
     }
   }
@@ -339,22 +333,22 @@ double MasterTwoSiteFiniteVMPSUpdate(
     if(dir=='r'){
       MasterBroadcastOrder(contract_for_right_moving_expansion, world);
       MasterTwoSiteFiniteVMPSRightMovingExpand(
-        mps, 
-        lancz_res.gs_vec,
-        eff_ham,
-        target_site,
-        noise,
-        world
+          mps,
+          lancz_res.gs_vec,
+          eff_ham,
+          target_site,
+          noise,
+          world
       );
     }else{
       MasterBroadcastOrder(contract_for_left_moving_expansion, world);
       MasterTwoSiteFiniteVMPSLeftMovingExpand(
-        mps, 
-        lancz_res.gs_vec,
-        eff_ham,
-        target_site,
-        noise,
-        world
+          mps,
+          lancz_res.gs_vec,
+          eff_ham,
+          target_site,
+          noise,
+          world
       );
     }
   }
@@ -458,29 +452,29 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(
 #ifdef GQMPS2_TIMING_MODE
   Timer preprocessing_timer("two_site_fvmps_preprocessing");
 #endif
-auto N = mps.size();
-if (target_site != left_boundary) {
-  mps.LoadTen(
-      target_site + 2,
-      GenMPSTenName(sweep_params.mps_path, target_site + 2)
-  );
-  auto renv_len = N - (target_site + 2);
-  auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-  renvs.LoadTen(renv_len, renv_file);
-  RemoveFile(renv_file);
-} else {
-  mps.LoadTen(
-      target_site + 2,
-      GenMPSTenName(sweep_params.mps_path, target_site + 2)
-  );
-  auto renv_len = (N - 1) - (target_site + 1);
-  auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-  renvs.LoadTen(renv_len, renv_file);
-  RemoveFile(renv_file);
-  auto lenv_len = target_site;
-  auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-  lenvs.LoadTen(lenv_len, lenv_file);
-}  
+  auto N = mps.size();
+  if (target_site != left_boundary) {
+    mps.LoadTen(
+        target_site + 2,
+        GenMPSTenName(sweep_params.mps_path, target_site + 2)
+    );
+    auto renv_len = N - (target_site + 2);
+    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
+    renvs.LoadTen(renv_len, renv_file);
+    RemoveFile(renv_file);
+  } else {
+    mps.LoadTen(
+        target_site + 2,
+        GenMPSTenName(sweep_params.mps_path, target_site + 2)
+    );
+    auto renv_len = (N - 1) - (target_site + 1);
+    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
+    renvs.LoadTen(renv_len, renv_file);
+    RemoveFile(renv_file);
+    auto lenv_len = target_site;
+    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
+    lenvs.LoadTen(lenv_len, lenv_file);
+  }
 #ifdef GQMPS2_TIMING_MODE
   preprocessing_timer.PrintElapsed();
 #endif
@@ -499,28 +493,28 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(
 #ifdef GQMPS2_TIMING_MODE
   Timer preprocessing_timer("two_site_fvmps_preprocessing");
 #endif
-const size_t N = mps.size();
-if (target_site != right_boundary) {
-  mps.LoadTen(
-      target_site - 2,
-      GenMPSTenName(sweep_params.mps_path, target_site - 2)
-  );
-  auto lenv_len = (target_site+1) - 2;
-  auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-  lenvs.LoadTen(lenv_len, lenv_file);
-  RemoveFile(lenv_file);
-} else {
-  mps.LoadTen(
-      target_site - 2,
-      GenMPSTenName(sweep_params.mps_path, target_site - 2)
-  );
-  auto renv_len = (N-1)-target_site;
-  auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-  renvs.LoadTen(renv_len, renv_file);
-  auto lenv_len = target_site - 1;
-  auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-  RemoveFile(lenv_file);
-}
+  const size_t N = mps.size();
+  if (target_site != right_boundary) {
+    mps.LoadTen(
+        target_site - 2,
+        GenMPSTenName(sweep_params.mps_path, target_site - 2)
+    );
+    auto lenv_len = (target_site+1) - 2;
+    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
+    lenvs.LoadTen(lenv_len, lenv_file);
+    RemoveFile(lenv_file);
+  } else {
+    mps.LoadTen(
+        target_site - 2,
+        GenMPSTenName(sweep_params.mps_path, target_site - 2)
+    );
+    auto renv_len = (N-1)-target_site;
+    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
+    renvs.LoadTen(renv_len, renv_file);
+    auto lenv_len = target_site - 1;
+    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
+    RemoveFile(lenv_file);
+  }
 #ifdef GQMPS2_TIMING_MODE
   preprocessing_timer.PrintElapsed();
 #endif
@@ -568,17 +562,17 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
   Index<QNT> index_a = gs_vec->GetIndexes()[3];
   std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
   Index<QNT> index_b = FuseTwoIndexAndRecordInfo(
-            index_a,
-            eff_ham[2]->GetIndexes()[3],
-            qnscts_offset_info_list
-            );
+      index_a,
+      eff_ham[2]->GetIndexes()[3],
+      qnscts_offset_info_list
+  );
   std::map<size_t, int> b_idx_qnsct_coor_expanded_idx_qnsct_coor_map;
   ten_tmp_indexes[0] = ExpandIndexMCAndRecordInfo(
-            index_a,
-            index_b,
-            b_idx_qnsct_coor_expanded_idx_qnsct_coor_map
+      index_a,
+      index_b,
+      b_idx_qnsct_coor_expanded_idx_qnsct_coor_map
   );
-  
+
   TenT ten_tmp_shell = TenT(ten_tmp_indexes);
   for(size_t j = 0; j<task_size;j++){
     res_list.push_back( ten_tmp_shell );
@@ -590,10 +584,10 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
     }
     std::vector<size_t> arraging_tasks(task_size-slave_size);
     std::iota(arraging_tasks.begin(), arraging_tasks.end(), slave_size );
-    std::sort(arraging_tasks.begin(), 
-                   arraging_tasks.end(), 
-          [&task_difficuty](size_t task1, size_t task2){
-              return task_difficuty[task1] > task_difficuty[task2];
+    std::sort(arraging_tasks.begin(),
+              arraging_tasks.end(),
+              [&task_difficuty](size_t task1, size_t task2){
+                return task_difficuty[task1] > task_difficuty[task2];
               });
     /*
     #pragma omp parallel default(none)\
@@ -612,7 +606,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
         auto& bsdt = res_list[i+slave_size].GetBlkSparDataTen();
         bsdt.MPIRecv(world, controlling_slave, arraging_tasks[i]);
       }
-      
+
       world.send(controlling_slave, 2*controlling_slave, 2*task_size);//finish signal
     }
     */
@@ -629,7 +623,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
       world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
     }
   }else{//slave_size >= task_size
-    #pragma omp parallel default(shared)\
+#pragma omp parallel default(shared)\
                         num_threads(task_size)
     {
       size_t controlling_slave = omp_get_thread_num() + 1;
@@ -660,16 +654,16 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
   (*gs_vec) = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
   expansion_timer.PrintElapsed();
-    
+
   expansion_timer.ClearAndRestart();
 #endif
   size_t next_next_site = target_site + 2;
   auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
   TenT expanded_zero_ten = TenT({
-                               expanded_index,
-                               mps[next_next_site].GetIndexes()[1],
-                               mps[next_next_site].GetIndexes()[2]
-                           });
+                                    expanded_index,
+                                    mps[next_next_site].GetIndexes()[1],
+                                    mps[next_next_site].GetIndexes()[2]
+                                });
   (*ten_tmp) = TenT();
   ExpandMC(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
   delete mps(next_next_site);
@@ -681,12 +675,12 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
 
 template <typename TenElemT, typename QNT>
 void SlaveTwoSiteFiniteVMPSRightMovingExpand(
-  const std::vector< GQTensor<TenElemT, QNT> *> &eff_ham,
-  boost::mpi::communicator& world
+    const std::vector< GQTensor<TenElemT, QNT> *> &eff_ham,
+    boost::mpi::communicator& world
 ){
   using TenT = GQTensor<TenElemT, QNT>;
   TenT ground_state;
-double noise;
+  double noise;
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer("expansion_broadcast_state_recv");
 #endif
@@ -718,14 +712,14 @@ double noise;
   TenT temp, res;
   //First contract
   TensorContraction1SectorExecutor<TenElemT, QNT> ctrct_executor(
-    eff_ham[0],
-    split_idx,
-    task,
-    &ground_state,
-    {{0},{0}},
-    &eff_ham0_times_state
+      eff_ham[0],
+      split_idx,
+      task,
+      &ground_state,
+      {{0},{0}},
+      &eff_ham0_times_state
   );
-  
+
   ctrct_executor.Execute();
 
   Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp);
@@ -737,7 +731,7 @@ double noise;
   ExpandMC(&state_shell, &res, {0},  &res1);
   res1 *= noise;
   res.GetBlkSparDataTen().Clear();
-  
+
   auto& bsdt = res1.GetBlkSparDataTen();
 #ifdef GQMPS2_MPI_TIMING_MODE
   task_count++;
@@ -761,17 +755,17 @@ double noise;
     ExpandMC(&state_shell, &res, {0},  &res1);
     res1 *= noise;
     res.GetBlkSparDataTen().Clear();
-    
+
     auto& bsdt = res1.GetBlkSparDataTen();
-  #ifdef GQMPS2_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
     task_count++;
     salve_communication_timer.Restart();
-  #endif 
+#endif
     bsdt.MPISend(world, kMasterRank, task);//tag = task
     world.recv(kMasterRank, 2*slave_identifier, task);
-  #ifdef GQMPS2_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
     salve_communication_timer.Suspend();
-  #endif
+#endif
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
@@ -779,8 +773,8 @@ double noise;
   std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
 #endif
 }
-  
-  
+
+
 template <typename TenElemT, typename QNT>
 void MasterTwoSiteFiniteVMPSLeftMovingExpand(
     FiniteMPS<TenElemT, QNT> &mps,
@@ -821,21 +815,21 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
   Index<QNT> index_a = gs_vec->GetIndexes()[0];
   std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
   Index<QNT> index_b = FuseTwoIndexAndRecordInfo(
-            index_a,
-            eff_ham[1]->GetIndexes()[0],
-            qnscts_offset_info_list
-            );
+      index_a,
+      eff_ham[1]->GetIndexes()[0],
+      qnscts_offset_info_list
+  );
   std::map<size_t, int> b_idx_qnsct_coor_expanded_idx_qnsct_coor_map;
   ten_tmp_indexes[0] = ExpandIndexMCAndRecordInfo(
-            index_a,
-            index_b,
-            b_idx_qnsct_coor_expanded_idx_qnsct_coor_map
+      index_a,
+      index_b,
+      b_idx_qnsct_coor_expanded_idx_qnsct_coor_map
   );
 
 
   TenT ten_tmp_shell = TenT(ten_tmp_indexes);
   for(size_t j = 0; j<task_size;j++){
-        res_list.push_back( ten_tmp_shell );
+    res_list.push_back( ten_tmp_shell );
   }
 
   if(slave_size < task_size){
@@ -845,10 +839,10 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
     }
     std::vector<size_t> arraging_tasks(task_size-slave_size);
     std::iota(arraging_tasks.begin(), arraging_tasks.end(), slave_size );
-    std::sort(arraging_tasks.begin(), 
-                   arraging_tasks.end(), 
-          [&task_difficuty](size_t task1, size_t task2){
-              return task_difficuty[task1] > task_difficuty[task2];
+    std::sort(arraging_tasks.begin(),
+              arraging_tasks.end(),
+              [&task_difficuty](size_t task1, size_t task2){
+                return task_difficuty[task1] > task_difficuty[task2];
               });
     /*
     #pragma omp parallel default(none)\
@@ -867,7 +861,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
         auto& bsdt = res_list[i+slave_size].GetBlkSparDataTen();
         bsdt.MPIRecv(world, controlling_slave, arraging_tasks[i]);
       }
-      
+
       world.send(controlling_slave, 2*controlling_slave, 2*task_size);//finish signal
     }
     */
@@ -884,7 +878,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
       world.send(slave_identifier, 2*slave_identifier, 2*task_size);//finish signal
     }
   }else{//slave_size >= task_size
-    #pragma omp parallel default(shared)\
+#pragma omp parallel default(shared)\
                         num_threads(task_size)
     {
       size_t controlling_slave = omp_get_thread_num() + 1;
@@ -912,16 +906,16 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
   *gs_vec = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
   expansion_timer.PrintElapsed();
-  
+
   expansion_timer.ClearAndRestart();
 #endif
 
   auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
   TenT expanded_zero_ten = TenT({
-                               mps[next_next_site].GetIndexes()[0],
-                               mps[next_next_site].GetIndexes()[1],
-                               expanded_index
-                           });
+                                    mps[next_next_site].GetIndexes()[0],
+                                    mps[next_next_site].GetIndexes()[1],
+                                    expanded_index
+                                });
   *ten_tmp = TenT();
   ExpandMC(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
   delete mps(next_next_site);
@@ -934,12 +928,12 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
 
 template <typename TenElemT, typename QNT>
 void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
-  const std::vector< GQTensor<TenElemT, QNT> *> &eff_ham,
-  boost::mpi::communicator& world
+    const std::vector< GQTensor<TenElemT, QNT> *> &eff_ham,
+    boost::mpi::communicator& world
 ){
   using TenT = GQTensor<TenElemT, QNT>;
   TenT ground_state;
-double noise;
+  double noise;
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer("expansion_broadcast_state_recv");
 #endif
@@ -970,14 +964,14 @@ double noise;
   TenT temp, res;
   //First contract
   TensorContraction1SectorExecutor<TenElemT, QNT> ctrct_executor(
-    eff_ham[3],
-    split_idx,
-    task,
-    &ground_state,
-    {{0},{3}},
-    &eff_ham0_times_state
+      eff_ham[3],
+      split_idx,
+      task,
+      &ground_state,
+      {{0},{3}},
+      &eff_ham0_times_state
   );
-  
+
   ctrct_executor.Execute();
   Contract(&eff_ham0_times_state, eff_ham[2], {{4, 0}, {1, 3}}, &temp);
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
@@ -1014,15 +1008,15 @@ double noise;
 
     res1 *= noise;
     auto& bsdt = res1.GetBlkSparDataTen();
-  #ifdef GQMPS2_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
     task_count++;
     salve_communication_timer.Restart();
-  #endif 
+#endif
     bsdt.MPISend(world, kMasterRank, task);//tag = task
     world.recv(kMasterRank, 2*slave_identifier, task);
-  #ifdef GQMPS2_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
     salve_communication_timer.Suspend();
-  #endif
+#endif
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();

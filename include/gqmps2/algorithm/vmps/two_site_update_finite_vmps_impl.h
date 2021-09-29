@@ -492,5 +492,5 @@ void DumpRelatedTensTwoSiteAlg(
   postprocessing_timer.PrintElapsed();
 #endif
 }
-} /* gqmps2 */ 
+} /* gqmps2 */
 #endif /* ifndef GQMPS2_ALGORITHM_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_IMPL_H */

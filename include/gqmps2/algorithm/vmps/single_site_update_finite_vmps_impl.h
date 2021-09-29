@@ -37,15 +37,15 @@
 #include <assert.h>
 
 namespace gqmps2 {
-  using namespace gqten;
+using namespace gqten;
 
-  // Helpers
-  template <typename DTenT>
-  inline double MeasureEE(const DTenT &s, const size_t sdim);
+// Helpers
+template <typename DTenT>
+inline double MeasureEE(const DTenT &s, const size_t sdim);
 
 /**
   Function to perform single-site update finite vMPS algorithm.
-  
+
   @note The input MPS will be considered an empty one.
   @note The canonical center of MPS should be set at site 0.
   TODO: remove update of boundary tensors.
@@ -56,58 +56,58 @@ GQTEN_Double SingleSiteFiniteVMPS(
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
     SingleVMPSSweepParams &sweep_params
 ){
-    assert(mps.size() == mpo.size());
+  assert(mps.size() == mpo.size());
 
-    std::cout << std::endl;
-    std::cout << "=====> Sweep Parameter <=====" << std::endl;
-    std::cout << "MPS/MPO size: \t " << mpo.size() << std::endl;
-    std::cout << "The number of sweep times: \t " << sweep_params.sweeps << std::endl;
-    std::cout << "Bond dimension: \t " << sweep_params.Dmin << "/" << sweep_params.Dmax << std::endl;
-    std::cout << "Cut off truncation error: \t " <<sweep_params.trunc_err << std::endl;
-    std::cout << "Lanczos max iterations \t" <<sweep_params.lancz_params.max_iterations << std::endl;
-    std::cout << "Preseted noises: \t[";
-    for(size_t i = 0; i < sweep_params.noises.size(); i++){
-      std::cout << sweep_params.noises[i];
-      if (i!=sweep_params.noises.size()-1) {
-        std::cout << ", ";
-      } else {
-        std::cout << "]" << std::endl;
-      }
-    }
-    std::cout << "MPS path: \t" << sweep_params.mps_path << std::endl;
-    std::cout << "Temp path: \t" << sweep_params.temp_path << std::endl;
-
-    // If the runtime temporary directory does not exit, create it and initialize
-    // the left/right environments
-    if (!IsPathExist(sweep_params.temp_path)) {
-      CreatPath(sweep_params.temp_path);
-      InitEnvs(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, 1);
-      std::cout << "no exsiting path " <<sweep_params.temp_path
-                << ", thus progress created it and generated environment tensors."
-                << std::endl;
+  std::cout << std::endl;
+  std::cout << "=====> Sweep Parameter <=====" << std::endl;
+  std::cout << "MPS/MPO size: \t " << mpo.size() << std::endl;
+  std::cout << "The number of sweep times: \t " << sweep_params.sweeps << std::endl;
+  std::cout << "Bond dimension: \t " << sweep_params.Dmin << "/" << sweep_params.Dmax << std::endl;
+  std::cout << "Cut off truncation error: \t " <<sweep_params.trunc_err << std::endl;
+  std::cout << "Lanczos max iterations \t" <<sweep_params.lancz_params.max_iterations << std::endl;
+  std::cout << "Preseted noises: \t[";
+  for(size_t i = 0; i < sweep_params.noises.size(); i++){
+    std::cout << sweep_params.noises[i];
+    if (i!=sweep_params.noises.size()-1) {
+      std::cout << ", ";
     } else {
-      std::cout << "finded exsiting path "<<sweep_params.temp_path
-                << ", thus progress will use the present environment tensors."
-                << std::endl;
+      std::cout << "]" << std::endl;
     }
+  }
+  std::cout << "MPS path: \t" << sweep_params.mps_path << std::endl;
+  std::cout << "Temp path: \t" << sweep_params.temp_path << std::endl;
 
-    GQTEN_Double e0;
+  // If the runtime temporary directory does not exit, create it and initialize
+  // the left/right environments
+  if (!IsPathExist(sweep_params.temp_path)) {
+    CreatPath(sweep_params.temp_path);
+    InitEnvs(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, 1);
+    std::cout << "no exsiting path " <<sweep_params.temp_path
+              << ", thus progress created it and generated environment tensors."
+              << std::endl;
+  } else {
+    std::cout << "finded exsiting path "<<sweep_params.temp_path
+              << ", thus progress will use the present environment tensors."
+              << std::endl;
+  }
 
-    if (sweep_params.noises.size() == 0) { sweep_params.noises.push_back(0.0); }
-    double noise_start;
-    mps.LoadTen(0, GenMPSTenName(sweep_params.mps_path, 0));
-    for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
-      if ((sweep - 1) < sweep_params.noises.size()) {
-        noise_start = sweep_params.noises[sweep-1];
-      }
-      std::cout << "sweep " << sweep << std::endl;
-      Timer sweep_timer("sweep");
-      e0 = SingleSiteFiniteVMPSSweep(mps, mpo, sweep_params, noise_start);
-      sweep_timer.PrintElapsed();
-      std::cout << std::endl;
+  GQTEN_Double e0;
+
+  if (sweep_params.noises.size() == 0) { sweep_params.noises.push_back(0.0); }
+  double noise_start;
+  mps.LoadTen(0, GenMPSTenName(sweep_params.mps_path, 0));
+  for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
+    if ((sweep - 1) < sweep_params.noises.size()) {
+      noise_start = sweep_params.noises[sweep-1];
     }
-    mps.DumpTen(0, GenMPSTenName(sweep_params.mps_path, 0), true);
-    return e0;
+    std::cout << "sweep " << sweep << std::endl;
+    Timer sweep_timer("sweep");
+    e0 = SingleSiteFiniteVMPSSweep(mps, mpo, sweep_params, noise_start);
+    sweep_timer.PrintElapsed();
+    std::cout << std::endl;
+  }
+  mps.DumpTen(0, GenMPSTenName(sweep_params.mps_path, 0), true);
+  return e0;
 }
 
 
@@ -134,8 +134,8 @@ double SingleSiteFiniteVMPSSweep(
   double& noise_running = noise_start;
   for (size_t i = 0; i < N - 1; ++i) {
     LoadRelatedTensSingleSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params);    // note: here we need mps[i](do not need load),
-                                                                              // mps[i+1], lenvs[i](do not need load), and mps[i]'s renvs
-                                                                              // mps[i]'s renvs can be removed
+    // mps[i+1], lenvs[i](do not need load), and mps[i]'s renvs
+    // mps[i]'s renvs can be removed
     actual_e0 = CalEnergyEptSingleSite(mps, mpo,lenvs, renvs, i);
     if ((actual_e0 - e0) <= 0.0) {
       // expand and truncate let the energy lower or not change
@@ -148,15 +148,15 @@ double SingleSiteFiniteVMPSSweep(
       noise_running = std::min(noise_running*noise_increase, max_noise);
     }
     e0 = SingleSiteFiniteVMPSUpdate(
-             mps,
-             lenvs, renvs,
-             mpo,
-             sweep_params, 'r', i,
-             noise_running
-         );
+        mps,
+        lenvs, renvs,
+        mpo,
+        sweep_params, 'r', i,
+        noise_running
+    );
     actual_laststep_e0 = actual_e0;
     DumpRelatedTensSingleSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params);    // note: here we need dump mps[i](free memory),
-                                                                              // lenvs[i+1](without free memory)
+    // lenvs[i+1](without free memory)
   }
 
   for (size_t i = N-1; i > 0; --i) {
@@ -169,12 +169,12 @@ double SingleSiteFiniteVMPSSweep(
       noise_running = std::min(noise_running * noise_increase, max_noise);
     }
     e0 = SingleSiteFiniteVMPSUpdate(
-             mps,
-             lenvs, renvs,
-             mpo,
-             sweep_params, 'l', i,
-             noise_running
-         );
+        mps,
+        lenvs, renvs,
+        mpo,
+        sweep_params, 'l', i,
+        noise_running
+    );
     actual_laststep_e0 = actual_e0;
     DumpRelatedTensSingleSiteAlg(mps, lenvs, renvs, i, 'l', sweep_params);
   }
@@ -234,11 +234,11 @@ double SingleSiteFiniteVMPSUpdate(
   auto mps_ten_shape = mps[target_site].GetShape();
   Timer lancz_timer("single_site_fvmps_lancz");
   auto lancz_res = LanczosSolver(
-                       eff_ham,
-                       mps(target_site),
-                       &eff_ham_mul_single_site_state,
-                       sweep_params.lancz_params
-                   );                                   //note here mps(target_site) are destroyed.
+      eff_ham,
+      mps(target_site),
+      &eff_ham_mul_single_site_state,
+      sweep_params.lancz_params
+  );                                   //note here mps(target_site) are destroyed.
 #ifdef GQMPS2_TIMING_MODE
   auto lancz_elapsed_time = lancz_timer.PrintElapsed();
 #else
@@ -254,8 +254,8 @@ double SingleSiteFiniteVMPSUpdate(
     need_expand = false;
   } else if (
       (target_site < N/2 && mps_ten_shape[0]*mps_ten_shape[1]<=mps_ten_shape[2]) ||
-      (target_site > N/2 && mps_ten_shape[2]*mps_ten_shape[1]<=mps_ten_shape[0])
-  ) {
+          (target_site > N/2 && mps_ten_shape[2]*mps_ten_shape[1]<=mps_ten_shape[0])
+      ) {
     noise = 0.0;            //just for output
     need_expand= false;
   }
@@ -393,23 +393,23 @@ void SingleSiteFiniteVMPSExpand(
   mps(target_site) = new TenT();    // we suppose mps only contain mps[next_site]
   if (dir=='r') {
 #ifdef GQMPS2_TIMING_MODE
-  Timer contract_timer("single_site_fvmps_add_noise_contract");
+    Timer contract_timer("single_site_fvmps_add_noise_contract");
 #endif
     size_t next_site = target_site + 1;
     Contract(eff_ham[0], gs_vec, {{0}, {0}}, ten_tmp);
     InplaceContract(ten_tmp, eff_ham[1], {{0, 2}, {0, 1}});
 #ifdef GQMPS2_TIMING_MODE
-  contract_timer.PrintElapsed();
+    contract_timer.PrintElapsed();
   Timer fuse_index_timer("single_site_fvmps_add_noise_fuse_index");
 #endif
     ten_tmp->FuseIndex(1,3);
 #ifdef GQMPS2_TIMING_MODE
-  fuse_index_timer.PrintElapsed();
+    fuse_index_timer.PrintElapsed();
   Timer scalar_multip_timer("single_site_fvmps_add_noise_scalar_multiplication");
 #endif
     (*ten_tmp) *= noise;
 #ifdef GQMPS2_TIMING_MODE
-  scalar_multip_timer.PrintElapsed();
+    scalar_multip_timer.PrintElapsed();
   Timer expansion_timer("single_site_fvmps_add_noise_expansion");
 #endif
     gs_vec->Transpose({2,0,1});
@@ -418,51 +418,51 @@ void SingleSiteFiniteVMPSExpand(
 
     auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
-                                 expanded_index,
-                                 mps[next_site].GetIndexes()[1],
-                                 mps[next_site].GetIndexes()[2]
-                             });
+                                      expanded_index,
+                                      mps[next_site].GetIndexes()[1],
+                                      mps[next_site].GetIndexes()[2]
+                                  });
     Expand(mps(next_site), &expanded_zero_ten, {0}, ten_tmp);
     delete mps(next_site);
     mps(next_site) = ten_tmp;
 #ifdef GQMPS2_TIMING_MODE
-  expansion_timer.PrintElapsed();
+    expansion_timer.PrintElapsed();
 #endif
   } else if (dir=='l') {
 #ifdef GQMPS2_TIMING_MODE
-  Timer contract_timer("single_site_fvmps_add_noise_contract");
-#endif  
+    Timer contract_timer("single_site_fvmps_add_noise_contract");
+#endif
     size_t next_site = target_site - 1;
     Contract(gs_vec, eff_ham[2], {{2}, {0}}, ten_tmp);
     InplaceContract(ten_tmp, eff_ham[1], {{1, 2}, {1, 3}});
 #ifdef GQMPS2_TIMING_MODE
-  contract_timer.PrintElapsed();
+    contract_timer.PrintElapsed();
   Timer fuse_index_timer("single_site_fvmps_add_noise_fuse_index");
 #endif
     ten_tmp->Transpose({0, 2, 3, 1});
     ten_tmp->FuseIndex(0,1);
 #ifdef GQMPS2_TIMING_MODE
-  fuse_index_timer.PrintElapsed();
+    fuse_index_timer.PrintElapsed();
   Timer scalar_multip_timer("single_site_fvmps_add_noise_scalar_multiplication");
 #endif
     (*ten_tmp) *= noise;
 #ifdef GQMPS2_TIMING_MODE
-  scalar_multip_timer.PrintElapsed();
+    scalar_multip_timer.PrintElapsed();
   Timer expansion_timer("single_site_fvmps_add_noise_expansion");
 #endif
     Expand(gs_vec, ten_tmp, {0}, mps(target_site));
 
     auto expanded_index = InverseIndex(ten_tmp->GetIndexes()[0]);
     TenT expanded_zero_ten = TenT({
-                                 mps[next_site].GetIndexes()[0],
-                                 mps[next_site].GetIndexes()[1],
-                                 expanded_index
-                             });
+                                      mps[next_site].GetIndexes()[0],
+                                      mps[next_site].GetIndexes()[1],
+                                      expanded_index
+                                  });
     Expand(mps(next_site), &expanded_zero_ten, {2}, ten_tmp);
     delete mps(next_site);
     mps(next_site) = ten_tmp;
 #ifdef GQMPS2_TIMING_MODE
-  expansion_timer.PrintElapsed();
+    expansion_timer.PrintElapsed();
 #endif
   }
 }
