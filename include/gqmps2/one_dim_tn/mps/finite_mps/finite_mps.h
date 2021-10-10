@@ -174,20 +174,16 @@ void FiniteMPS<TenElemT, QNT>::LeftCanonicalize(const size_t stop_idx) {
 
 template <typename TenElemT, typename QNT>
 void FiniteMPS<TenElemT, QNT>::LeftCanonicalizeTen(const size_t site_idx) {
-  ///< TODO: using QR decomposition
   assert(site_idx < this->size() - 1);
   size_t ldims(2);
-  GQTensor<GQTEN_Double, QNT> s;
-  LocalTenT vt;
-  auto pu = new LocalTenT;
-  mock_gqten::SVD((*this)(site_idx), ldims, Div((*this)[site_idx]), pu, &s, &vt);
+  auto pq = new LocalTenT;
+  LocalTenT r;
+  QR((*this)(site_idx), ldims, Div((*this)[site_idx]), pq, &r);
   delete (*this)(site_idx);
-  (*this)(site_idx) = pu;
+  (*this)(site_idx) = pq;
 
-  LocalTenT temp_ten;
-  Contract(&s, &vt, {{1}, {0}}, &temp_ten);
   auto pnext_ten = new LocalTenT;
-  Contract(&temp_ten, (*this)(site_idx+1), {{1}, {0}}, pnext_ten);
+  Contract(&r, (*this)(site_idx+1), {{1}, {0}}, pnext_ten);
   delete (*this)(site_idx + 1);
   (*this)(site_idx + 1) = pnext_ten;
 

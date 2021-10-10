@@ -13,7 +13,10 @@
 #include <vector>
 #include "assert.h"
 
-
+/**
+ * Raw-major sparse matrix
+ * @tparam ElemType
+ */
 template <typename ElemType>
 class SparMat {
 public:
@@ -35,7 +38,13 @@ public:
     return *this;
   }
 
-  // Element getter and setter.
+  /**
+   * Element getter and setter.
+   *
+   * @param x   raw number
+   * @param y   column number
+   * @return
+   */
   const ElemType &operator()(const size_t x, const size_t y) const {
     auto offset = CalcOffset(x, y);
     if (indexes[offset] == -1) {
@@ -110,20 +119,10 @@ public:
       *this = SparMat<ElemType>();
       return;
     }
-    auto new_rows = rows - 1;
-    auto new_size = new_rows * cols;
-    std::vector<long> new_indexes(new_size);
-    for (size_t x = 0; x < rows; ++x) {
-      for (size_t y = 0; y < cols; ++y) {
-        if (x < row_idx) {
-          new_indexes[CalcOffset(x, y)] = indexes[CalcOffset(x, y)];
-        } else if (x > row_idx) {
-          new_indexes[CalcOffset(x-1, y)] = indexes[CalcOffset(x, y)];
-        }
-      }
-    }
-    rows = new_rows;
-    indexes = new_indexes;
+    indexes.erase(indexes.cbegin() + CalcOffset(row_idx, 0),
+                  indexes.cbegin() + CalcOffset(row_idx+1, 0)
+                  );
+    rows = rows - 1;
   }
 
   void RemoveCol(const size_t col_idx) {
@@ -132,21 +131,22 @@ public:
       *this = SparMat<ElemType>();
       return;
     }
-    auto new_cols = cols - 1;
-    auto new_size = rows * new_cols;
-    std::vector<long> new_indexes(new_size);
-    for (size_t x = 0; x < rows; ++x) {
-      for (size_t y = 0; y < cols; ++y) {
-        if (y < col_idx) {
-          new_indexes[CalcOffset_(x, y, new_cols)] = indexes[CalcOffset(x, y)];
-        } else if (y > col_idx) {
-          new_indexes[CalcOffset_(x, y-1, new_cols)] =
-              indexes[CalcOffset(x, y)];
-        }
+    cols = cols - 1;
+    const size_t moving_piece_size = cols;
+    for(size_t x = 0; x < rows -1; ++x){
+      size_t delete_elem_number = x + 1;
+      size_t fulling_piece_start = CalcOffset(x, col_idx);
+      for(size_t i = 0; i < moving_piece_size; i++){
+        indexes[fulling_piece_start + i] = indexes[fulling_piece_start + i + delete_elem_number];
       }
     }
-    cols = new_cols;
-    indexes = new_indexes;
+    size_t x = rows - 1;
+    size_t delete_elem_number = x + 1;
+    size_t fulling_piece_start = CalcOffset(x, col_idx);
+    for(size_t i = 0; i < cols * rows - fulling_piece_start; i++){
+      indexes[fulling_piece_start + i] = indexes[fulling_piece_start + i + delete_elem_number];
+    }
+    indexes.erase(indexes.begin() + cols * rows, indexes.cend());
   }
 
   // Swap two rows and columns.
