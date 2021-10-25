@@ -56,6 +56,20 @@ inline bool NeedGenerateRightEnvs(
     const std::string& temp_path
 );
 
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteRenvs(
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &
+);
+
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteLenvs(
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &
+);
+
 
 template <typename TenElemT, typename QNT>
 std::pair<size_t,size_t> FiniteVMPSInit(
@@ -286,20 +300,14 @@ void UpdateBoundaryEnvs(
   auto mps_trivial_index = mps.back().GetIndexes()[2];
   auto mpo_trivial_index_inv = InverseIndex(mpo.back().GetIndexes()[3]);
   auto mps_trivial_index_inv = InverseIndex(mps_trivial_index);
-  TenT renv = TenT({mps_trivial_index_inv, mpo_trivial_index_inv, mps_trivial_index});
+  TenT renv = TenT({mps_trivial_index, mpo_trivial_index_inv, mps_trivial_index_inv});
   renv({0, 0, 0}) = 1;
   mps.dealloc(N-1);
 
   //bulk right environment tensors
   for (size_t i = 1; i <= N - right_boundary - 1; ++i) {
     mps.LoadTen(N-i, GenMPSTenName(mps_path, N-i));
-    TenT temp1;
-    Contract(&mps[N-i], &renv, {{2}, {0}}, &temp1);
-    renv = TenT();
-    TenT temp2;
-    Contract(&temp1, &mpo[N-i], {{1, 2}, {1, 3}}, &temp2);
-    auto mps_ten_dag = Dag(mps[N-i]);
-    Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv);
+    renv = std::move(UpdateSiteRenvs(renv, mps[N-i], mpo[N-i])); //question: if it's efficient?
     mps.dealloc(N-i);
   }
   std::string file = GenEnvTenName("r", N - right_boundary - 1, temp_path);
@@ -307,13 +315,7 @@ void UpdateBoundaryEnvs(
 
   //right env of site right_boundary-1
   mps.LoadTen(right_boundary, GenMPSTenName(mps_path, right_boundary) );
-  TenT temp1;
-  Contract(mps(right_boundary), &renv, {{2}, {0}}, &temp1);
-  renv = TenT();
-  TenT temp2;
-  Contract(&temp1, &mpo[right_boundary], {{1, 2}, {1, 3}}, &temp2);
-  auto mps_ten_dag = Dag(mps[right_boundary]);
-  Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv);
+  renv = std::move(UpdateSiteRenvs(renv, mps[right_boundary], mpo[right_boundary]));
   mps.dealloc(right_boundary);
   file = GenEnvTenName("r", N - right_boundary, temp_path);
   WriteGQTensorTOFile(renv, file);
@@ -325,24 +327,50 @@ void UpdateBoundaryEnvs(
   mps_trivial_index = mps.front().GetIndexes()[0];
   mpo_trivial_index_inv = InverseIndex(mpo.front().GetIndexes()[0]);
   mps_trivial_index_inv = InverseIndex(mps_trivial_index);
-  TenT lenv = TenT({mps_trivial_index_inv, mpo_trivial_index_inv, mps_trivial_index});
+  TenT lenv = TenT({mps_trivial_index, mpo_trivial_index_inv, mps_trivial_index_inv});
   lenv({0, 0, 0}) = 1;
   mps.dealloc(0);
   std::cout << "left boundary = " << left_boundary <<std::endl;
   for (size_t i = 0; i < left_boundary; ++i) {
     mps.LoadTen(i, GenMPSTenName(mps_path, i));
-    TenT temp1;
-    Contract(&mps[i], &lenv, {{0}, {0}}, &temp1);
-    lenv = TenT();
-    TenT temp2;
-    Contract(&temp1, &mpo[i], {{0,2}, {1, 0}}, &temp2);
-    auto mps_ten_dag = Dag(mps[i]);
-    Contract(&temp2, &mps_ten_dag, {{1,2}, {0,1}}, &lenv);
+    lenv = std::move(UpdateSiteLenvs(lenv, mps[i], mpo[i]));
     mps.dealloc(i);
   }
   file = GenEnvTenName("l", left_boundary, temp_path);
   WriteGQTensorTOFile(lenv, file);
   assert(mps.empty());
+}
+
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteRenvs(
+    const GQTensor<TenElemT, QNT> &renv,
+    const GQTensor<TenElemT, QNT> &mps_ten,
+    const GQTensor<TenElemT, QNT> &mpo_ten
+    ){
+  using TenT = GQTensor<TenElemT, QNT>;
+  TenT mps_ten_dag = Dag(mps_ten);
+  TenT renv_next, temp_ten, temp_ten2;
+  Contract<TenElemT, QNT, true, true>(mps_ten_dag, renv, 2, 0, 1, temp_ten);
+  Contract<TenElemT, QNT, true, false>(temp_ten, mpo_ten, 1, 2, 2, temp_ten2);
+  temp_ten.GetBlkSparDataTen().Clear();
+  Contract<TenElemT, QNT, true, false>(temp_ten2, mps_ten, 3, 1, 2, renv_next);
+  return renv_next;
+}
+
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteLenvs(
+    const GQTensor<TenElemT, QNT> &lenv,
+    const GQTensor<TenElemT, QNT> &mps_ten,
+    const GQTensor<TenElemT, QNT> &mpo_ten
+){
+  using TenT = GQTensor<TenElemT, QNT>;
+  TenT mps_ten_dag = Dag(mps_ten);
+  TenT lenv_next, temp_ten, temp_ten2;
+  Contract<TenElemT, QNT, true, true>(lenv, mps_ten, 2, 0, 1, temp_ten);
+  Contract<TenElemT, QNT, true, true>(temp_ten, mpo_ten, 1, 0, 2, temp_ten2);
+  temp_ten.GetBlkSparDataTen().Clear();
+  Contract<TenElemT, QNT, false, true>(mps_ten_dag, temp_ten2, 0, 1, 2, lenv_next);
+  return lenv_next;
 }
 
 

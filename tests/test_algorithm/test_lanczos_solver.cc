@@ -78,7 +78,7 @@ void RunTestTwoSiteLanczosSolverCase(
   Contract(eff_ham[0], eff_ham[1], {{1}, {0}}, eff_ham_ten);
   InplaceContract(eff_ham_ten, eff_ham[2], {{4}, {0}});
   InplaceContract(eff_ham_ten, eff_ham[3], {{6}, {1}});
-  eff_ham_ten->Transpose({0, 2, 4, 6, 1, 3, 5, 7});
+  eff_ham_ten->Transpose({1, 2, 4, 7, 0, 3, 5, 6});
 
   auto dense_mat_dim = D * d * d * D;
   auto dense_mat_size = dense_mat_dim * dense_mat_dim;
@@ -120,9 +120,9 @@ void RunTestTwoSiteLanczosSolverCase(
 
 TEST_F(TestLanczos, TestTwoSiteLanczosSolver) {
   // Tensor with double elements.
-  auto dlblock = DGQTensor({idx_Dout, idx_vout, idx_Din});
+  auto dlblock = DGQTensor({idx_Din, idx_vout, idx_Dout});
   auto dlsite  = DGQTensor({idx_vin, idx_din, idx_dout, idx_vout});
-  auto drblock = DGQTensor({idx_Din, idx_vin, idx_Dout});
+  auto drblock = DGQTensor({idx_Dout, idx_vin, idx_Din});
   auto dblock_random_mat =  new double [D*D];
   RandRealSymMat(dblock_random_mat, D);
   for (size_t i = 0; i < D; ++i) {
@@ -168,9 +168,9 @@ TEST_F(TestLanczos, TestTwoSiteLanczosSolver) {
       lanczos_params2);
 
   // Tensor with complex elements.
-  auto zlblock = ZGQTensor({idx_Dout, idx_vout, idx_Din});
+  auto zlblock = ZGQTensor({idx_Din, idx_vout, idx_Dout});
   auto zlsite  = ZGQTensor({idx_vin, idx_din, idx_dout, idx_vout});
-  auto zrblock = ZGQTensor({idx_Din, idx_vin, idx_Dout});
+  auto zrblock = ZGQTensor({idx_Dout, idx_vin, idx_Din});
   auto zblock_random_mat =  new GQTEN_Complex [D*D];
   RandCplxHerMat(zblock_random_mat, D);
   for (size_t i = 0; i < D; ++i) {
@@ -229,9 +229,9 @@ void RunTestSingleSiteLanczosSolverCase(
     auto eff_ham_ten = new TenT;
     Contract(eff_ham[0], eff_ham[1], {{1}, {0}}, eff_ham_ten);
     InplaceContract(eff_ham_ten, eff_ham[2], {{4}, {1}});
-    eff_ham_ten->Transpose({0, 2, 4, 1, 3, 5});
+    eff_ham_ten->Transpose({1, 2, 5, 0, 3, 4});
     
-    auto dense_mat_dim = d * d * D;
+    auto dense_mat_dim = D * d * D;
     auto dense_mat_size = dense_mat_dim * dense_mat_dim;
     auto dense_mat = (TenElemT *) malloc(
     		dense_mat_size * sizeof(TenElemT)
@@ -270,73 +270,74 @@ mkl_free_buffers();
 
 
 TEST_F(TestLanczos, TestSingleSiteLanczosSolver) {
-	// Tensor with double element.
-	auto dlsite = DGQTensor({idx_din, idx_vout, idx_dout});
-	auto drsite = DGQTensor({idx_vin, idx_din, idx_dout, idx_vout});
-	auto drblock = DGQTensor({idx_Din, idx_vin, idx_Dout});
-	auto dblock_random_mat = new double [D*D];
-	RandRealSymMat(dblock_random_mat, D);
-	for (size_t i = 0; i < D; ++i) {
-		for (size_t j = 0; j < D; ++j) {
-			for (size_t k = 0; k < dh; ++k) {
-				drblock({j, k, i}) = dblock_random_mat[(i*D+j)];
-			}
-		}
-	}
-	delete[] dblock_random_mat;
-	auto dsite_random_mat = new double [d*d];
-	RandRealSymMat(dsite_random_mat, d);
-	for (size_t i = 0; i < d; ++i) {
-		for (size_t j = 0; j < d; ++j) {
-			for (size_t k = 0; k < dh; ++k) {
-				dlsite({i, k, j}) = dsite_random_mat[(i*d+j)];
-				drsite({k, i, j, k}) = dsite_random_mat[(i*d+j)];
-			}
-		}
-	}
-	delete[] dsite_random_mat;
-	auto pdinit_state = new DGQTensor({idx_dout, idx_dout, idx_Dout});
+  auto dlblock = DGQTensor({idx_Din, idx_vout, idx_Dout});
+  auto dlsite  = DGQTensor({idx_vin, idx_din, idx_dout, idx_vout});
+  auto drblock = DGQTensor({idx_Dout, idx_vin, idx_Din});
+  auto dblock_random_mat =  new double [D*D];
+  RandRealSymMat(dblock_random_mat, D);
+  for (size_t i = 0; i < D; ++i) {
+    for (size_t j = 0; j < D; ++j) {
+      for (size_t k = 0; k < dh; ++k) {
+        dlblock({i, k, j}) = dblock_random_mat[(i*D + j)];
+        drblock({j, k, i}) = dblock_random_mat[(i*D + j)];
+      }
+    }
+  }
+  delete[] dblock_random_mat;
+  auto dsite_random_mat = new double [d*d];
+  RandRealSymMat(dsite_random_mat, d);
+  for (size_t i = 0; i < d; ++i) {
+    for (size_t j = 0; j < d; ++j) {
+      for (size_t k = 0; k < dh; ++k) {
+        dlsite({k, i, j, k}) = dsite_random_mat[(i*d + j)];
+      }
+    }
+  }
+  delete[] dsite_random_mat;
+  auto pdinit_state = new DGQTensor({idx_Din, idx_dout, idx_Dout});
 
-	srand(0);
-	pdinit_state->Random(qn0);
+  // Finish iteration when Lanczos error targeted.
+  srand(0);
+  pdinit_state->Random(qn0);
 	LanczosParams lanczos_params(1.0E-9);
 	RunTestSingleSiteLanczosSolverCase(
-		  {&dlsite, &drsite, &drblock},
+		  {&dlblock, &dlsite, &drblock},
 		  pdinit_state,
 	    lanczos_params
   );
 
 	// Tensor with complex element.
-	auto zlblock = ZGQTensor({idx_din, idx_vout, idx_dout});
-	auto zrsite = ZGQTensor({idx_vin, idx_din, idx_dout, idx_vout});
-	auto zrblock = ZGQTensor({idx_Din, idx_vin, idx_Dout});
-	auto zblock_random_mat = new GQTEN_Complex [D*D];
-	RandCplxHerMat(zblock_random_mat, D);
-	for (size_t i = 0; i < D; ++i) {
-		for (size_t j = 0; j < D; ++j) {
-			for (size_t k = 0; k < dh; ++k) {
-			zrblock({j, k, i}) = zblock_random_mat[(i*D+j)];
-			}
-		}
-	}
-	delete[] zblock_random_mat;
-	auto zsite_random_mat = new GQTEN_Complex [d*d];
-	RandCplxHerMat(zsite_random_mat, d);
-	for (size_t i = 0; i < d; ++i) {
-		for (size_t j = 0; j < d; ++j) {
-			for (size_t k = 0; k < dh; ++k) {
-				zlblock({i, k, j}) = zsite_random_mat[(i*d+j)];
-				zrsite({k, i, j, k}) = zsite_random_mat[(i*d+j)];
-			}
-		}
-	}
-	delete[] zsite_random_mat;
-	auto pzinit_state = new ZGQTensor({idx_dout, idx_dout, idx_Dout});
+  auto zlblock = ZGQTensor({idx_Din, idx_vout, idx_Dout});
+  auto zlsite  = ZGQTensor({idx_vin, idx_din, idx_dout, idx_vout});
+  auto zrblock = ZGQTensor({idx_Dout, idx_vin, idx_Din});
+  auto zblock_random_mat =  new GQTEN_Complex [D*D];
+  RandCplxHerMat(zblock_random_mat, D);
+  for (size_t i = 0; i < D; ++i) {
+    for (size_t j = 0; j < D; ++j) {
+      for (size_t k = 0; k < dh; ++k) {
+        zlblock({i, k, j}) = zblock_random_mat[(i*D+j)];
+        zrblock({j, k, i}) = zblock_random_mat[(i*D+j)];
+      }
+    }
+  }
+  delete [] zblock_random_mat;
+  auto zsite_random_mat = new GQTEN_Complex [d*d];
+  RandCplxHerMat(zsite_random_mat, d);
+  for (size_t i = 0; i < d; ++i) {
+    for (size_t j = 0; j < d; ++j) {
+      for (size_t k = 0; k < dh; ++k) {
+        zlsite({k, i, j, k}) = zsite_random_mat[(i*d+j)];
+      }
+    }
+  }
+  delete[] zsite_random_mat;
+  auto pzinit_state = new ZGQTensor({idx_Din, idx_dout, idx_Dout});
 
-	srand(0);
-	pzinit_state->Random(qn0);
+  // Finish iteration when Lanczos error targeted.
+  srand(0);
+  pzinit_state->Random(qn0);
 	RunTestSingleSiteLanczosSolverCase(
-		  {&zlblock, &zrsite, &zrblock},
+		  {&zlblock, &zlsite, &zrblock},
 		  pzinit_state,
 		  lanczos_params
   );

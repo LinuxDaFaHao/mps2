@@ -1287,10 +1287,10 @@ TEST_F(TestTwoSiteAlgorithmElectronPhononSystem, holsteinchain) {
   }
   DirectStateInitMps(dmps, stat_labs);
   auto sweep_params = TwoSiteVMPSSweepParams(
-                          8,
+                          10,
                           256, 256, 1.0E-10,
                           LanczosParams(1.0E-8),
-                          {0.1, 0.1, 0.01, 0.001, 0.0001,0.00001, 0.000001, 0.0}
+                          {0.2, 0.1, 0.1, 0.1, 0.01, 0.01, 0.001, 0.0001, 0.00001, 0.0}
                       );
   dmps.Dump(sweep_params.mps_path, true);
 
@@ -1332,7 +1332,7 @@ TEST_F(TestTwoSiteAlgorithmElectronPhononSystem, holsteinchain) {
 
   RunTestTwoSiteNoiseAlgorithmCase(
       zmps, zmpo, sweep_params,
-      -1.9363605088186260 , 1.0E-8
+      -1.9363605088186260 , 1.0E-7
   );
   RemoveFolder(sweep_params.mps_path);
   RemoveFolder(sweep_params.temp_path);

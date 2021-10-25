@@ -29,10 +29,16 @@ using namespace gqten;
 
 
 // Forward declarations.
-template <typename TenT>
-TenT *eff_ham_mul_two_site_state(const std::vector<TenT *> &, TenT *);
-template <typename TenT>
-TenT *eff_ham_mul_single_site_state(const std::vector<TenT *> &, TenT *);
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
+    const std::vector<GQTensor<TenElemT, QNT> *> &,
+    GQTensor<TenElemT, QNT> *
+);
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
+    const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
+    GQTensor<TenElemT, QNT> *state
+);
 
 void TridiagGsSolver(
     const std::vector<double> &, const std::vector<double> &, const size_t,
@@ -219,29 +225,43 @@ LanczosRes<TenT> LanczosSolver(
 }
 
 
-template <typename TenT>
-TenT *eff_ham_mul_two_site_state(
-    const std::vector<TenT *> &eff_ham,
-    TenT *state
+/*
+ * |----0                       0-----
+ * |          2         2            |
+ * |          |         |            |
+ * |----1 0-------3 0--------3  1-----
+ * |          |        |             |
+ * |          1       1 2            |
+ * |          |        |             |
+ * |----2 0-------------------3 2----|
+ */
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
+    const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
+    GQTensor<TenElemT, QNT> *state
 ) {
+  using TenT = GQTensor<TenElemT, QNT>;
   auto res = new TenT;
-  Contract(eff_ham[0], state, {{0}, {0}}, res);
-  InplaceContract(res, eff_ham[1], {{0, 2}, {0, 1}});
-  InplaceContract(res, eff_ham[2], {{4, 1}, {0, 1}});
-  InplaceContract(res, eff_ham[3], {{4, 1}, {1, 0}});
+  TenT temp_ten;
+  Contract(eff_ham[0], state, {{2}, {0}}, &temp_ten);
+  Contract<TenElemT, QNT, true, true>(temp_ten, *eff_ham[1], 1, 0, 2, *res);
+  Contract<TenElemT, QNT, true, true>(*res, *eff_ham[2], 4, 0, 2, temp_ten);
+  Contract<TenElemT, QNT, true, false>(temp_ten, *eff_ham[3], 4, 1, 2, *res);
   return res;
 }
 
 
-template <typename TenT>
-TenT *eff_ham_mul_single_site_state(
-    const std::vector<TenT *> &eff_ham,
-    TenT *state
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
+    const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
+    GQTensor<TenElemT, QNT> *state
 ) {
+  using TenT = GQTensor<TenElemT, QNT>;
   auto res = new TenT;
-  Contract(eff_ham[0], state, {{0}, {0}}, res);
-  InplaceContract(res, eff_ham[1], {{0, 2}, {0, 1}});
-  InplaceContract(res, eff_ham[2], {{1, 3}, {0, 1}});
+  TenT temp_ten;
+  Contract(eff_ham[0], state, {{2}, {0}}, res);
+  Contract<TenElemT, QNT, true, true>(*res, *eff_ham[1], 1, 0, 2, temp_ten);
+  Contract<TenElemT, QNT, true, false>(temp_ten, *eff_ham[2], 3, 1, 2, *res);
   return res;
 }
 

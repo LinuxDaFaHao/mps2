@@ -336,20 +336,10 @@ double SingleSiteFiniteVMPSUpdate(
 
   switch (dir) {
     case 'r':{
-      TenT temp1, temp2, lenv_ten;
-      Contract(&lenvs[lenv_len], &mps[target_site], {{0}, {0}}, &temp1);
-      Contract(&temp1, &mpo[target_site], {{0, 2}, {0, 1}}, &temp2);
-      auto mps_ten_dag = Dag(mps[target_site]);
-      Contract(&temp2, &mps_ten_dag, {{0 ,2}, {0, 1}}, &lenv_ten);
-      lenvs[lenv_len + 1] = std::move(lenv_ten);
+      lenvs[lenv_len + 1] = std::move(UpdateSiteLenvs(lenvs[lenv_len], mps[target_site], mpo[target_site]));
     }break;
     case 'l':{
-      TenT temp1, temp2, renv_ten;
-      Contract(&mps[target_site], eff_ham[2], {{2}, {0}}, &temp1);
-      Contract(&temp1, &mpo[target_site], {{1, 2}, {1, 3}}, &temp2);
-      auto mps_ten_dag = Dag(mps[target_site]);
-      Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv_ten);
-      renvs[renv_len + 1] = std::move(renv_ten);
+      renvs[renv_len + 1] = std::move(UpdateSiteRenvs(renvs[renv_len], mps[target_site], mpo[target_site])  );
     }break;
     default:
       assert(false);
@@ -396,13 +386,16 @@ void SingleSiteFiniteVMPSExpand(
     Timer contract_timer("single_site_fvmps_add_noise_contract");
 #endif
     size_t next_site = target_site + 1;
-    Contract(eff_ham[0], gs_vec, {{0}, {0}}, ten_tmp);
-    InplaceContract(ten_tmp, eff_ham[1], {{0, 2}, {0, 1}});
+
+    TenT temp_ten;
+    Contract(eff_ham[0], gs_vec, {{2}, {0}}, &temp_ten);
+    Contract<TenElemT, QNT, true, true>(temp_ten, *eff_ham[1], 1, 0, 2, *ten_tmp);
+
 #ifdef GQMPS2_TIMING_MODE
     contract_timer.PrintElapsed();
   Timer fuse_index_timer("single_site_fvmps_add_noise_fuse_index");
 #endif
-    ten_tmp->FuseIndex(1,3);
+    ten_tmp->FuseIndex(0,3);
 #ifdef GQMPS2_TIMING_MODE
     fuse_index_timer.PrintElapsed();
   Timer scalar_multip_timer("single_site_fvmps_add_noise_scalar_multiplication");
@@ -433,8 +426,8 @@ void SingleSiteFiniteVMPSExpand(
     Timer contract_timer("single_site_fvmps_add_noise_contract");
 #endif
     size_t next_site = target_site - 1;
-    Contract(gs_vec, eff_ham[2], {{2}, {0}}, ten_tmp);
-    InplaceContract(ten_tmp, eff_ham[1], {{1, 2}, {1, 3}});
+    Contract(gs_vec, eff_ham[2], {{2}, {2}}, ten_tmp);
+    InplaceContract(ten_tmp, eff_ham[1], {{1, 3}, {1, 3}});
 #ifdef GQMPS2_TIMING_MODE
     contract_timer.PrintElapsed();
   Timer fuse_index_timer("single_site_fvmps_add_noise_fuse_index");

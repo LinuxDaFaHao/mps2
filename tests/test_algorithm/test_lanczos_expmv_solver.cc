@@ -152,7 +152,7 @@ void EffectiveHamiltonianToDenseMatrixRepr(
   Contract(eff_ham[0], eff_ham[1], {{1}, {0}}, eff_ham_ten);
   InplaceContract(eff_ham_ten, eff_ham[2], {{4}, {0}});
   InplaceContract(eff_ham_ten, eff_ham[3], {{6}, {1}});
-  eff_ham_ten->Transpose({1, 3, 5, 7, 0, 2, 4, 6});
+  eff_ham_ten->Transpose({0, 3, 5, 6, 1, 2, 4, 7});
 
   const size_t dense_mat_dim = eff_ham[0]->GetShape()[0]
                      * eff_ham[1]->GetShape()[1]
@@ -285,9 +285,9 @@ TEST_F(TestLanczos, RunTestTwoSiteLanczosExpmvSolverCase) {
   LanczosParams lanczos_params(1.0E-14, 100);
 
   // Tensor with complex elements.
-  auto zlblock = ZGQTensor({idx_Dout, idx_vout, idx_Din});
+  auto zlblock = ZGQTensor({idx_Din, idx_vout, idx_Dout});
   auto zlsite  = ZGQTensor({idx_vin, idx_din, idx_dout, idx_vout});
-  auto zrblock = ZGQTensor({idx_Din, idx_vin, idx_Dout});
+  auto zrblock = ZGQTensor({idx_Dout, idx_vin, idx_Din});
   auto zblock_random_mat =  new GQTEN_Complex [D*D];
   RandCplxHerMat(zblock_random_mat, D);
   for (size_t i = 0; i < D; ++i) {

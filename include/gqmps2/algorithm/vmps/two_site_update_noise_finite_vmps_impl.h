@@ -406,20 +406,10 @@ double TwoSiteFiniteVMPSUpdate(
 
   switch (dir) {
     case 'r':{
-      TenT temp1, temp2, lenv_ten;
-      Contract(&lenvs[lenv_len], &mps[target_site], {{0}, {0}}, &temp1);
-      Contract(&temp1, &mpo[target_site], {{0, 2}, {0, 1}}, &temp2);
-      auto mps_ten_dag = Dag(mps[target_site]);
-      Contract(&temp2, &mps_ten_dag, {{0 ,2}, {0, 1}}, &lenv_ten);
-      lenvs[lenv_len + 1] = std::move(lenv_ten);
+      lenvs[lenv_len + 1] = std::move(UpdateSiteLenvs(lenvs[lenv_len], mps[target_site], mpo[target_site]));
     }break;
     case 'l':{
-      TenT temp1, temp2, renv_ten;
-      Contract(&mps[target_site], eff_ham[3], {{2}, {0}}, &temp1);
-      Contract(&temp1, &mpo[target_site], {{1, 2}, {1, 3}}, &temp2);
-      auto mps_ten_dag = Dag(mps[target_site]);
-      Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv_ten);
-      renvs[renv_len + 1] = std::move(renv_ten);
+      renvs[renv_len + 1] = std::move(UpdateSiteRenvs(renvs[renv_len], mps[target_site], mpo[target_site])  );
     }break;
     default:
       assert(false);
@@ -465,14 +455,16 @@ void TwoSiteFiniteVMPSExpand(
 #ifdef GQMPS2_TIMING_MODE
     Timer contract_timer("\t Contract time for expansion");
 #endif
-    Contract(eff_ham[0], gs_vec, {{0}, {0}}, ten_tmp);
-    InplaceContract(ten_tmp, eff_ham[1], {{0, 2}, {0, 1}});
-    InplaceContract(ten_tmp, eff_ham[2], {{4, 1}, {0, 1}});
+    TenT temp_ten1, temp_ten2;
+    Contract(eff_ham[0], gs_vec, {{2}, {0}}, &temp_ten1);
+    Contract<TenElemT, QNT, true, true>(temp_ten1, *eff_ham[1], 1, 0, 2, temp_ten2);
+    Contract<TenElemT, QNT, true, true>(temp_ten2, *eff_ham[2], 4, 0, 2, *ten_tmp);
+
 #ifdef GQMPS2_TIMING_MODE
     contract_timer.PrintElapsed();
     Timer fuse_timer("\t Fuse index time for expansion");
 #endif
-    ten_tmp->FuseIndex(1, 4);
+    ten_tmp->FuseIndex(0, 4);
 #ifdef GQMPS2_TIMING_MODE
     fuse_timer.PrintElapsed();
     Timer scalar_timer("\t Scalar multiplication time fo expansion");
@@ -511,9 +503,9 @@ void TwoSiteFiniteVMPSExpand(
 #ifdef GQMPS2_TIMING_MODE
     Timer contract_timer("\t Contract time for expansion");
 #endif
-    Contract(gs_vec, eff_ham[3], {{3}, {0}}, ten_tmp);
+    Contract(gs_vec, eff_ham[3], {{3}, {2}}, ten_tmp);
 
-    InplaceContract(ten_tmp, eff_ham[2], {{2,3}, {1, 3}});
+    InplaceContract(ten_tmp, eff_ham[2], {{2,4}, {1, 3}});
     InplaceContract(ten_tmp, eff_ham[1], {{1,3},{1,3}});
 #ifdef GQMPS2_TIMING_MODE
     contract_timer.PrintElapsed();

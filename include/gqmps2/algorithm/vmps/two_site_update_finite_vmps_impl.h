@@ -70,6 +70,19 @@ inline void RemoveFile(const std::string &file) {
   }
 }
 
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteRenvs(
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &
+);
+
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteLenvs(
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &,
+    const GQTensor<TenElemT, QNT> &
+);
 
 /**
 Function to perform two-site update finite vMPS algorithm.
@@ -141,7 +154,7 @@ void InitEnvs(
   auto mps_trivial_index = mps.back().GetIndexes()[2];
   auto mpo_trivial_index_inv = InverseIndex(mpo.back().GetIndexes()[3]);
   auto mps_trivial_index_inv = InverseIndex(mps_trivial_index);
-  renv = TenT({mps_trivial_index_inv, mpo_trivial_index_inv, mps_trivial_index});
+  renv = TenT({mps_trivial_index, mpo_trivial_index_inv, mps_trivial_index_inv});
   renv({0, 0, 0}) = 1;
   auto file = GenEnvTenName("r", 0, temp_path);
   WriteGQTensorTOFile(renv, file);
@@ -150,13 +163,7 @@ void InitEnvs(
   for (size_t i = 1; i <= N - update_site_num; ++i) {
     if (i>1) { mps.LoadTen(N-i, GenMPSTenName(mps_path, N-i)); }
     auto file = GenEnvTenName("r", i, temp_path);
-    TenT temp1;
-    Contract(&mps[N-i], &renv, {{2}, {0}}, &temp1);
-    renv = TenT();
-    TenT temp2;
-    Contract(&temp1, &mpo[N-i], {{1, 2}, {1, 3}}, &temp2);
-    auto mps_ten_dag = Dag(mps[N-i]);
-    Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv);
+    renv = std::move(UpdateSiteRenvs(renv, mps[N-i], mpo[N-i]));
     WriteGQTensorTOFile(renv, file);
     mps.dealloc(N-i);
   }
@@ -167,7 +174,7 @@ void InitEnvs(
   mps_trivial_index = mps.front().GetIndexes()[0];
   mpo_trivial_index_inv = InverseIndex(mpo.front().GetIndexes()[0]);
   mps_trivial_index_inv = InverseIndex(mps_trivial_index);
-  lenv = TenT({mps_trivial_index_inv, mpo_trivial_index_inv, mps_trivial_index});
+  lenv = TenT({mps_trivial_index, mpo_trivial_index_inv, mps_trivial_index_inv});
   lenv({0, 0, 0}) = 1;
   file = GenEnvTenName("l", 0, temp_path);
   WriteGQTensorTOFile(lenv, file);
@@ -334,20 +341,10 @@ double TwoSiteFiniteVMPSUpdate(
 
   switch (dir) {
     case 'r':{
-      TenT temp1, temp2, lenv_ten;
-      Contract(&lenvs[lenv_len], &mps[target_site], {{0}, {0}}, &temp1);
-      Contract(&temp1, &mpo[target_site], {{0, 2}, {0, 1}}, &temp2);
-      auto mps_ten_dag = Dag(mps[target_site]);
-      Contract(&temp2, &mps_ten_dag, {{0 ,2}, {0, 1}}, &lenv_ten);
-      lenvs[lenv_len + 1] = std::move(lenv_ten);
+      lenvs[lenv_len + 1] = std::move(UpdateSiteLenvs(lenvs[lenv_len], mps[target_site], mpo[target_site]));
     }break;
     case 'l':{
-      TenT temp1, temp2, renv_ten;
-      Contract(&mps[target_site], eff_ham[3], {{2}, {0}}, &temp1);
-      Contract(&temp1, &mpo[target_site], {{1, 2}, {1, 3}}, &temp2);
-      auto mps_ten_dag = Dag(mps[target_site]);
-      Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv_ten);
-      renvs[renv_len + 1] = std::move(renv_ten);
+      renvs[renv_len + 1] = std::move(UpdateSiteRenvs(renvs[renv_len], mps[target_site], mpo[target_site])  );
     }break;
     default:
       assert(false);
