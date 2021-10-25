@@ -51,9 +51,9 @@ inline void InplaceContract(
 }
 
 
-template <typename TenT>
+template <typename TenT, typename T>
 inline void LanczosFree(
-    double * &a,
+    T * &a,
     std::vector<TenT *> &b,
     TenT * &last_mat_mul_vec_res
 ) {
@@ -207,7 +207,7 @@ LanczosRes<TenT> LanczosSolver(
       energy0 = energy0_new;
       auto gs_vec = new TenT(bases[0]->GetIndexes());
       LinearCombine(m+1, eigvec, bases, 0.0, gs_vec);
-      lancz_res.iters = m;
+      lancz_res.iters = m+1;
       lancz_res.gs_eng = energy0;
       lancz_res.gs_vec = gs_vec;
       LanczosFree(eigvec, bases, last_mat_mul_vec_res);
@@ -251,7 +251,7 @@ inline void TridiagGsSolver(
     double &gs_eng, double * &gs_vec, const char jobz) {
   auto d = new double [n];
   std::memcpy(d, a.data(), n*sizeof(double));
-  auto e = new double [n-1];
+  auto e = new double [n];
   std::memcpy(e, b.data(), (n-1)*sizeof(double));
   long ldz;
   auto stev_err_msg = "?stev error.";
@@ -281,23 +281,20 @@ inline void TridiagGsSolver(
   }
   switch (jobz) {
     case 'N':
-      gs_eng = d[0];
-      delete [] d;
-      delete [] e;
-      delete [] z;
       break;
     case 'V':
-      gs_eng = d[0];
       gs_vec = new double [n];
       for (size_t i = 0; i < n; ++i) { gs_vec[i] = z[i*n]; }
-      delete [] d;
-      delete [] e;
-      delete [] z;
       break;
     default:
       std::cout << stev_jobz_err_msg << jobz << std::endl; 
       std::cout << stev_err_msg << std::endl;
       exit(1);
   }
+  gs_eng = d[0];
+  delete [] d;
+  delete [] e;
+  delete [] z;
+
 }
 } /* gqmps2 */ 

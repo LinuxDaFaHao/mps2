@@ -260,6 +260,12 @@ compile_unittest(single_processor_lanczos_performance_test
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
 )
 
+# Lanczos solver
+add_unittest(test_lanczos_expmv_solver
+        "test_algorithm/test_lanczos_expmv_solver.cc"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
+        )
+
 ## Test single processor svd performance
 #compile_unittest(single_processor_svd_performance_test
 #  "test_mpi_algorithm/single_processor_svd_performance_test.cc"
