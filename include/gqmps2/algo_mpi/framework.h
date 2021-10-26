@@ -81,9 +81,9 @@ inline GQTensor<TenElemT, QNT>* MasterGrowLeftEnvironment(
   res_list.reserve(task_size);
   const size_t slave_size = world.size() - 1 ;
   IndexVec<QNT> res_indexes(3);
-  res_indexes[0] = splited_index;
+  res_indexes[2] = splited_index;
   res_indexes[1] = mpo.GetIndexes()[3];
-  res_indexes[2] = InverseIndex(splited_index);
+  res_indexes[0] = InverseIndex(splited_index);
   TenT res_shell = TenT( res_indexes );
   for(size_t j = 0; j<task_size;j++){
         res_list.push_back( res_shell );
@@ -203,13 +203,14 @@ inline void SlaveGrowLeftEnvironment(
     split_idx,
     task,
     &lenv,
-    {{0},{0}},
+    {{0},{2}},
     &env_times_mps
   );
   ctrct_executor.Execute();
-  Contract(&env_times_mps, &mpo, {{2,0},{0,1}}, &temp);
+
+  Contract<TenElemT, QNT, true, true>(env_times_mps, mpo, 3, 0, 2, temp);
   env_times_mps.GetBlkSparDataTen().Clear();
-  Contract(&temp, &mps_dag,{{1,2},{0,1}}, &res);
+  Contract<TenElemT, QNT, false, true>(mps_dag, temp, 0, 1, 2, res);
   temp.GetBlkSparDataTen().Clear();
   auto& bsdt = res.GetBlkSparDataTen();
   task_count++;
@@ -225,9 +226,9 @@ inline void SlaveGrowLeftEnvironment(
     TenT temp, res;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&env_times_mps, &mpo, {{2,0},{0,1}}, &temp);
+    Contract<TenElemT, QNT, true, true>(env_times_mps, mpo, 3, 0, 2, temp);
     env_times_mps.GetBlkSparDataTen().Clear();
-    Contract(&temp, &mps_dag,{{1,2},{0,1}}, &res);
+    Contract<TenElemT, QNT, false, true>(mps_dag, temp, 0, 1, 2, res);
     auto& bsdt = res.GetBlkSparDataTen();
     task_count++;
   #ifdef GQMPS2_MPI_TIMING_MODE
@@ -272,9 +273,9 @@ inline GQTensor<TenElemT, QNT>* MasterGrowRightEnvironment(
   res_list.reserve(task_size);
   const size_t slave_size = world.size() - 1 ;
   IndexVec<QNT> res_indexes(3);
-  res_indexes[0] = splited_index;
+  res_indexes[2] = splited_index;
   res_indexes[1] = mpo.GetIndexes()[0];
-  res_indexes[2] = InverseIndex(splited_index);
+  res_indexes[0] = InverseIndex(splited_index);
   TenT res_shell = TenT( res_indexes );
   for(size_t j = 0; j<task_size;j++){
         res_list.push_back( res_shell );
@@ -392,7 +393,7 @@ inline void SlaveGrowRightEnvironment(
   TenT temp, res;
   //First contract
   TensorContraction1SectorExecutor<TenElemT, QNT> ctrct_executor(
-    &mps,
+    &mps_dag,
     split_idx,
     task,
     &renv,
@@ -400,9 +401,9 @@ inline void SlaveGrowRightEnvironment(
     &env_times_mps
   );
   ctrct_executor.Execute();
-  Contract(&env_times_mps, &mpo, {{1,2},{1,3}}, &temp);
+  Contract<TenElemT, QNT, true, false>(env_times_mps, mpo, 1, 2, 2, temp);
   env_times_mps.GetBlkSparDataTen().Clear();
-  Contract(&temp, &mps_dag,{{3,1},{1,2}}, &res);
+  Contract<TenElemT, QNT, true, false>(temp, mps, 3, 1, 2, res);
   temp.GetBlkSparDataTen().Clear();
   auto& bsdt = res.GetBlkSparDataTen();
   task_count++;
@@ -418,9 +419,9 @@ inline void SlaveGrowRightEnvironment(
     TenT temp, res;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&env_times_mps, &mpo, {{1,2},{1,3}}, &temp);
+    Contract<TenElemT, QNT, true, false>(env_times_mps, mpo, 1, 2, 2, temp);
     env_times_mps.GetBlkSparDataTen().Clear();
-    Contract(&temp, &mps_dag,{{3,1},{1,2}}, &res);
+    Contract<TenElemT, QNT, true, false>(temp, mps, 3, 1, 2, res);
     auto& bsdt = res.GetBlkSparDataTen();
     task_count++;
   #ifdef GQMPS2_MPI_TIMING_MODE

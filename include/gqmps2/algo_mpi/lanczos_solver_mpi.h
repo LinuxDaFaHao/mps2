@@ -318,7 +318,7 @@ GQTEN_Double master_two_site_eff_ham_mul_state(
   broadcast_state_timer.PrintElapsed();
 #endif
   //prepare
-  const size_t split_idx = 2;
+  const size_t split_idx = 0;
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();//total task number
   const QNSectorVec<QNT>& split_qnscts = splited_index.GetQNScts();
@@ -432,7 +432,7 @@ void slave_two_site_eff_ham_mul_state(
 #endif
   auto base_dag = Dag(*state);
   // Timer slave_prepare_timer(" slave "+ std::to_string(world.rank()) +"'s prepare");
-  const size_t split_idx = 2;
+  const size_t split_idx = 0;
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_num = splited_index.GetQNSctNum();
   //slave also need to know the total task number used to judge if finish this works
@@ -456,24 +456,23 @@ void slave_two_site_eff_ham_mul_state(
   //first task
   size_t task = slave_identifier-1;
   TenT eff_ham0_times_state;
-  TenT temp1, temp2, res;
+  TenT temp1, res;
   //First contract
   TensorContraction1SectorExecutor<ElemT, QNT> ctrct_executor(
     eff_ham[0],
     split_idx,
     task,
     state,
-    {{0},{0}},
+    {{2},{0}},
     &eff_ham0_times_state
   );
   
   ctrct_executor.Execute();
 
-  Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
+  Contract<ElemT, QNT, true, true>(eff_ham0_times_state, *eff_ham[1], 1, 0, 2, res);
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
-  Contract(&temp2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp1);
-  temp2.GetBlkSparDataTen().Clear();
-  Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
+  Contract<ElemT, QNT, true, true>(res, *eff_ham[2], 4, 0, 2, temp1);
+  Contract<ElemT, QNT, true, false>(temp1, *eff_ham[3], 4, 1, 2, res);
   temp1.GetBlkSparDataTen().Clear();
 
   Contract(
@@ -497,14 +496,14 @@ void slave_two_site_eff_ham_mul_state(
   salve_communication_timer.Suspend();
 #endif
   while(task < task_num){
-    TenT temp1, temp2, res, temp_scalar_ten;
+    TenT temp1, res, temp_scalar_ten;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp2);
-    eff_ham0_times_state.GetBlkSparDataTen().Clear();
-    Contract(&temp2, eff_ham[2],  {{4, 1}, {0, 1}}, &temp1);
-    temp2.GetBlkSparDataTen().Clear();
-    Contract(&temp1, eff_ham[3], {{4, 1}, {1, 0}}, &res);
+
+    Contract<ElemT, QNT, true, true>(eff_ham0_times_state, *eff_ham[1], 1, 0, 2, res);
+    eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
+    Contract<ElemT, QNT, true, true>(res, *eff_ham[2], 4, 0, 2, temp1);
+    Contract<ElemT, QNT, true, false>(temp1, *eff_ham[3], 4, 1, 2, res);
     temp1.GetBlkSparDataTen().Clear();
     
     Contract(

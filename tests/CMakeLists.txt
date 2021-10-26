@@ -237,9 +237,9 @@ add_unittest(test_case_params_parser
 
 
 # Test mpi lanczos solver
-add_mpi_unittest(test_mpi_lanczos
+compile_unittest(test_mpi_lanczos
   "test_mpi_algorithm/test_mpi_lanczos_solver.cc"
-  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "3"
+  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
 )
 
 # Test mpi two site update

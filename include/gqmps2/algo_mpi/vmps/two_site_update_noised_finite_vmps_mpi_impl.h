@@ -546,7 +546,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
-  const size_t split_idx = 2;
+  const size_t split_idx = 0;
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();//total task number
   const QNSectorVec<QNT>& split_qnscts = splited_index.GetQNScts();
@@ -692,7 +692,7 @@ void SlaveTwoSiteFiniteVMPSRightMovingExpand(
 #endif
   TenT state_shell( ground_state.GetIndexes() );
   state_shell.Transpose({3, 0, 1, 2});
-  const size_t split_idx = 2; //index of mps tensor
+  const size_t split_idx = 0; //index of mps tensor
   const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();
   const size_t slave_identifier = world.rank();//number from 1
@@ -716,13 +716,13 @@ void SlaveTwoSiteFiniteVMPSRightMovingExpand(
       split_idx,
       task,
       &ground_state,
-      {{0},{0}},
+      {{2},{0}},
       &eff_ham0_times_state
   );
 
   ctrct_executor.Execute();
 
-  Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp);
+  Contract(&eff_ham0_times_state, eff_ham[1], {{1, 2}, {0, 1}}, &temp);
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
   Contract(&temp, eff_ham[2],  {{4, 1}, {0, 1}}, &res);
   temp.GetBlkSparDataTen().Clear();
@@ -746,7 +746,7 @@ void SlaveTwoSiteFiniteVMPSRightMovingExpand(
     TenT temp, res;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&eff_ham0_times_state, eff_ham[1], {{0, 2}, {0, 1}}, &temp);
+    Contract(&eff_ham0_times_state, eff_ham[1], {{1, 2}, {0, 1}}, &temp);
     eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
     Contract(&temp, eff_ham[2],  {{4, 1}, {0, 1}}, &res);
     temp.GetBlkSparDataTen().Clear();
@@ -799,7 +799,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
-  const size_t split_idx = 2;
+  const size_t split_idx = 0;
   const Index<QNT>& splited_index = eff_ham[3]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();//total task number
   const QNSectorVec<QNT>& split_qnscts = splited_index.GetQNScts();
@@ -810,7 +810,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
   IndexVec<QNT> ten_tmp_indexes(4);
   ten_tmp_indexes[1] = eff_ham[1]->GetIndexes()[2];
   ten_tmp_indexes[2] = eff_ham[2]->GetIndexes()[2];
-  ten_tmp_indexes[3] = eff_ham[3]->GetIndexes()[2];
+  ten_tmp_indexes[3] = splited_index;
 
   Index<QNT> index_a = gs_vec->GetIndexes()[0];
   std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
@@ -944,7 +944,7 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
   size_t task_count = 0;
 #endif
   TenT state_shell( ground_state.GetIndexes() );
-  const size_t split_idx = 2; //index of mps tensor
+  const size_t split_idx = 0; //index of mps tensor
   const Index<QNT>& splited_index = eff_ham[3]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();
   const size_t slave_identifier = world.rank();//number from 1
@@ -968,12 +968,12 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
       split_idx,
       task,
       &ground_state,
-      {{0},{3}},
+      {{2},{3}},
       &eff_ham0_times_state
   );
 
   ctrct_executor.Execute();
-  Contract(&eff_ham0_times_state, eff_ham[2], {{4, 0}, {1, 3}}, &temp);
+  Contract(&eff_ham0_times_state, eff_ham[2], {{4, 1}, {1, 3}}, &temp);
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
   Contract(&temp, eff_ham[1],  {{2,3},{1,3}}, &res);
   temp.GetBlkSparDataTen().Clear();
@@ -997,7 +997,7 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
     TenT temp, res;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&eff_ham0_times_state, eff_ham[2], {{4, 0}, {1, 3}}, &temp);
+    Contract(&eff_ham0_times_state, eff_ham[2], {{4, 1}, {1, 3}}, &temp);
     eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
     Contract(&temp, eff_ham[1],  {{2,3},{1,3}}, &res);
     temp.GetBlkSparDataTen().Clear();
