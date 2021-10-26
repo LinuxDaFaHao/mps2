@@ -114,6 +114,7 @@ GQTEN_Double MasterTwoSiteFiniteVMPS(
     sweep_timer.PrintElapsed();
     std::cout << "\n";
   }
+  mps.LeftCanonicalizeTen(left_boundary);//make sure the central is as left_boundary
   mps.DumpTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary), true);
   mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
   MasterBroadcastOrder(program_final, world);
