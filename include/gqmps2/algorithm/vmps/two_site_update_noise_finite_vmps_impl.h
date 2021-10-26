@@ -121,6 +121,7 @@ GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of Sweep
     sweep_timer.PrintElapsed();
     std::cout << std::endl;
   }
+  mps.LeftCanonicalizeTen(left_boundary); // make sure the central is at left_boundary + 1
   mps.DumpTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary), true);
   mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
   return e0;
