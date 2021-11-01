@@ -24,6 +24,8 @@ if(${CMAKE_BUILD_TYPE} MATCHES Debug)
   set(CMAKE_VERBOSE_MAKEFILE ON)
 endif()
 
+option(GQMPS2_BUILD_UNITTEST "Build unittests for GraceQ/mps2." OFF)
+option(GQMPS2_BUILD_PROFILER "Build profiler test cases for GraceQ/mps2." OFF)
 
 # Advanced options.
 option(GQMPS2_TIMING_MODE "Timing mode." OFF)
@@ -35,7 +37,7 @@ if(GQMPS2_MPI_TIMING_MODE)
   add_definitions(-DGQMPS2_MPI_TIMING_MODE)
 endif()
 
-option(GQMPS2_BUILD_UNITTEST "Build unittests for GraceQ/mps2." OFF)
+
 
 option(TEST_BUILD_USE_EXTERNAL_GQTEN "Use external gqten library when building unittests for GraceQ/mps2." OFF)
 
@@ -83,4 +85,26 @@ if(GQMPS2_BUILD_UNITTEST)
   enable_testing()
   find_package(GTest REQUIRED)
   add_subdirectory(tests tests)
+endif()
+
+if(GQMPS2_BUILD_PROFILER)
+  if(NOT TEST_BUILD_USE_EXTERNAL_GQTEN)
+    add_subdirectory(external)
+    set(GQMPS2_TENSOR_LIB_HEADER_PATH "${PROJECT_SOURCE_DIR}/external/gqten/include")
+  else()
+    find_path(GQMPS2_TENSOR_LIB_HEADER_PATH "gqten")
+  endif()
+
+  if(NOT TEST_BUILD_USE_EXTERNAL_HPTT_LIB)
+    set(hptt_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/external/gqten/external/hptt/include")
+    set(hptt_LIBRARY "${CMAKE_BINARY_DIR}/external/gqten/external/hptt/libhptt.a")
+  else()
+    find_path(hptt_INCLUDE_DIR "hptt.h")
+    find_library(hptt_LIBRARY "libhptt.a")
+  endif()
+
+  enable_testing()
+  find_path(PROFILER_INCLUDE_DIR "gperftools")
+  find_library(LIBPROFILER_LIBRARY "libprofiler.a")
+  add_subdirectory(profiler profiler)
 endif()

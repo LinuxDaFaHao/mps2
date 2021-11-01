@@ -742,15 +742,19 @@ bool IsQNCovered(const QNSectorVec<QNT>& qnsectors1,
   std::sort(hash_set_of_qns_in_qnsectors2.begin(),
             hash_set_of_qns_in_qnsectors2.end());
 
+  if(hash_set_of_qns_in_qnsectors1.back() < hash_set_of_qns_in_qnsectors2.back() ) {
+    return false;
+  }
+
   auto iter1 = hash_set_of_qns_in_qnsectors1.begin();
   auto iter2 = hash_set_of_qns_in_qnsectors2.begin();
-  while(iter2 < hash_set_of_qns_in_qnsectors2.end()){
-    if((*iter1) < (*iter2)){
+  while( iter2 < hash_set_of_qns_in_qnsectors2.end() ) {
+    if( (*iter1) < (*iter2) ) {
       iter1++;
-    }else if( (*iter1) == (*iter2) ){
+    }else if( (*iter1) == (*iter2) ) {
       iter1++;
       iter2++;
-    }else{
+    }else {
       return false;
     }
   }
