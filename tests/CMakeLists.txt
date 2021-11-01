@@ -236,12 +236,6 @@ add_unittest(test_case_params_parser
   "${CMAKE_CURRENT_LIST_DIR}/testdata/test-params.json" "")
 
 
-# Test mpi lanczos solver
-compile_unittest(test_mpi_lanczos
-  "test_mpi_algorithm/test_mpi_lanczos_solver.cc"
-  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
-)
-
 # Test mpi two site update
 add_mpi_unittest(test_mpi_two_site_update_finite_vmps
   "test_mpi_algorithm/test_mpi_two_site_update_finite_vmps.cc"
@@ -254,21 +248,8 @@ add_mpi_unittest(test_mpi_two_site_update_noised_finite_vmps
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
 )
 
-# Test single processor matrix multiply vector performance
-compile_unittest(single_processor_lanczos_performance_test
-  "test_mpi_algorithm/single_processor_lanczos_performance_test.cc"
-  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
-)
-
 # Lanczos solver
 add_unittest(test_lanczos_expmv_solver
         "test_algorithm/test_lanczos_expmv_solver.cc"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
         )
-
-## Test single processor svd performance
-#compile_unittest(single_processor_svd_performance_test
-#  "test_mpi_algorithm/single_processor_svd_performance_test.cc"
-#  "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
-#)
-#above test include nested omp so just neglect now

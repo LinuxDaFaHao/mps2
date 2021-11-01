@@ -68,6 +68,24 @@ inline void LanczosFree(
   delete last_mat_mul_vec_res;
 }
 
+//multithread version
+template <typename TenT, typename T>
+inline void LanczosFree(
+    T * &a,
+    std::vector<TenT *> &b,
+    const size_t b_size,
+    TenT * &last_mat_mul_vec_res
+) {
+  if (a != nullptr) { delete [] a; }
+  const int ompth = hp_numeric::tensor_manipulation_num_threads;
+#pragma omp parallel for default(shared) num_threads(ompth) schedule(static)
+  for (size_t i = 0; i < b_size; i++) {
+    delete b[i];
+  }
+
+  delete last_mat_mul_vec_res;
+}
+
 
 inline double Real(const GQTEN_Double d) { return d; }
 
@@ -112,7 +130,7 @@ LanczosRes<TenT> LanczosSolver(
     energy_measu_ctrct_axes = {{0, 1, 2, 3}, {0, 1, 2, 3}};
   }
 
-  std::vector<TenT *> bases(params.max_iterations);
+  std::vector<TenT *> bases(params.max_iterations, nullptr);
   std::vector<GQTEN_Double> a(params.max_iterations, 0.0);
   std::vector<GQTEN_Double> b(params.max_iterations, 0.0);
   std::vector<GQTEN_Double> N(params.max_iterations, 0.0);
@@ -174,7 +192,7 @@ LanczosRes<TenT> LanczosSolver(
         lancz_res.iters = m;
         lancz_res.gs_eng = energy0;
         lancz_res.gs_vec = gs_vec;
-        LanczosFree(eigvec, bases, last_mat_mul_vec_res);
+        LanczosFree(eigvec, bases, m, last_mat_mul_vec_res);
         return lancz_res;
       }
     }
@@ -216,7 +234,7 @@ LanczosRes<TenT> LanczosSolver(
       lancz_res.iters = m+1;
       lancz_res.gs_eng = energy0;
       lancz_res.gs_vec = gs_vec;
-      LanczosFree(eigvec, bases, last_mat_mul_vec_res);
+      LanczosFree(eigvec, bases, m + 1, last_mat_mul_vec_res);
       return lancz_res;
     } else {
       energy0 = energy0_new;
@@ -242,11 +260,28 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
 ) {
   using TenT = GQTensor<TenElemT, QNT>;
   auto res = new TenT;
-  TenT temp_ten;
-  Contract(eff_ham[0], state, {{2}, {0}}, &temp_ten);
-  Contract<TenElemT, QNT, true, true>(temp_ten, *eff_ham[1], 1, 0, 2, *res);
-  Contract<TenElemT, QNT, true, true>(*res, *eff_ham[2], 4, 0, 2, temp_ten);
-  Contract<TenElemT, QNT, true, false>(temp_ten, *eff_ham[3], 4, 1, 2, *res);
+  TenT temp_ten1, temp_ten2, temp_ten3;
+  Contract(eff_ham[0], state, {{2}, {0}}, &temp_ten1);
+  Contract<TenElemT, QNT, true, true>(temp_ten1, *eff_ham[1], 1, 0, 2, temp_ten2);
+  Contract<TenElemT, QNT, true, true>(temp_ten2, *eff_ham[2], 4, 0, 2, temp_ten3);
+  Contract<TenElemT, QNT, true, false>(temp_ten3, *eff_ham[3], 4, 1, 2, *res);
+  if(hp_numeric::tensor_manipulation_num_threads >= 3){
+    #pragma omp parallel sections num_threads(3)
+    {
+      #pragma omp section
+      {
+        temp_ten1.GetBlkSparDataTen().Clear();
+      }
+      #pragma omp section
+      {
+        temp_ten2.GetBlkSparDataTen().Clear();
+      }
+      #pragma omp section
+      {
+        temp_ten3.GetBlkSparDataTen().Clear();
+      }
+    }
+  }
   return res;
 }
 

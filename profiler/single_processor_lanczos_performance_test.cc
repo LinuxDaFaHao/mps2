@@ -13,11 +13,10 @@
 
 
 #include "gqmps2/algorithm/lanczos_solver.h"
-#include "../testing_utils.h"
+#include "../tests/testing_utils.h"
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"
-
-#include "gtest/gtest.h"
+#include "gperftools/profiler.h"
 
 #include <vector>
 #include <iostream>
@@ -108,6 +107,12 @@ int main(int argc, char *argv[]){
   cout << "mps_ten_l.gqten:"; mps1.ConciseShow();
   cout << "mps_ten_r.gqten:"; mps2.ConciseShow();
 
+  if(lenv.GetIndexes()[0] != mps1.GetIndexes()[0]) { //old version data, for compatible
+    assert(lenv.GetIndexes()[0] == InverseIndex(mps1.GetIndexes()[0]));
+    lenv.Transpose({2,1,0});
+    renv.Transpose({2,1,0});
+  }
+
   //Get the initial state
   vector<DGQTensor*> eff_ham = {&lenv, &mpo1, &mpo2, &renv};
   DGQTensor* state = new DGQTensor();
@@ -125,8 +130,17 @@ int main(int argc, char *argv[]){
       std::cout << "test case passed." <<std::endl;
       continue;
     }
+    std::string profiler_report_file = "single_process_lanczos_thread" + std::to_string(thread_nums[i]) + ".o";
     hp_numeric::SetTensorManipulationTotalThreads(thread_nums[i]);
     hp_numeric::SetTensorTransposeNumThreads(thread_nums[i]);
+    ProfilerStart( profiler_report_file.c_str() );
+
+    #pragma omp parallel num_threads(hp_numeric::tensor_manipulation_num_threads) default(none)
+    {
+      if(omp_get_thread_num() > 0) {
+        ProfilerDisable(); //Only measure the main thread
+      }
+    }
     Timer single_process_mat_vec_timer("single processor lanczos matrix multiply vector (thread " + std::to_string(thread_nums[i]) + ")");
     DGQTensor* single_process_res = eff_ham_mul_two_site_state(eff_ham, state);
     single_process_mat_vec_timer.PrintElapsed();
@@ -136,6 +150,7 @@ int main(int argc, char *argv[]){
     single_process_res = eff_ham_mul_two_site_state(eff_ham, state);
     single_process_mat_vec_timer.PrintElapsed();
     delete single_process_res;
+    ProfilerStop();
   }
 
   std::ofstream ofs("state.gqten", std::ios::binary );

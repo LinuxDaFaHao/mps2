@@ -12,7 +12,7 @@
  */
 
 
-#include "../testing_utils.h"
+#include "../tests/testing_utils.h"
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"
 
