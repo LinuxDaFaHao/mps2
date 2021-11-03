@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 /*
 * Author: Hao-Xin Wang <wanghx18@mails.tsinghua.edu.cn>
-*         Rongyang Sun <sun-rongyang@outlook.com>
 * Creation Date: 2021-7-30
 *
 * Description: GraceQ/MPS2 project. Implementation details for noised two-site algorithm.
