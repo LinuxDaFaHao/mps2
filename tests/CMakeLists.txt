@@ -253,3 +253,9 @@ add_unittest(test_lanczos_expmv_solver
         "test_algorithm/test_lanczos_expmv_solver.cc"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
         )
+
+# Test two site TDVP
+add_unittest(test_two_site_finite_tdvp
+        "test_algorithm/test_two_site_finite_tdvp.cpp"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
+        )

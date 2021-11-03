@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 /*
-* Author: Hao-Xin Wang
-*         Rongyang Sun <sun-rongyang@outlook.com>
+* Author: Hao-Xin Wang <wanghx18@mails.tsinghua.edu.cn>
 * Creation Date: 2021-06-30
 *
 * Description: GraceQ/mps2 project. Unittest for noised two site algorithm.
@@ -9,6 +8,7 @@
 #include "gqmps2/gqmps2.h"
 #include "gtest/gtest.h"
 #include "gqten/gqten.h"
+#include "../testing_utils.h"
 
 #include <vector>
 
@@ -67,12 +67,6 @@ inline size_t coors2idxSquare(
 inline size_t coors2idxHoneycomb(
     const int x, const int y, const size_t Nx, const size_t Ny) {
   return Ny * (x%Nx) + y%Ny;
-}
-
-
-inline void RemoveFolder(const std::string &folder_path) {
-  std::string command = "rm -rf " + folder_path;
-  system(command.c_str());
 }
 
 

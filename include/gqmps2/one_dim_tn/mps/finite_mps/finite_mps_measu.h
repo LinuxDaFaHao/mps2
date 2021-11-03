@@ -110,7 +110,8 @@ inline bool IsOrderKept(const std::vector<size_t> &sites) {
 }
 
 
-inline void DumpSites(std::ofstream &ofs, const std::vector<size_t> &sites) {
+template <typename T>
+inline void DumpSites(std::ofstream &ofs, const std::vector<T> &sites) {
   ofs << "[";
   for (auto it = sites.begin(); it != sites.end()-1; ++it) {
     ofs << *it << ", ";
@@ -521,7 +522,7 @@ void CtrctMidTen(
 }
 
 
-// Date dump.
+// Data dump.
 template <typename AvgT>
 void DumpMeasuRes(
     const MeasuRes<AvgT> &res,

@@ -75,4 +75,10 @@ inline void EXPECT_COMPLEX_EQ(
   EXPECT_DOUBLE_EQ(lhs.real(), rhs.real());
   EXPECT_DOUBLE_EQ(lhs.imag(), rhs.imag());
 }
+
+
+inline void RemoveFolder(const std::string &folder_path) {
+  std::string command = "rm -rf " + folder_path;
+  system(command.c_str());
+}
 #endif /* ifndef GQMPS2_TESTING_UTILS_H */
