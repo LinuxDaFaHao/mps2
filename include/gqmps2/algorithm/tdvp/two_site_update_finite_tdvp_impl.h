@@ -523,10 +523,10 @@ void SingleSiteFiniteTDVPBackwardEvolution(
       default:
         assert(false);
     }
-  }
 #ifdef GQMPS2_TIMING_MODE
   update_env_ten_timer.PrintElapsed();
 #endif
+  }
   auto update_elapsed_time = update_timer.Elapsed();
   std::cout << " Site " << std::setw(4) << target_site
             << " Iter = " << std::setw(3) << lancz_res.iters
