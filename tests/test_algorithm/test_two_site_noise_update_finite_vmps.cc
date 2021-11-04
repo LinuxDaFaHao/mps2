@@ -1326,7 +1326,7 @@ TEST_F(TestTwoSiteAlgorithmElectronPhononSystem, holsteinchain) {
 
   RunTestTwoSiteNoiseAlgorithmCase(
       zmps, zmpo, sweep_params,
-      -1.9363605088186260 , 1.0E-8
+      -1.9363605088186260 , 1.0E-7
   );
   RemoveFolder(sweep_params.mps_path);
   RemoveFolder(sweep_params.temp_path);

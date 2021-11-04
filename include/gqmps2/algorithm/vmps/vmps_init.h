@@ -345,6 +345,39 @@ void UpdateBoundaryEnvs(
   assert(mps.empty());
 }
 
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteRenvs(
+    const GQTensor<TenElemT, QNT> &renv,
+    const GQTensor<TenElemT, QNT> &mps_ten,
+    const GQTensor<TenElemT, QNT> &mpo_ten
+){
+  using TenT = GQTensor<TenElemT, QNT>;
+  TenT mps_ten_dag = Dag(mps_ten);
+
+  TenT temp1, temp2, renv_next;
+  Contract(&mps_ten, &renv, {{2}, {0}}, &temp1);
+  Contract(&temp1, &mpo_ten, {{1, 2}, {1, 3}}, &temp2);
+  Contract(&temp2, &mps_ten_dag, {{3, 1}, {1, 2}}, &renv_next);
+
+  return renv_next;
+}
+
+template <typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> UpdateSiteLenvs(
+    const GQTensor<TenElemT, QNT> &lenv,
+    const GQTensor<TenElemT, QNT> &mps_ten,
+    const GQTensor<TenElemT, QNT> &mpo_ten
+){
+  using TenT = GQTensor<TenElemT, QNT>;
+  TenT mps_ten_dag = Dag(mps_ten);
+  TenT lenv_next, temp1, temp2;
+
+  Contract(&lenv, &mps_ten, {{0}, {0}}, &temp1);
+  Contract(&temp1, &mpo_ten, {{0, 2}, {0, 1}}, &temp2);
+  Contract(&temp2, &mps_ten_dag, {{0 ,2}, {0, 1}}, &lenv_next);
+
+  return lenv_next;
+}
 
 }//gqmps2
 #endif

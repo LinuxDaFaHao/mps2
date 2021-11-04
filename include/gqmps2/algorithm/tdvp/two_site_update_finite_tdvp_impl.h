@@ -17,6 +17,7 @@
 #include "gqmps2/algorithm/lanczos_expmv_solver_impl.h"           // LanczosExpmvSolver
 #include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps_measu.h"    // DumpSites, DumpAvgVal
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps_impl.h" //InitEnvs
+#include "gqmps2/algorithm/vmps/vmps_init.h"                        //UpdateSiteRenvs, UpdateSiteLenvs
 
 namespace gqmps2 {
 using namespace gqten;
