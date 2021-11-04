@@ -107,8 +107,7 @@ int main(int argc, char *argv[]){
   cout << "mps_ten_l.gqten:"; mps1.ConciseShow();
   cout << "mps_ten_r.gqten:"; mps2.ConciseShow();
 
-  if(lenv.GetIndexes()[0] != mps1.GetIndexes()[0]) { //old version data, for compatible
-    assert(lenv.GetIndexes()[0] == InverseIndex(mps1.GetIndexes()[0]));
+  if(lenv.GetIndexes()[0] == mps1.GetIndexes()[0]) { //new version data, for compatible
     lenv.Transpose({2,1,0});
     renv.Transpose({2,1,0});
   }
