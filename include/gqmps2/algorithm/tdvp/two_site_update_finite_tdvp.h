@@ -21,6 +21,7 @@ using namespace gqten;
 //TODO: 1. fermionic string 2. backward evolution
 template <typename QNT>
 struct TDVPSweepParams {
+  TDVPSweepParams() = default;
   TDVPSweepParams(
       const double tau, const size_t step,
       const size_t site_0,

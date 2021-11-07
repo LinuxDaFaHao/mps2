@@ -6,7 +6,6 @@
 * Description: GraceQ/mps2 project. Unittest for two site finite TDVP algorithm.
 */
 
-#include "gtest/gtest.h"
 #include "gqten/gqten.h"
 #include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"    //Test Object
 #include "gqmps2/one_dim_tn/mpo/mpogen/mpogen.h"                  //MPOGenerator
@@ -14,6 +13,7 @@
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"    //Get the ground state
 #include "gqmps2/gqmps2.h"
 #include "../testing_utils.h"                                  //RemoveFolder
+#include "gtest/gtest.h"
 
 using namespace gqmps2;
 using namespace gqten;
