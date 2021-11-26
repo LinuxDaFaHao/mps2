@@ -132,7 +132,7 @@ TEST_F(TestTwoSiteAlgorithmSpinlessFermion, 1DSpinlessFreeFermion) {
   EXPECT_NEAR(e0, benchmark_e0, 1e-13);
 
   TDVPSweepParams<U1QN> tdvp_sweep_params = TDVPSweepParams<U1QN>(
-      0.01, 10,
+      0.01, 30,
       N/2,
       zcdag, zf, zc, zf, e0,
       10, 16, 1.0E-10,
@@ -146,16 +146,13 @@ TEST_F(TestTwoSiteAlgorithmSpinlessFermion, 1DSpinlessFreeFermion) {
   for(size_t i = 0; i < dynamic_correlation.size(); i++) {
     GQTEN_Complex correlation_val = dynamic_correlation[i].avg;
     double dtime = dynamic_correlation[i].times[1];
-    if(dtime > 0){
-      continue;
-    }
     int x1 = dynamic_correlation[i].sites[0];
     int x2 = dynamic_correlation[i].sites[1];
     GQTEN_Complex benchmark_correlation_val = OpenSpinlessFreeFermion1DDynamicCorrelation(
         dtime, N, x1, x2
     );
-    EXPECT_NEAR(correlation_val.real(), benchmark_correlation_val.real(),  1E-08);
-    EXPECT_NEAR(correlation_val.imag(), benchmark_correlation_val.imag(),  1E-08);
+    EXPECT_NEAR(correlation_val.real(), benchmark_correlation_val.real(),  1E-10);
+    EXPECT_NEAR(correlation_val.imag(), benchmark_correlation_val.imag(),  1E-10);
   }
 }
 

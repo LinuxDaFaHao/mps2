@@ -628,6 +628,8 @@ std::vector<TenElemT> CalPsi1OpPsi2(
         Contract(&temp2, mps1(i), {{2,0},{0,1}}, &left_boundary_tensor);
       }
     }
+    mps1.dealloc(i);
+    mps2.dealloc(i);
   }
 
   return res;
