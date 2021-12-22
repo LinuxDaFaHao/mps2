@@ -111,7 +111,6 @@ ExpmvRes<TenT> LanczosExpmvSolver(
   a[0] = Real(temp_scalar_ten());
   size_t m = 0; //counting the iteration number
 
-  //Question: if the orthogonal in previous lanczos method is also work here?
   GQTEN_Complex *combination_factor = new GQTEN_Complex[params.max_iterations];//combination of bases
   GQTEN_Complex *last_combination_factor = new GQTEN_Complex[params.max_iterations];
   while(true) {

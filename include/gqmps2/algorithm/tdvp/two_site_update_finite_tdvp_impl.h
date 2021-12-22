@@ -28,7 +28,7 @@ void ActOperatorOnMps(
     const GQTensor<TenElemT, QNT>& inst,
     const size_t site,
     FiniteMPS<TenElemT, QNT> &mps, //empty
-    const std::string mps_path = kMpsPath
+    const std::string& mps_path = kMpsPath
 ){
   using TenT = GQTensor<TenElemT, QNT>;
   TenT* res = new TenT();
@@ -44,7 +44,7 @@ void ActOperatorOnMps(
   }
 
   for(int i = site - 1; i >= 0; i--) {
-    TenT* res = new TenT();
+    res = new TenT();
     mps.LoadTen(i, GenMPSTenName(mps_path, i));
     Contract(&inst, mps(i),{{0}, {1}}, res);
     res->Transpose({1,0,2});
@@ -58,29 +58,29 @@ void ActOperatorOnMps(
 
 template <typename TenElemT, typename QNT, char dir>
 void TwoSiteFiniteTDVPEvolution(
-    FiniteMPS<TenElemT, QNT> &mps,
-    TenVec<GQTensor<TenElemT, QNT>> &lenvs,
-    TenVec<GQTensor<TenElemT, QNT>> &renvs,
-    const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TDVPSweepParams<QNT> &sweep_params,
-    const size_t target_site
+    FiniteMPS<TenElemT, QNT> &,
+    TenVec<GQTensor<TenElemT, QNT>> &,
+    TenVec<GQTensor<TenElemT, QNT>> &,
+    const MPO<GQTensor<TenElemT, QNT>> &,
+    const TDVPSweepParams<QNT> &,
+    const size_t
 );
 
 
 template <typename TenElemT, typename QNT, char dir>
 void SingleSiteFiniteTDVPBackwardEvolution(
-    FiniteMPS<TenElemT, QNT> &mps,
-    TenVec<GQTensor<TenElemT, QNT>> &lenvs,
-    TenVec<GQTensor<TenElemT, QNT>> &renvs,
-    const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TDVPSweepParams<QNT> &sweep_params,
-    const size_t target_site
+    FiniteMPS<TenElemT, QNT> &,
+    TenVec<GQTensor<TenElemT, QNT>> &,
+    TenVec<GQTensor<TenElemT, QNT>> &,
+    const MPO<GQTensor<TenElemT, QNT>> &,
+    const TDVPSweepParams<QNT> &,
+    const size_t
 );
 
 template <typename TenElemT, typename QNT>
 std::vector<TenElemT> CalPsi1OpPsi2(
-    const SiteVec<TenElemT, QNT>& site_vec,
-    const TDVPSweepParams<QNT> &sweep_params
+    const SiteVec<TenElemT, QNT>& ,
+    const TDVPSweepParams<QNT> &
 );
 
 template <typename AvgT>
@@ -167,11 +167,10 @@ DynamicMeasuRes<TenElemT> TwoSiteFiniteTDVP(
 
     TwoSiteFiniteTDVPSweep(mps.GetSitesInfo(), mpo, sweep_params  );
     sweep_timer.PrintElapsed();
-    //TODO: return values, and dump measure result.
 
     Timer measure_timer("measure");
     time = (step + 1) * sweep_params.tau;
-    std::vector<TenElemT> correlation = CalPsi1OpPsi2(mps.GetSitesInfo(),sweep_params);
+    correlation = CalPsi1OpPsi2(mps.GetSitesInfo(),sweep_params);
 
     for(size_t i = 0; i < N; i++) {
       measure_res[(step + 1) * N + i].times = {0.0, time};
@@ -264,9 +263,8 @@ void TwoSiteFiniteTDVPEvolution(
     const TDVPSweepParams<QNT> &sweep_params,
     const size_t target_site
 ) {
+  static_assert( (dir == 'r' || dir == 'l'), "Direction template parameter of function TwoSiteFiniteTDVPEvolution is wrong.");
   Timer update_timer("two_site_ftdvp_update");
-
-
   // Assign some parameters
   auto N = mps.size();
   std::vector<std::vector<size_t>> init_state_ctrct_axes;
@@ -289,9 +287,6 @@ void TwoSiteFiniteTDVPEvolution(
       lenv_len = target_site - 1;
       renv_len = N - target_site - 1;
       break;
-    default:
-      std::cout << "dir must be 'r' or 'l', but " << dir << std::endl;
-      exit(1);
   }
 
   // Lanczos
@@ -377,8 +372,6 @@ void TwoSiteFiniteTDVPEvolution(
     case 'l':{
       renvs[renv_len + 1] = std::move(UpdateSiteRenvs(renvs[renv_len], mps[target_site], mpo[target_site])  );
     }break;
-    default:
-      assert(false);
   }
 
 #ifdef GQMPS2_TIMING_MODE
@@ -436,7 +429,6 @@ void SingleSiteFiniteTDVPBackwardEvolution(
   eff_ham[1] = const_cast<TenT *>(mpo(target_site));    // Safe const casts for MPO local tensors.
   eff_ham[2] = renvs(renv_len);
 
-  auto mps_ten_shape = mps[target_site].GetShape();
   Timer lancz_timer("single_site_ftdvp_lancz");
   ExpmvRes<TenT> lancz_res = LanczosExpmvSolver(
       eff_ham, mps(target_site),
@@ -574,7 +566,7 @@ std::vector<TenElemT> CalPsi1OpPsi2(
       mps1.LoadTen(N-i, GenMPSTenName(mps1_path, N-i));
       mps2.LoadTen(N-i, GenMPSTenName(mps2_path, N-i));
     }
-    auto file = GenEnvTenName("r", i, temp_path);
+    file = GenEnvTenName("r", i, temp_path);
     TenT temp;
 
     TenT mps2_dag = Dag(mps2[N -i] );
@@ -598,7 +590,7 @@ std::vector<TenElemT> CalPsi1OpPsi2(
     //get renv for site i
     if(i > 0) {
       right_boundary_tensor = TenT();
-      auto file = GenEnvTenName("r", N - i - 1, temp_path);
+      file = GenEnvTenName("r", N - i - 1, temp_path);
       ReadGQTensorFromFile(right_boundary_tensor, file);
       RemoveFile(file);
     }

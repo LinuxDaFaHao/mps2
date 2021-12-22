@@ -36,6 +36,7 @@
 #include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"      // TwoSiteFiniteTDVP
 // MPI Algorithms
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteFiniteVMPS
+#include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h"
 // Mock Algorithms
 #include "gqmps2/algorithm/vmps/two_site_update_noise_finite_vmps_impl.h"
 #include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteFiniteVMPS

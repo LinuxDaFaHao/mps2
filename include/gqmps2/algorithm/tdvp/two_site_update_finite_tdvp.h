@@ -18,7 +18,6 @@
 namespace gqmps2 {
 using namespace gqten;
 
-//TODO: 1. fermionic string 2. backward evolution
 template <typename QNT>
 struct TDVPSweepParams {
   TDVPSweepParams() = default;

@@ -148,7 +148,7 @@ void SlaveTwoSiteFiniteVMPS(
     order = SlaveGetBroadcastOrder(world);
     switch(order){
       case program_start:
-        std::cout << "Slave " << world.rank() << " receive program start order" << std::endl;
+        std::cout << "Slave " << world.rank() << " receive program start order." << std::endl;
         break;
       case lanczos:{
         eff_ham = SlaveLanczosSolver<TenT>(world);
@@ -233,7 +233,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
     const size_t target_site,
     mpi::communicator world
 ) {
-    //master
+  //master
   Timer update_timer("two_site_fvmps_update");
 #ifdef GQMPS2_TIMING_MODE
   Timer initialize_timer("two_site_fvmps_setup_and_initial_state");

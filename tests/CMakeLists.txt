@@ -248,6 +248,13 @@ add_mpi_unittest(test_mpi_two_site_update_noised_finite_vmps
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
 )
 
+# Test mpi two site noised update
+add_mpi_unittest(test_mpi_two_site_finite_tdvp
+        "test_mpi_algorithm/test_mpi_two_site_finite_tdvp.cpp"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
+        )
+
+
 # Lanczos solver
 add_unittest(test_lanczos_expmv_solver
         "test_algorithm/test_lanczos_expmv_solver.cc"

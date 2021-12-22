@@ -232,7 +232,7 @@ LanczosRes<TenT> MasterLanczosSolver(
       final_linear_combine_timer.PrintElapsed();
 #endif
 #ifdef GQMPS2_TIMING_MODE
-        Timer lancozs_post_precessing("lancz_post_processing");
+      Timer lancozs_post_precessing("lancz_post_processing");
 #endif
       lancz_res.iters = m;
       lancz_res.gs_eng = energy0;
@@ -251,12 +251,15 @@ LanczosRes<TenT> MasterLanczosSolver(
 }
 
 /**
+ * SlaveLanczosSolver
+ * Receive the effective Hamiltonian, and do the multiplications until master terminates.
  *
+ * @note effective Hamiltonian tensors are not deleted after calling this function.
  * @note deceleration the typename TenT when call this function
 */
 template <typename TenT>
 std::vector<TenT*> SlaveLanczosSolver(
-    mpi::communicator world
+    mpi::communicator& world
 ){
 
 std::vector< TenT *> rpeff_ham(two_site_eff_ham_size);
