@@ -245,7 +245,7 @@ void TwoSiteFiniteTDVPSweep(
     } else {
       MasterTwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'l'>(mps, lenvs, renvs, mpo, sweep_params, i, world );
     }
-    SingleSiteFiniteTDVPBackwardEvolution<TenElemT, QNT>(mps, lenvs, renvs, mpo, sweep_params, i - 1 );
+    MasterSingleSiteFiniteTDVPBackwardEvolution<TenElemT, QNT>(mps, lenvs, renvs, mpo, sweep_params, i - 1, world);
     DumpRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'l', sweep_params);
   }
 
