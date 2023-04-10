@@ -111,18 +111,18 @@ std::pair<size_t, size_t> TwoSiteFiniteVMPSInit(
   }
   */
 
-//  if (NeedGenerateRightEnvs(
-//      mpo.size(),
-//      left_boundary,
-//      right_boundary,
-//      sweep_params.temp_path)
-//      ) {
+  if (NeedGenerateRightEnvs(
+      mpo.size(),
+      left_boundary,
+      right_boundary,
+      sweep_params.temp_path)
+      ) {
   std::cout << "=====> Creating the environment tensors =====>" << std::endl;
   MasterBroadcastOrder(init_grow_env, world);
   InitEnvsMaster(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, left_boundary + 2, world);
-//  } else {
-//    std::cout << "The environment tensors have existed." << std::endl;
-//  }
+  } else {
+    std::cout << "The environment tensors have existed." << std::endl;
+  }
 
   //update the left env of left_boundary site and right env of right_boundary site
   UpdateBoundaryEnvs(mps, mpo, sweep_params.mps_path,
