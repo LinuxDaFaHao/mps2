@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 /*
-* Author: Rongyang Sun <sun-rongyang@outlook.com>
+* Author: Hao-Xin Wang <wanghx18@mails.tsinghua.edu.cn>
 * Creation Date: 2021-08-26
 *
 * Description: GraceQ/mps2 project. Unittest for MPI two sites algorithm.

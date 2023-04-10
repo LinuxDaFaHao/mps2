@@ -14,7 +14,8 @@
 #include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h" //MPITDVPSweepParams
 #include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"    //DynamicMeasuRes..
 #include "gqmps2/algo_mpi/lanczos_expmv_solver_mpi.h"             //MasterLanczosExpmvSolver, SlaveLanczosExpmvSolver
-
+#include "gqmps2/algo_mpi/env_tensor_update_master.h"
+#include "gqmps2/algo_mpi/env_tensor_update_slave.h"
 
 namespace gqmps2 {
 using namespace gqten;

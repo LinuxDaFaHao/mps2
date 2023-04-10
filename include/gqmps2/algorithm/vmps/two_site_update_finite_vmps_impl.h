@@ -136,7 +136,16 @@ void InitEnvs(
   );
 }
 
-
+/** Generate the environment tensors before the first sweep
+ *
+ * @tparam TenElemT
+ * @tparam QNT
+ * @param mps
+ * @param mpo
+ * @param mps_path
+ * @param temp_path
+ * @param update_site_num
+ */
 template <typename TenElemT, typename QNT>
 void InitEnvs(
     FiniteMPS<TenElemT, QNT> &mps,
