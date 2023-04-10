@@ -14,7 +14,7 @@
 
 /**
  * For the note of mpi, we use //${number} to mark synchronous things 
- */ 
+ */
 
 #ifndef GQMPS2_ALGO_MPI_LANCZOS_SOLVER_MPI_H
 #define GQMPS2_ALGO_MPI_LANCZOS_SOLVER_MPI_H
@@ -30,24 +30,20 @@ using namespace gqten;
 
 namespace mpi = boost::mpi;
 
-
 //Forward deceleration
-template <typename ElemT, typename QNT>
+template<typename ElemT, typename QNT>
 GQTEN_Double master_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &,
     GQTensor<ElemT, QNT> *,
     GQTensor<ElemT, QNT> &,
-    mpi::communicator 
+    mpi::communicator
 );
 
-template <typename ElemT, typename QNT>
+template<typename ElemT, typename QNT>
 void slave_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &,
     mpi::communicator
 );
-
-
-
 
 /**
 Obtain the lowest energy eigenvalue and corresponding eigenstate from the effective
@@ -58,12 +54,12 @@ Hamiltonian and a initial state using Lanczos algorithm, with the help of distri
  @param params Parameters for Lanczos solver.
  @note only support two site update now.
 */
-template <typename TenT>
+template<typename TenT>
 LanczosRes<TenT> MasterLanczosSolver(
     const std::vector<TenT *> &rpeff_ham,
     TenT *pinit_state,
     const LanczosParams &params,
-    mpi::communicator& world
+    mpi::communicator &world
 ) {
   // Take care that init_state will be destroyed after call the solver
   size_t eff_ham_eff_dim = pinit_state->size();
@@ -73,14 +69,13 @@ LanczosRes<TenT> MasterLanczosSolver(
 #ifdef GQMPS2_TIMING_MODE
   Timer broadcast_eff_ham_timer("broadcast_eff_ham_send");
 #endif
-  for(size_t i = 0; i < eff_ham_size; i++){
+  for (size_t i = 0; i < eff_ham_size; i++) {
     SendBroadCastGQTensor(world, (*rpeff_ham[i]), kMasterRank);
   }
 #ifdef GQMPS2_TIMING_MODE
   broadcast_eff_ham_timer.PrintElapsed();
   Timer lancozs_after_send_ham("lancz_total_time_after_send_ham");
 #endif
-
 
   LanczosRes<TenT> lancz_res;
 
@@ -100,13 +95,13 @@ LanczosRes<TenT> MasterLanczosSolver(
   Timer mat_vec_timer("lancz_mat_vec_and_overlap");
 #endif
   //first time matrix multiply state will always be done, so here don't need to send order
-  TenT* last_mat_mul_vec_res = new TenT();
+  TenT *last_mat_mul_vec_res = new TenT();
   a[0] = master_two_site_eff_ham_mul_state(
-                                      rpeff_ham, 
-                                      bases[0], 
-                                      *last_mat_mul_vec_res, 
-                                      world
-                                      );
+      rpeff_ham,
+      bases[0],
+      *last_mat_mul_vec_res,
+      world
+  );
 
 #ifdef GQMPS2_TIMING_MODE
   mat_vec_timer.PrintElapsed();
@@ -122,11 +117,11 @@ LanczosRes<TenT> MasterLanczosSolver(
 #endif
     auto gamma = last_mat_mul_vec_res;
     if (m == 1) {
-      LinearCombine({-a[m-1]}, {bases[m-1]}, 1.0, gamma);
+      LinearCombine({-a[m - 1]}, {bases[m - 1]}, 1.0, gamma);
     } else {
       LinearCombine(
-          {-a[m-1], -b[m-2]},
-          {bases[m-1], bases[m-2]},
+          {-a[m - 1], -b[m - 2]},
+          {bases[m - 1], bases[m - 2]},
           1.0,
           gamma
       );
@@ -188,7 +183,7 @@ LanczosRes<TenT> MasterLanczosSolver(
       }
     }
 
-    b[m-1] = norm_gamma;
+    b[m - 1] = norm_gamma;
     bases[m] = gamma;
 
 #ifdef GQMPS2_TIMING_MODE
@@ -197,37 +192,37 @@ LanczosRes<TenT> MasterLanczosSolver(
     MasterBroadcastOrder(lanczos_mat_vec, world);
     last_mat_mul_vec_res = new TenT();
     a[m] = master_two_site_eff_ham_mul_state(
-                                      rpeff_ham, 
-                                      bases[m], 
-                                      *last_mat_mul_vec_res, 
-                                      world
-                                      );
+        rpeff_ham,
+        bases[m],
+        *last_mat_mul_vec_res,
+        world
+    );
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.PrintElapsed();
     trigssolver.Restart();
 #endif
 
-    TridiagGsSolver(a, b, m+1, eigval, eigvec, 'N');
+    TridiagGsSolver(a, b, m + 1, eigval, eigvec, 'N');
 #ifdef GQMPS2_TIMING_MODE
     trigssolver.Suspend();
-#endif    
+#endif
     auto energy0_new = eigval;
     if (
         ((energy0 - energy0_new) < params.error) ||
-        (m == eff_ham_eff_dim) ||
-        (m == params.max_iterations - 1)
-    ) {
+            (m == eff_ham_eff_dim) ||
+            (m == params.max_iterations - 1)
+        ) {
 #ifdef GQMPS2_TIMING_MODE
       trigssolver.Restart();
 #endif
-      TridiagGsSolver(a, b, m+1, eigval, eigvec, 'V');
+      TridiagGsSolver(a, b, m + 1, eigval, eigvec, 'V');
 #ifdef GQMPS2_TIMING_MODE
       trigssolver.PrintElapsed();
       Timer final_linear_combine_timer("lancz_finial_linear_combine");
-#endif    
+#endif
       energy0 = energy0_new;
       auto gs_vec = new TenT(bases[0]->GetIndexes());
-      LinearCombine(m+1, eigvec, bases, 0.0, gs_vec);
+      LinearCombine(m + 1, eigvec, bases, 0.0, gs_vec);
 #ifdef GQMPS2_TIMING_MODE
       final_linear_combine_timer.PrintElapsed();
 #endif
@@ -240,8 +235,8 @@ LanczosRes<TenT> MasterLanczosSolver(
       LanczosFree(eigvec, bases, last_mat_mul_vec_res);
       MasterBroadcastOrder(lanczos_finish, world);
 #ifdef GQMPS2_TIMING_MODE
-        lancozs_post_precessing.PrintElapsed();
-        lancozs_after_send_ham.PrintElapsed();
+      lancozs_post_precessing.PrintElapsed();
+      lancozs_after_send_ham.PrintElapsed();
 #endif
       return lancz_res;
     } else {
@@ -257,36 +252,35 @@ LanczosRes<TenT> MasterLanczosSolver(
  * @note effective Hamiltonian tensors are not deleted after calling this function.
  * @note deceleration the typename TenT when call this function
 */
-template <typename TenT>
-std::vector<TenT*> SlaveLanczosSolver(
-    mpi::communicator& world
-){
+template<typename TenT>
+std::vector<TenT *> SlaveLanczosSolver(
+    mpi::communicator &world
+) {
 
-std::vector< TenT *> rpeff_ham(two_site_eff_ham_size);
-for(size_t i=0;i<two_site_eff_ham_size;i++){
-  rpeff_ham[i] = new TenT();
-}
+  std::vector<TenT *> rpeff_ham(two_site_eff_ham_size);
+  for (size_t i = 0; i < two_site_eff_ham_size; i++) {
+    rpeff_ham[i] = new TenT();
+  }
 // Receive Hamiltonian
 #ifdef GQMPS_MPI_TIMING_MODE
   Timer broadcast_eff_ham_timer("broadcast_eff_ham_recv");
 #endif
-for(size_t i=0;i<two_site_eff_ham_size;i++){
-  RecvBroadCastGQTensor(world, *rpeff_ham[i], kMasterRank);
-}
+  for (size_t i = 0; i < two_site_eff_ham_size; i++) {
+    RecvBroadCastGQTensor(world, *rpeff_ham[i], kMasterRank);
+  }
 #ifdef GQMPS_MPI_TIMING_MODE
   broadcast_eff_ham_timer.PrintElapsed();
 #endif
 
-VMPS_ORDER order=lanczos_mat_vec ;
-while(order == lanczos_mat_vec){
-  slave_two_site_eff_ham_mul_state(rpeff_ham, world);
-  order = SlaveGetBroadcastOrder(world);
-}
-assert( order==lanczos_finish );
+  VMPS_ORDER order = lanczos_mat_vec;
+  while (order == lanczos_mat_vec) {
+    slave_two_site_eff_ham_mul_state(rpeff_ham, world);
+    order = SlaveGetBroadcastOrder(world);
+  }
+  assert(order == lanczos_finish);
 
-return rpeff_ham;
+  return rpeff_ham;
 }
-
 
 /**
  * two site effective hamiltonian multiplying on state, the dispatch works of master.
@@ -304,7 +298,7 @@ return rpeff_ham;
  * 
  * @return overlap of <res|(*state)>
  */
-template <typename ElemT, typename QNT>
+template<typename ElemT, typename QNT>
 GQTEN_Double master_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &eff_ham,
     GQTensor<ElemT, QNT> *state,
@@ -322,75 +316,75 @@ GQTEN_Double master_two_site_eff_ham_mul_state(
 #endif
   //prepare
   const size_t split_idx = 0;
-  const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
+  const Index<QNT> &splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_size = splited_index.GetQNSctNum();//total task number
-  const QNSectorVec<QNT>& split_qnscts = splited_index.GetQNScts();
+  const QNSectorVec<QNT> &split_qnscts = splited_index.GetQNScts();
   std::vector<TenT> res_list;
   res_list.reserve(task_size);
-  const size_t slave_size = world.size() - 1 ; //total number of slaves
-  TenT res_shell = TenT( state->GetIndexes() );
+  const size_t slave_size = world.size() - 1; //total number of slaves
+  TenT res_shell = TenT(state->GetIndexes());
   std::vector<size_t> arraging_tasks(task_size);
   std::vector<size_t> task_difficuty(task_size);
-  std::iota(arraging_tasks.begin(), arraging_tasks.end(), slave_size );
-  for(size_t i = 0;i<task_size;i++){
+  std::iota(arraging_tasks.begin(), arraging_tasks.end(), slave_size);
+  for (size_t i = 0; i < task_size; i++) {
     task_difficuty[i] = split_qnscts[i].GetDegeneracy();
   }
-  if(task_size > 2*slave_size){
+  if (task_size > 2 * slave_size) {
     std::partial_sort(arraging_tasks.begin(),
-                      arraging_tasks.begin()+slave_size,
-                      arraging_tasks.end()-slave_size,
-                      [&task_difficuty](size_t task1, size_t task2){
+                      arraging_tasks.begin() + slave_size,
+                      arraging_tasks.end() - slave_size,
+                      [&task_difficuty](size_t task1, size_t task2) {
                         return task_difficuty[task1] > task_difficuty[task2];
                       });
     //TODO: add support for multithread, note mpi::environment env( mt::multiple ) outside
     //      Also note omp order, maybe need non-block communication
-    for(size_t i = 0; i<task_size;i++){
-      if(i == slave_size){ //when arraged the most large slave_size jobs, sort the other work
-        std::sort(arraging_tasks.begin()+slave_size,
-                  arraging_tasks.end()-slave_size,
-                  [&task_difficuty](size_t task1, size_t task2){
+    for (size_t i = 0; i < task_size; i++) {
+      if (i == slave_size) { //when arraged the most large slave_size jobs, sort the other work
+        std::sort(arraging_tasks.begin() + slave_size,
+                  arraging_tasks.end() - slave_size,
+                  [&task_difficuty](size_t task1, size_t task2) {
                     return task_difficuty[task1] > task_difficuty[task2];
                   });
-        for(size_t j = i; j<task_size;j++){
-          res_list.push_back( res_shell );
+        for (size_t j = i; j < task_size; j++) {
+          res_list.push_back(res_shell);
         }
-      }else{
-        res_list.push_back( res_shell );
+      } else {
+        res_list.push_back(res_shell);
       }
-      auto& bsdt = res_list[i].GetBlkSparDataTen();
+      auto &bsdt = res_list[i].GetBlkSparDataTen();
       mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
       int slave_identifier = recv_status.source();
-      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+      world.send(slave_identifier, 2 * slave_identifier, arraging_tasks[i]);
     }
-  }else if(task_size > slave_size){
+  } else if (task_size > slave_size) {
     std::sort(arraging_tasks.begin(),
               arraging_tasks.end() - slave_size,
-              [&task_difficuty](size_t task1, size_t task2){
+              [&task_difficuty](size_t task1, size_t task2) {
                 return task_difficuty[task1] > task_difficuty[task2];
               });
-    for(size_t i = 0; i < task_size; i++){
-      res_list.push_back( res_shell );
-      auto& bsdt = res_list[i].GetBlkSparDataTen();
+    for (size_t i = 0; i < task_size; i++) {
+      res_list.push_back(res_shell);
+      auto &bsdt = res_list[i].GetBlkSparDataTen();
       mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
       int slave_identifier = recv_status.source();
-      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+      world.send(slave_identifier, 2 * slave_identifier, arraging_tasks[i]);
     }
-  }else{
-    for(size_t i = 0; i < task_size; i++){
-      res_list.push_back( res_shell );
-      auto& bsdt = res_list[i].GetBlkSparDataTen();
+  } else {
+    for (size_t i = 0; i < task_size; i++) {
+      res_list.push_back(res_shell);
+      auto &bsdt = res_list[i].GetBlkSparDataTen();
       mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
       int slave_identifier = recv_status.source();
-      world.send(slave_identifier, 2*slave_identifier, arraging_tasks[i]);
+      world.send(slave_identifier, 2 * slave_identifier, arraging_tasks[i]);
     }
   }
 
   GQTEN_Double overlap(0.0), overlap_sub;
-  for(size_t i = 0; i< std::min(task_size, slave_size) ;i++){
-    int slave_identifier = i+1;
+  for (size_t i = 0; i < std::min(task_size, slave_size); i++) {
+    int slave_identifier = i + 1;
     int all_final_signal = -1;
-    world.send(slave_identifier, 3*slave_identifier+task_size, all_final_signal);
-    world.recv(slave_identifier, 4*slave_identifier+task_size, overlap_sub);
+    world.send(slave_identifier, 3 * slave_identifier + task_size, all_final_signal);
+    world.recv(slave_identifier, 4 * slave_identifier + task_size, overlap_sub);
     overlap += overlap_sub;
   }
 
@@ -403,7 +397,6 @@ GQTEN_Double master_two_site_eff_ham_mul_state(
 #endif
   return overlap;
 }
-
 
 /**
  * two site effective hamiltonian multiplying on state,
@@ -418,13 +411,13 @@ GQTEN_Double master_two_site_eff_ham_mul_state(
  * 
  * @return the result of effective hamiltonian multiple 
  */
-template <typename ElemT, typename QNT>
+template<typename ElemT, typename QNT>
 void slave_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &eff_ham,
     mpi::communicator world
-){
+) {
   using TenT = GQTensor<ElemT, QNT>;
-  TenT* state = new TenT();
+  TenT *state = new TenT();
   TenT temp_scalar_ten;
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer(" broadcast_state_recv");
@@ -436,12 +429,12 @@ void slave_two_site_eff_ham_mul_state(
   auto base_dag = Dag(*state);
   // Timer slave_prepare_timer(" slave "+ std::to_string(world.rank()) +"'s prepare");
   const size_t split_idx = 0;
-  const Index<QNT>& splited_index = eff_ham[0]->GetIndexes()[split_idx];
+  const Index<QNT> &splited_index = eff_ham[0]->GetIndexes()[split_idx];
   const size_t task_num = splited_index.GetQNSctNum();
   //slave also need to know the total task number used to judge if finish this works
   size_t task_count = 0;
   const size_t slave_identifier = world.rank();//number from 1
-  if(slave_identifier > task_num){
+  if (slave_identifier > task_num) {
     //no task, happy~
 #ifdef GQMPS2_MPI_TIMING_MODE
     std::cout << "Slave has done task_count = " << task_count << std::endl;
@@ -457,19 +450,19 @@ void slave_two_site_eff_ham_mul_state(
   Timer slave_work_timer(" slave "+ std::to_string(slave_identifier) +"'s work");
 #endif
   //first task
-  size_t task = slave_identifier-1;
+  size_t task = slave_identifier - 1;
   TenT eff_ham0_times_state;
   TenT temp1, res;
   //First contract
   TensorContraction1SectorExecutor<ElemT, QNT> ctrct_executor(
-    eff_ham[0],
-    split_idx,
-    task,
-    state,
-    {{2},{0}},
-    &eff_ham0_times_state
+      eff_ham[0],
+      split_idx,
+      task,
+      state,
+      {{2}, {0}},
+      &eff_ham0_times_state
   );
-  
+
   ctrct_executor.Execute();
 
   Contract<ElemT, QNT, true, true>(eff_ham0_times_state, *eff_ham[1], 1, 0, 2, res);
@@ -480,25 +473,25 @@ void slave_two_site_eff_ham_mul_state(
 
   Contract(
       &res, &base_dag,
-      {{0,1,2,3}, {0,1,2,3}},
+      {{0, 1, 2, 3}, {0, 1, 2, 3}},
       &temp_scalar_ten
   );
-  GQTEN_Double overlap = Real( temp_scalar_ten() );
+  GQTEN_Double overlap = Real(temp_scalar_ten());
   //$2
   // send_gqten(world, kMasterRank, task, res);//tag = task
-  auto& bsdt = res.GetBlkSparDataTen();
+  auto &bsdt = res.GetBlkSparDataTen();
   // std::cout << "task " << task << " finished, sending " << std::endl;
   task_count++;
 #ifdef GQMPS2_MPI_TIMING_MODE
   salve_communication_timer.Restart();
 #endif
   bsdt.MPISend(world, kMasterRank, task);//tag = task
-  
-  world.recv(kMasterRank, 2*slave_identifier, task);//tag = 2*slave_identifier
+
+  world.recv(kMasterRank, 2 * slave_identifier, task);//tag = 2*slave_identifier
 #ifdef GQMPS2_MPI_TIMING_MODE
   salve_communication_timer.Suspend();
 #endif
-  while(task < task_num){
+  while (task < task_num) {
     TenT temp1, res, temp_scalar_ten;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
@@ -508,24 +501,24 @@ void slave_two_site_eff_ham_mul_state(
     Contract<ElemT, QNT, true, true>(res, *eff_ham[2], 4, 0, 2, temp1);
     Contract<ElemT, QNT, true, false>(temp1, *eff_ham[3], 4, 1, 2, res);
     temp1.GetBlkSparDataTen().Clear();
-    
-    Contract(
-      &res, &base_dag,
-      {{0,1,2,3},{0,1,2,3}},
-      &temp_scalar_ten
-    );
-    overlap += Real( temp_scalar_ten() );
 
-    auto& bsdt = res.GetBlkSparDataTen();
+    Contract(
+        &res, &base_dag,
+        {{0, 1, 2, 3}, {0, 1, 2, 3}},
+        &temp_scalar_ten
+    );
+    overlap += Real(temp_scalar_ten());
+
+    auto &bsdt = res.GetBlkSparDataTen();
     task_count++;
-  #ifdef GQMPS2_MPI_TIMING_MODE
+#ifdef GQMPS2_MPI_TIMING_MODE
     salve_communication_timer.Restart();
-  #endif 
+#endif
     bsdt.MPISend(world, kMasterRank, task);//tag = task
-    world.recv(kMasterRank, 2*slave_identifier, task);
-  #ifdef GQMPS2_MPI_TIMING_MODE
+    world.recv(kMasterRank, 2 * slave_identifier, task);
+#ifdef GQMPS2_MPI_TIMING_MODE
     salve_communication_timer.Suspend();
-  #endif
+#endif
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
@@ -534,17 +527,10 @@ void slave_two_site_eff_ham_mul_state(
 #endif
   delete state;
   int all_final_signal;
-  world.recv(kMasterRank, 3*slave_identifier+task_num, all_final_signal );
+  world.recv(kMasterRank, 3 * slave_identifier + task_num, all_final_signal);
   assert(all_final_signal = -1);
-  world.send(kMasterRank, 4*slave_identifier+task_num, overlap );
+  world.send(kMasterRank, 4 * slave_identifier + task_num, overlap);
 }
-
-
-
-
-
-
-
 
 }//gqmps2
 #endif

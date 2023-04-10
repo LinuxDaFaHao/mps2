@@ -21,11 +21,12 @@
 #include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
 #include "boost/mpi.hpp"                                            //boost::mpi
 #include "gqmps2/algo_mpi/framework.h"                              //VMPSORDER
-#include "gqmps2/algo_mpi/vmps/vmps_mpi_init.h"                     //MPI vmps initial
+#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                     //MPI vmps initial
+#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
 #include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteMPINoisedVMPSSweepParams
 #include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     //MPI Lanczos solver
-#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl.h" //SlaveTwoSiteFiniteVMPS
+#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_master.h" //SlaveTwoSiteFiniteVMPS
 #include <thread>                                                       //thread
 
 namespace gqmps2 {
@@ -85,6 +86,16 @@ GQTEN_Double MasterTwoSiteFiniteVMPS(
   assert(mps.size() == mpo.size());
   std::cout << "***** Two-Site Noised Update VMPS Program (with MPI Parallel) *****" << "\n";
   MasterBroadcastOrder(program_start, world );
+  for (size_t node = 1; node < world.size(); node++) {
+    int node_num;
+    world.recv(node, 2 * node, node_num);
+    if (node_num == node) {
+      std::cout << "Node " << node << " received the program start order." << std::endl;
+    } else {
+      std::cout << "unexpected " <<std::endl;
+      exit(1);
+    }
+  }
   auto [left_boundary, right_boundary]=TwoSiteFiniteVMPSInit(mps,mpo,(TwoSiteMPIVMPSSweepParams)sweep_params,world);
   std::cout << "Preseted noises: \t[";
   for(size_t i = 0; i < sweep_params.noises.size(); i++){

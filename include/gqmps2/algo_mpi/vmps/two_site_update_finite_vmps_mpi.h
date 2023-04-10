@@ -35,5 +35,6 @@ struct TwoSiteMPIVMPSSweepParams : public SweepParams {
 
 }//gqmps2
 
-#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl.h"
+#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_master.h"
+#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_slave.h"
 #endif
