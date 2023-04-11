@@ -228,7 +228,6 @@ inline GQTensor<TenElemT, QNT> *MasterGrowRightEnvironment(
       world.send(slave, 2 * slave, 2 * task_size);//finish signal
     } */
     for (size_t i = 0; i < task_size - slave_size; i++) {
-      std::cout << "." ;
       auto &bsdt = res_list[i].GetBlkSparDataTen();
       mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
       int slave_identifier = recv_status.source();

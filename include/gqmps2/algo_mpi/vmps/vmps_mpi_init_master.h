@@ -168,7 +168,6 @@ void InitEnvsMaster(
     if (i > 1) { mps.LoadTen(N - i, GenMPSTenName(mps_path, N - i)); }
     auto file = GenEnvTenName("r", i, temp_path);
     MasterBroadcastOrder(init_grow_env_grow, world);
-    std::cout << "i = " << i << std::endl;
     TenT *prenv_next = MasterGrowRightEnvironmentInit(renv, mpo[N - i], mps[N - i], world);
     renv = std::move(*prenv_next);
     delete prenv_next;

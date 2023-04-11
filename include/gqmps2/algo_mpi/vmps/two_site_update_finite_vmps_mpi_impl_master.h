@@ -24,7 +24,7 @@
 #include "gqmps2/algo_mpi/env_tensor_update_master.h"               //MasterGrowLeftEnvironment, MasterGrowRightEnvironment
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     //MPI Lanczos solver            
+#include "gqmps2/algo_mpi/lanczos_solver_mpi_master.h"                     //MPI Lanczos solver
 
 namespace gqmps2 {
 using namespace gqten;
@@ -86,7 +86,7 @@ inline GQTEN_Double TwoSiteFiniteVMPS(
   if (world.rank() == kMasterRank) {
     e0 = MasterTwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
   } else {
-    SlaveTwoSiteFiniteVMPS<TenElemT, QNT>(world);
+    SlaveTwoSiteFiniteVMPS<TenElemT, QNT>(mpo, world);
   }
   return e0;
 }
@@ -108,7 +108,7 @@ GQTEN_Double MasterTwoSiteFiniteVMPS(
     if (node_num == node) {
       std::cout << "Node " << node << " received the program start order." << std::endl;
     } else {
-      std::cout << "unexpected " <<std::endl;
+      std::cout << "unexpected " << std::endl;
       exit(1);
     }
   }
@@ -220,6 +220,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
 #endif
   Timer lancz_timer("two_site_fvmps_lancz");
   MasterBroadcastOrder(lanczos, world);
+  broadcast(world, lsite_idx, kMasterRank);
   auto lancz_res = MasterLanczosSolver(
       eff_ham, init_state,
       sweep_params.lancz_params,

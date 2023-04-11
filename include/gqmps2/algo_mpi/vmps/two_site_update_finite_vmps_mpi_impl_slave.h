@@ -15,11 +15,10 @@
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
 #include "boost/mpi.hpp"                                            //boost::mpi
 #include "gqmps2/algo_mpi/framework.h"                              //VMPSORDER
-#include "gqmps2/algo_mpi/env_tensor_update_slave.h"               //MasterGrowLeftEnvironment, MasterGrowRightEnvironment
-#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"                     //InitEnvsSlave
-//#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                     //MPI vmps initial
+#include "gqmps2/algo_mpi/env_tensor_update_slave.h"                //MasterGrowLeftEnvironment, MasterGrowRightEnvironment
+#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"               //InitEnvsSlave
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi.h"
+#include "gqmps2/algo_mpi/lanczos_solver_mpi_slave.h"
 namespace gqmps2 {
 using namespace gqten;
 namespace mpi = boost::mpi;
@@ -39,6 +38,7 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
 
 template<typename TenElemT, typename QNT>
 void SlaveTwoSiteFiniteVMPS(
+    const MPO<GQTensor<TenElemT, QNT>> &mpo,
     mpi::communicator &world
 ) {
   using TenT = GQTensor<TenElemT, QNT>;
@@ -50,14 +50,19 @@ void SlaveTwoSiteFiniteVMPS(
   while (order != program_final) {
     order = SlaveGetBroadcastOrder(world);
     switch (order) {
-      case program_start:
-        world.send(kMasterRank, 2 * world.rank(), world.rank());
+      case program_start:world.send(kMasterRank, 2 * world.rank(), world.rank());
         break;
-      case init_grow_env:
-        InitEnvsSlave<TenElemT, QNT>(world);
+      case init_grow_env:InitEnvsSlave<TenElemT, QNT>(world);
         break;
       case lanczos: {
-        eff_ham = SlaveLanczosSolver<TenT>(world);
+        size_t lsite_idx;
+        broadcast(world, lsite_idx, kMasterRank);
+        size_t rsite_idx = lsite_idx + 1;
+        eff_ham[0] = new TenT();
+        eff_ham[1] = const_cast<TenT *>(&mpo[lsite_idx]);
+        eff_ham[2] = const_cast<TenT *>(&mpo[rsite_idx]);
+        eff_ham[two_site_eff_ham_size-1] = new TenT();
+        SlaveLanczosSolver<TenT>(eff_ham, world);
       }
         break;
       case svd: {
@@ -73,17 +78,15 @@ void SlaveTwoSiteFiniteVMPS(
       }
         break;
       case growing_left_env: {
+        delete eff_ham[two_site_eff_ham_size-1];
         SlaveGrowLeftEnvironment(*eff_ham[0], *eff_ham[1], world);
-        for (size_t i = 0; i < two_site_eff_ham_size; i++) {
-          delete eff_ham[i];
-        }
+        delete eff_ham[0];
       }
         break;
       case growing_right_env: {
+        delete eff_ham[0];
         SlaveGrowRightEnvironment(*eff_ham[3], *eff_ham[2], world);
-        for (size_t i = 0; i < two_site_eff_ham_size; i++) {
-          delete eff_ham[i];
-        }
+        delete eff_ham[two_site_eff_ham_size-1];
       }
         break;
       case program_final:std::cout << "Node" << world.rank() << " will stop." << std::endl;

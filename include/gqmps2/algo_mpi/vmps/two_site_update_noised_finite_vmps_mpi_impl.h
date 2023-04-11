@@ -25,7 +25,7 @@
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
 #include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteMPINoisedVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi.h"                     //MPI Lanczos solver
+#include "gqmps2/algo_mpi/lanczos_solver_mpi_master.h"                     //MPI Lanczos solver
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_master.h" //SlaveTwoSiteFiniteVMPS
 #include <thread>                                                       //thread
 
@@ -70,7 +70,7 @@ inline GQTEN_Double TwoSiteFiniteVMPS(
   if(world.rank()== kMasterRank){
     e0 = MasterTwoSiteFiniteVMPS(mps,mpo,sweep_params,world);
   }else{
-    SlaveTwoSiteFiniteVMPS<TenElemT, QNT>(world);
+    SlaveTwoSiteFiniteVMPS<TenElemT, QNT>(mpo, world);
   }
   return e0;
 }
@@ -282,6 +282,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
 #endif
   Timer lancz_timer("two_site_fvmps_lancz");
   MasterBroadcastOrder(lanczos, world);
+  broadcast(world, lsite_idx, kMasterRank);
   auto lancz_res = MasterLanczosSolver(
       eff_ham, init_state,
       sweep_params.lancz_params,
