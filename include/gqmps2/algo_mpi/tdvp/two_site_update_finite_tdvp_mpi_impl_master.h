@@ -4,7 +4,7 @@
 * Author: Hao-Xin Wang <wanghx18@mails.tsinghua.edu.cn>
 * Creation Date: 2021-12-21
 *
-* Description: GraceQ/MPS2 project. Two-site update finite size vMPS with MPI Paralization
+* Description: GraceQ/MPS2 project. Two-site update finite size TDVP with MPI Parallel, slave side.
 */
 
 #ifndef GQMPS2_ALGO_MPI_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_MPI_IMPL_H
@@ -14,7 +14,6 @@
 #include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h" //MPITDVPSweepParams
 #include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"    //DynamicMeasuRes..
 #include "gqmps2/algo_mpi/lanczos_expmv_solver_mpi.h"             //MasterLanczosExpmvSolver, SlaveLanczosExpmvSolver
-#include "gqmps2/algo_mpi/env_tensor_update_master.h"
 #include "gqmps2/algo_mpi/env_tensor_update_slave.h"
 
 namespace gqmps2 {
@@ -22,32 +21,30 @@ using namespace gqten;
 namespace mpi = boost::mpi;
 
 //Forward declarations.
-template <typename TenElemT, typename QNT, char dir>
+template<typename TenElemT, typename QNT, char dir>
 void MasterTwoSiteFiniteTDVPEvolution(
     FiniteMPS<TenElemT, QNT> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     const MPO<GQTensor<TenElemT, QNT>> &,
     const TDVPSweepParams<QNT> &,
-    const size_t ,
-    mpi::communicator&
+    const size_t,
+    mpi::communicator &
 );
 
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void MasterSingleSiteFiniteTDVPBackwardEvolution(
     FiniteMPS<TenElemT, QNT> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     const MPO<GQTensor<TenElemT, QNT>> &,
     const TDVPSweepParams<QNT> &,
-    const size_t ,
-    mpi::communicator&
+    const size_t,
+    mpi::communicator &
 );
 
-template <typename TenElemT, typename QNT>
-void SlaveTwoSiteFiniteTDVP(mpi::communicator&);
-template <typename TenT>
-std::vector<TenT*> SlaveLanczosSolver(mpi::communicator&);
+template<typename TenElemT, typename QNT>
+void SlaveTwoSiteFiniteTDVP(const MPO<GQTensor<TenElemT, QNT>> &, mpi::communicator &);
 
 
 /**
@@ -61,58 +58,66 @@ std::vector<TenT*> SlaveLanczosSolver(mpi::communicator&);
  * @param world
  * @return
  */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 DynamicMeasuRes<TenElemT> TwoSiteFiniteTDVP(
     FiniteMPS<TenElemT, QNT> &mps, //initial state, empty, saved in disk
     const MPO<GQTensor<TenElemT, QNT>> &mpo, //saved in memory,
     const MPITDVPSweepParams<QNT> &sweep_params,
-    const std::string& measure_file_base_name,
-    mpi::communicator& world
-    ) {
+    const std::string &measure_file_base_name,
+    mpi::communicator &world
+) {
   const size_t N = mps.size();
-  DynamicMeasuRes<TenElemT> measure_res(N * (sweep_params.step + 1) );
-  if(world.rank()== kMasterRank){
-    measure_res = MasterTwoSiteFiniteTDVP(mps,mpo,sweep_params,measure_file_base_name,world);
-  }else{
-    SlaveTwoSiteFiniteTDVP<TenElemT, QNT>(world);
+  DynamicMeasuRes<TenElemT> measure_res(N * (sweep_params.step + 1));
+  if (world.rank() == kMasterRank) {
+    measure_res = MasterTwoSiteFiniteTDVP(mps, mpo, sweep_params, measure_file_base_name, world);
+  } else {
+    SlaveTwoSiteFiniteTDVP<TenElemT, QNT>(mpo, world);
   }
   return measure_res;
 }
 
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
     FiniteMPS<TenElemT, QNT> &mps, //initial state, empty, saved in disk
     const MPO<GQTensor<TenElemT, QNT>> &mpo, //saved in memory,
     const MPITDVPSweepParams<QNT> &sweep_params,
     const std::string measure_file_base_name,
-    mpi::communicator& world
-    ) {
+    mpi::communicator &world
+) {
   //Not important todo: parallel initialization parts
-  assert(world.rank() == kMasterRank );
+  assert(world.rank() == kMasterRank);
   assert(mps.size() == mpo.size());
 
-  MasterBroadcastOrder(program_start, world );
+  MasterBroadcastOrder(program_start, world);
+  for (size_t node = 1; node < world.size(); node++) {
+    int node_num;
+    world.recv(node, 2 * node, node_num);
+    if (node_num == node) {
+      std::cout << "Node " << node << " received the program start order." << std::endl;
+    } else {
+      std::cout << "unexpected " << std::endl;
+      exit(1);
+    }
+  }
   const size_t site_0 = sweep_params.site_0;
   std::cout << "\nPlease make sure the central of mps in disk is less than " << site_0 << "." << "\n";
 
-
   if (!IsPathExist(sweep_params.initial_mps_path)) {
     CreatPath(sweep_params.initial_mps_path);
-    for(size_t i = 0; i < mps.size(); i++){
-      mps.LoadTen(i , GenMPSTenName(sweep_params.mps_path, i ));
-      mps.DumpTen(i, GenMPSTenName(sweep_params.initial_mps_path, i ), true);
+    for (size_t i = 0; i < mps.size(); i++) {
+      mps.LoadTen(i, GenMPSTenName(sweep_params.mps_path, i));
+      mps.DumpTen(i, GenMPSTenName(sweep_params.initial_mps_path, i), true);
     }
   }
 
-  ActOperatorOnMps(sweep_params.op0, sweep_params.inst0, site_0, mps );
+  ActOperatorOnMps(sweep_params.op0, sweep_params.inst0, site_0, mps);
   mps.LoadTen(sweep_params.site_0, GenMPSTenName(sweep_params.mps_path, sweep_params.site_0));
-  for(size_t i = site_0; i > 0; i--){
+  for (size_t i = site_0; i > 0; i--) {
     mps.LoadTen(i - 1, GenMPSTenName(sweep_params.mps_path, i - 1));
     mps.RightCanonicalizeTen(i);
-    mps.DumpTen(i, GenMPSTenName(sweep_params.mps_path, i ), true);
+    mps.DumpTen(i, GenMPSTenName(sweep_params.mps_path, i), true);
   }
-  mps.DumpTen(0, GenMPSTenName(sweep_params.mps_path, 0 ), true);
+  mps.DumpTen(0, GenMPSTenName(sweep_params.mps_path, 0), true);
 
   if (!IsPathExist(sweep_params.temp_path)) {
     CreatPath(sweep_params.temp_path);
@@ -125,16 +130,16 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
 
   std::cout << "\n";
   const size_t N = mps.size();
-  DynamicMeasuRes<TenElemT> measure_res(N * (sweep_params.step + 1) );
+  DynamicMeasuRes<TenElemT> measure_res(N * (sweep_params.step + 1));
 
   double time = 0.0;
-  std::vector<TenElemT> correlation = CalPsi1OpPsi2(mps.GetSitesInfo(),sweep_params);
-  for(size_t i = 0; i < N; i++) {
+  std::vector<TenElemT> correlation = CalPsi1OpPsi2(mps.GetSitesInfo(), sweep_params);
+  for (size_t i = 0; i < N; i++) {
     measure_res[i].times = {0.0, time};
-    measure_res[i].sites = {site_0, i };
+    measure_res[i].sites = {site_0, i};
     measure_res[i].avg = correlation[i];
   }
-  for(size_t step = 0; step < sweep_params.step; step++) {
+  for (size_t step = 0; step < sweep_params.step; step++) {
     std::cout << "step = " << step << "\n";
     Timer sweep_timer("sweep");
 
@@ -142,15 +147,14 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
 
     sweep_timer.PrintElapsed();
 
-
     Timer measure_timer("measure");
     time = (step + 1) * sweep_params.tau;
-    correlation = CalPsi1OpPsi2(mps.GetSitesInfo(),sweep_params);
+    correlation = CalPsi1OpPsi2(mps.GetSitesInfo(), sweep_params);
 
-    for(size_t i = 0; i < N; i++) {
+    for (size_t i = 0; i < N; i++) {
       measure_res[(step + 1) * N + i].times = {0.0, time};
-      measure_res[(step + 1) * N + i].sites = {site_0, i };
-      measure_res[(step + 1) * N + i].avg = correlation[i] * std::exp(GQTEN_Complex(0.0, sweep_params.e0) * time );
+      measure_res[(step + 1) * N + i].sites = {site_0, i};
+      measure_res[(step + 1) * N + i].avg = correlation[i] * std::exp(GQTEN_Complex(0.0, sweep_params.e0) * time);
     }
     measure_timer.PrintElapsed();
     std::cout << "\n";
@@ -160,63 +164,12 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
   return measure_res;
 }
 
-
-template <typename TenElemT, typename QNT>
-void SlaveTwoSiteFiniteTDVP(
-    mpi::communicator& world
-    ) {
-  using TenT = GQTensor<TenElemT, QNT>;
-  std::vector< TenT *> eff_ham(two_site_eff_ham_size);
-
-  VMPS_ORDER order = program_start;
-  while(order != program_final ){
-    order = SlaveGetBroadcastOrder(world);
-    switch(order){
-      case program_start:
-        std::cout << "Slave " << world.rank() << " receive program start order. " << std::endl;
-        break;
-      case lanczos:{
-        eff_ham = SlaveLanczosSolver<TenT>(world);
-      } break;
-      case svd:{
-        MPISVDSlave<TenElemT>(world);
-      } break;
-      case contract_for_right_moving_expansion:{//dir='r'
-        std::cout << "Slave doesn't have the functionality of contract_for_right_moving_expansion. Aborting." << std::endl;
-        world.abort(1);
-      }break;
-      case contract_for_left_moving_expansion:{//dir='l'
-        std::cout << "Slave doesn't have the functionality of contract_for_left_moving_expansion. Aborting." << std::endl;
-        world.abort(1);
-      }break;
-      case growing_left_env:{
-        SlaveGrowLeftEnvironment(*eff_ham[0], *eff_ham[1], world);
-        for(size_t i=0;i<two_site_eff_ham_size;i++){
-          delete eff_ham[i];
-        }
-      } break;
-      case growing_right_env:{
-        SlaveGrowRightEnvironment(*eff_ham[3],*eff_ham[2], world);
-        for(size_t i=0;i<two_site_eff_ham_size;i++){
-          delete eff_ham[i];
-        }
-      } break;
-      case program_final:
-        std::cout << "Slave" << world.rank() << " will stop." << std::endl;
-        break;
-      default:
-        std::cout << "Slave " << world.rank() << " doesn't understand the order " << order << std::endl;
-        break;
-    }
-  }
-}
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void TwoSiteFiniteTDVPSweep(
-    const SiteVec<TenElemT, QNT>& site_vec,
+    const SiteVec<TenElemT, QNT> &site_vec,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
     const MPITDVPSweepParams<QNT> &sweep_params,
-    mpi::communicator& world
+    mpi::communicator &world
 ) {
   //world.rank() == 0
   using TenT = GQTensor<TenElemT, QNT>;
@@ -234,17 +187,17 @@ void TwoSiteFiniteTDVPSweep(
   );
   for (size_t i = 0; i < N - 2; ++i) {
     LoadRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params_temp);
-    MasterTwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'r'>(mps, lenvs, renvs, mpo, sweep_params, i, world );
-    MasterSingleSiteFiniteTDVPBackwardEvolution<TenElemT, QNT>(mps, lenvs, renvs, mpo, sweep_params, i + 1, world );
+    MasterTwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'r'>(mps, lenvs, renvs, mpo, sweep_params, i, world);
+    MasterSingleSiteFiniteTDVPBackwardEvolution<TenElemT, QNT>(mps, lenvs, renvs, mpo, sweep_params, i + 1, world);
     DumpRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params_temp);
   }
 
-  for(size_t i = N - 1; i > 1; --i) {
+  for (size_t i = N - 1; i > 1; --i) {
     LoadRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'l', sweep_params);
-    if( i == N - 1 ){
-      MasterTwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'l'>(mps, lenvs, renvs, mpo, sweep_params_full_step, i, world );
+    if (i == N - 1) {
+      MasterTwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'l'>(mps, lenvs, renvs, mpo, sweep_params_full_step, i, world);
     } else {
-      MasterTwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'l'>(mps, lenvs, renvs, mpo, sweep_params, i, world );
+      MasterTwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'l'>(mps, lenvs, renvs, mpo, sweep_params, i, world);
     }
     MasterSingleSiteFiniteTDVPBackwardEvolution<TenElemT, QNT>(mps, lenvs, renvs, mpo, sweep_params, i - 1, world);
     DumpRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'l', sweep_params);
@@ -258,7 +211,7 @@ void TwoSiteFiniteTDVPSweep(
       0,
       GenEnvTenName("l", 0, sweep_params.temp_path)
   );
-  TwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'r'>(mps, lenvs, renvs, mpo, sweep_params,  0);
+  TwoSiteFiniteTDVPEvolution<TenElemT, QNT, 'r'>(mps, lenvs, renvs, mpo, sweep_params, 0);
   mps.DumpTen(
       0,
       GenMPSTenName(sweep_params.mps_path, 0),
@@ -275,7 +228,7 @@ void TwoSiteFiniteTDVPSweep(
   renvs.dealloc(N - 2);
 }
 
-template <typename TenElemT, typename QNT, char dir>
+template<typename TenElemT, typename QNT, char dir>
 void MasterTwoSiteFiniteTDVPEvolution(
     FiniteMPS<TenElemT, QNT> &mps,
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
@@ -283,9 +236,10 @@ void MasterTwoSiteFiniteTDVPEvolution(
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
     const TDVPSweepParams<QNT> &sweep_params,
     const size_t target_site,
-    mpi::communicator& world
-    ) {
-  static_assert( (dir == 'r' || dir == 'l'), "Direction template parameter of function TwoSiteFiniteTDVPEvolution is wrong.");
+    mpi::communicator &world
+) {
+  static_assert((dir == 'r' || dir == 'l'),
+                "Direction template parameter of function TwoSiteFiniteTDVPEvolution is wrong.");
   //master process
   Timer update_timer("two_site_ftdvp_update");
   auto N = mps.size();
@@ -297,14 +251,12 @@ void MasterTwoSiteFiniteTDVPEvolution(
   init_state_ctrct_axes = {{2}, {0}};
   svd_ldims = 2;
   switch (dir) {
-    case 'r':
-      lsite_idx = target_site;
+    case 'r':lsite_idx = target_site;
       rsite_idx = target_site + 1;
       lenv_len = target_site;
       renv_len = N - (target_site + 2);
       break;
-    case 'l':
-      lsite_idx = target_site - 1;
+    case 'l':lsite_idx = target_site - 1;
       rsite_idx = target_site;
       lenv_len = target_site - 1;
       renv_len = N - target_site - 1;
@@ -313,7 +265,7 @@ void MasterTwoSiteFiniteTDVPEvolution(
 
   // Lanczos
   using TenT = GQTensor<TenElemT, QNT>;
-  std::vector<TenT *>eff_ham(4);
+  std::vector<TenT *> eff_ham(4);
   eff_ham[0] = lenvs(lenv_len);
   // Safe const casts for MPO local tensors.
   eff_ham[1] = const_cast<TenT *>(&mpo[lsite_idx]);
@@ -324,12 +276,13 @@ void MasterTwoSiteFiniteTDVPEvolution(
   Timer lancz_timer("two_site_ftdvp_lancz");
   //TODO: subroutine for lanczos
   MasterBroadcastOrder(lanczos, world);
+  broadcast(world,lsite_idx, kMasterRank);
   auto lancz_res = MasterLanczosExpmvSolver(
       eff_ham, init_state,
-      sweep_params.tau/2,
+      sweep_params.tau / 2,
       sweep_params.lancz_params,
       world
-      );
+  );
 #ifdef GQMPS2_TIMING_MODE
   auto lancz_elapsed_time = lancz_timer.PrintElapsed();
 #else
@@ -368,18 +321,15 @@ void MasterTwoSiteFiniteTDVPEvolution(
 
   TenT the_other_mps_ten;
   switch (dir) {
-    case 'r':
-      mps[lsite_idx] = std::move(u);
+    case 'r':mps[lsite_idx] = std::move(u);
       Contract(&s, &vt, {{1}, {0}}, &the_other_mps_ten);
       mps[rsite_idx] = std::move(the_other_mps_ten);
       break;
-    case 'l':
-      Contract(&u, &s, {{2}, {0}}, &the_other_mps_ten);
+    case 'l':Contract(&u, &s, {{2}, {0}}, &the_other_mps_ten);
       mps[lsite_idx] = std::move(the_other_mps_ten);
       mps[rsite_idx] = std::move(vt);
       break;
-    default:
-      assert(false);
+    default:assert(false);
   }
 
 #ifdef GQMPS2_TIMING_MODE
@@ -392,14 +342,16 @@ void MasterTwoSiteFiniteTDVPEvolution(
 #endif
 
   switch (dir) {
-    case 'r':{
+    case 'r': {
       MasterBroadcastOrder(growing_left_env, world);
-      lenvs(lenv_len + 1) = MasterGrowLeftEnvironment(lenvs[lenv_len], mpo[target_site],mps[target_site], world);
-    }break;
-    case 'l':{
+      lenvs(lenv_len + 1) = MasterGrowLeftEnvironment(lenvs[lenv_len], mpo[target_site], mps[target_site], world);
+    }
+      break;
+    case 'l': {
       MasterBroadcastOrder(growing_right_env, world);
-      renvs(renv_len + 1) = MasterGrowRightEnvironment(*eff_ham[3], mpo[target_site],mps[target_site], world);
-    }break;
+      renvs(renv_len + 1) = MasterGrowRightEnvironment(*eff_ham[3], mpo[target_site], mps[target_site], world);
+    }
+      break;
   }
 
 #ifdef GQMPS2_TIMING_MODE
@@ -417,9 +369,8 @@ void MasterTwoSiteFiniteTDVPEvolution(
   std::cout << std::scientific << std::endl;
 }
 
-
 /// no svd
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void MasterSingleSiteFiniteTDVPBackwardEvolution(
     FiniteMPS<TenElemT, QNT> &mps,
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
@@ -427,8 +378,8 @@ void MasterSingleSiteFiniteTDVPBackwardEvolution(
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
     const TDVPSweepParams<QNT> &sweep_params,
     const size_t target_site,
-    mpi::communicator& world
-    ) {
+    mpi::communicator &world
+) {
   Timer update_timer("single_site_ftdvp_update");
   auto N = mps.size();
   size_t lenv_len = target_site;
@@ -445,7 +396,7 @@ void MasterSingleSiteFiniteTDVPBackwardEvolution(
   ExpmvRes<TenT> lancz_res = LanczosExpmvSolver(
       eff_ham, mps(target_site),
       &eff_ham_mul_single_site_state,
-      -sweep_params.tau/2,
+      -sweep_params.tau / 2,
       sweep_params.lancz_params
   );   //note here mps(target_site) are destroyed.
 #ifdef GQMPS2_TIMING_MODE
@@ -463,16 +414,6 @@ void MasterSingleSiteFiniteTDVPBackwardEvolution(
   std::cout << std::scientific << std::endl;
 }
 
-
-
-
-
-
 }
-
-
-
-
-
 
 #endif //GQMPS2_ALGO_MPI_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_MPI_IMPL_H

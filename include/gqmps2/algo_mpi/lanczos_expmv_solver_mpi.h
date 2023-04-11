@@ -10,15 +10,12 @@
 #ifndef GQMPS2_ALGO_MPI_LANCZOS_EXPMV_SOLVER_MPI_H
 #define GQMPS2_ALGO_MPI_LANCZOS_EXPMV_SOLVER_MPI_H
 
-
-
-namespace gqmps2{
+namespace gqmps2 {
 using namespace gqten;
-namespace  mpi = boost::mpi;
-
+namespace mpi = boost::mpi;
 
 //Forward deceleration
-template <typename ElemT, typename QNT>
+template<typename ElemT, typename QNT>
 GQTEN_Double master_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &,
     GQTensor<ElemT, QNT> *,
@@ -26,29 +23,28 @@ GQTEN_Double master_two_site_eff_ham_mul_state(
     mpi::communicator
 );
 
-template <typename ElemT, typename QNT>
+template<typename ElemT, typename QNT>
 void slave_two_site_eff_ham_mul_state(
     const std::vector<GQTensor<ElemT, QNT> *> &,
     mpi::communicator
 );
 
-
-template <typename TenT>
+template<typename TenT>
 ExpmvRes<TenT> MasterLanczosExpmvSolver(
     const std::vector<TenT *> &rpeff_ham,
     TenT *pinit_state,
     const double step_length,
     const LanczosParams &params,
-    mpi::communicator& world
-    ) {
+    mpi::communicator &world
+) {
   const size_t eff_ham_eff_dim = pinit_state->size();
   const size_t eff_ham_size = pinit_state->Rank();
 #ifdef GQMPS2_TIMING_MODE
   Timer broadcast_eff_ham_timer("broadcast_eff_ham_send");
 #endif
-  for(size_t i = 0; i < eff_ham_size; i++){
-    SendBroadCastGQTensor(world, (*rpeff_ham[i]), kMasterRank);
-  }
+  SendBroadCastGQTensor(world, (*rpeff_ham[0]), kMasterRank);
+  SendBroadCastGQTensor(world, (*rpeff_ham[eff_ham_size - 1]), kMasterRank);
+
 #ifdef GQMPS2_TIMING_MODE
   broadcast_eff_ham_timer.PrintElapsed();
   Timer lancozs_after_send_ham("lancz_total_time_after_send_ham");
@@ -56,7 +52,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
 
   ExpmvRes<TenT> expmv_res;
   std::vector<std::vector<size_t>> energy_measu_ctrct_axes;
-  if (eff_ham_size ==3) {            // single site update
+  if (eff_ham_size == 3) {            // single site update
     energy_measu_ctrct_axes = {{0, 1, 2}, {0, 1, 2}};
   } else if (pinit_state->Rank() == 4) {    // two site update
     energy_measu_ctrct_axes = {{0, 1, 2, 3}, {0, 1, 2, 3}};
@@ -76,7 +72,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
   Timer mat_vec_timer("lancz_mat_vec_and_overlap");
 #endif
 
-  TenT* last_mat_mul_vec_res = new TenT();
+  TenT *last_mat_mul_vec_res = new TenT();
   a[0] = master_two_site_eff_ham_mul_state(
       rpeff_ham,
       bases[0],
@@ -91,18 +87,18 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
   GQTEN_Complex *combination_factor = new GQTEN_Complex[params.max_iterations];//combination of bases
   GQTEN_Complex *last_combination_factor = new GQTEN_Complex[params.max_iterations];
 
-  while(true) {
+  while (true) {
     m += 1;
 #ifdef GQMPS2_TIMING_MODE
     Timer linear_combine_timer("lancz_linear_combine");
 #endif
-    TenT* gamma = last_mat_mul_vec_res;
-    if(m == 1) {
-      LinearCombine({-a[m-1]}, {bases[m-1]}, 1.0, gamma);
+    TenT *gamma = last_mat_mul_vec_res;
+    if (m == 1) {
+      LinearCombine({-a[m - 1]}, {bases[m - 1]}, 1.0, gamma);
     } else {
       LinearCombine(
-          {-a[m-1], -b[m-2]},
-          {bases[m-1], bases[m-2]},
+          {-a[m - 1], -b[m - 2]},
+          {bases[m - 1], bases[m - 2]},
           1.0,
           gamma
       );
@@ -118,12 +114,12 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
     trigssolver.Suspend();
 #endif
 
-    if(norm_gamma == 0.0) {
+    if (norm_gamma == 0.0) {
       expmv_res.iters = m;
-      if ( m == 1 ) { //initial state is just an eigenstate
+      if (m == 1) { //initial state is just an eigenstate
         expmv_res.expmv = new TenT();
-        std::complex<double> evolution_phase_factor {0.0, - step_length * a[0]};
-        (*expmv_res.expmv) = (initial_norm * std::exp( evolution_phase_factor )) * (*bases[0]);
+        std::complex<double> evolution_phase_factor{0.0, -step_length * a[0]};
+        (*expmv_res.expmv) = (initial_norm * std::exp(evolution_phase_factor)) * (*bases[0]);
       } else {
 #ifdef GQMPS2_TIMING_MODE
         trigssolver.Restart();
@@ -153,7 +149,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
       return expmv_res;
     }
 
-    b[m-1] = norm_gamma;
+    b[m - 1] = norm_gamma;
     bases[m] = gamma;
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.ClearAndRestart();
@@ -171,13 +167,13 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
     trigssolver.Restart();
 #endif
 
-    TridiagExpme1Solver(a, b, m+1, step_length, combination_factor);
+    TridiagExpme1Solver(a, b, m + 1, step_length, combination_factor);
 #ifdef GQMPS2_TIMING_MODE
     trigssolver.Suspend();
 #endif
-    double distance = Distance(last_combination_factor, combination_factor, m+1);
-    if( distance < params.error ||
-        m == eff_ham_eff_dim    ||
+    double distance = Distance(last_combination_factor, combination_factor, m + 1);
+    if (distance < params.error ||
+        m == eff_ham_eff_dim ||
         m == params.max_iterations - 1
         ) {
 #ifdef GQMPS2_TIMING_MODE
@@ -207,11 +203,6 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
   }
 }
 
-
 }
-
-
-
-
 
 #endif //GQMPS2_ALGO_MPI_LANCZOS_EXPMV_SOLVER_MPI_H

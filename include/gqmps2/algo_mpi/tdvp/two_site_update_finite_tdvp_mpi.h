@@ -45,5 +45,6 @@ struct MPITDVPSweepParams : public TDVPSweepParams<QNT> {
 
 
 
-#include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi_impl.h"
+#include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi_impl_master.h"
+#include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi_impl_slave.h"
 #endif //GQMPS2_ALGO_MPI_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_MPI_H
