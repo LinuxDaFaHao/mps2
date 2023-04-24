@@ -18,6 +18,7 @@
 #include "gqmps2/consts.h"       // kNullUintVec, kNullUintVecVec
 #include "gqmps2/site_vec.h"     // SiteVec
 #include "gqmps2/one_dim_tn/mpo/mpo.h"    // MPO
+#include "gqmps2/one_dim_tn/mat_repr_mpo.h" //MatReprMPO
 #include "gqmps2/one_dim_tn/mpo/mpogen/fsm.h"
 #include "gqmps2/one_dim_tn/mpo/mpogen/symb_alg/coef_op_alg.h"
 #include "gqten/gqten.h"
@@ -78,6 +79,8 @@ public:
   FSM GetFSM(void) { return fsm_; }
 
   MPO<GQTensorT> Gen(void);
+
+  MatReprMPO<GQTensorT> GenMatReprMPO(void);
 
 private:
   size_t N_;

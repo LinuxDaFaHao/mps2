@@ -66,10 +66,15 @@ inline void WriteGQTensorTOFile(const TenT &t, const std::string &file) {
 
 
 template <typename TenT>
-inline void ReadGQTensorFromFile(TenT &t, const std::string &file) {
+inline bool ReadGQTensorFromFile(TenT &t, const std::string &file) {
   std::ifstream ifs(file, std::ifstream::binary);
-  ifs >> t;
-  ifs.close();
+  if(ifs.good()){
+    ifs >> t;
+    ifs.close();
+    return true;
+  } else {
+    return false;
+  }
 }
 
 

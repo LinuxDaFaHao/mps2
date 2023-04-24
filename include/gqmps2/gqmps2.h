@@ -34,6 +34,7 @@
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"      // TwoSiteFiniteVMPS, SweepParams
 #include "gqmps2/algorithm/vmps/single_site_update_finite_vmps.h"   // SingleSiteFiniteVMPS
 #include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"      // TwoSiteFiniteTDVP
+#include "gqmps2/algorithm/dmrg/dmrg.h"                             // DMRG
 // MPI Algorithms
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteFiniteVMPS
 #include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h"

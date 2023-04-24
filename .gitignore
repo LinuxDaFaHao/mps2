@@ -1,5 +1,6 @@
 # Dir
 build/
+release/
 test/
 build_doc/
 external/gqten/

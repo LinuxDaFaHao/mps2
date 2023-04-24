@@ -4,7 +4,7 @@
 * Author: Hao-Xin Wang <wanghx18@mails.tsinghua.edu.cn>
 * Creation Date: 2021-08-31
 *
-* Description: GraceQ/MPS2 project. Initilization for two-site update finite size vMPS.
+* Description: GraceQ/MPS2 project. initialisation for two-site update finite size vMPS.
 */
 
 /**
@@ -76,7 +76,7 @@ std::pair<size_t, size_t> FiniteVMPSInit(
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
     const SweepParams &sweep_params
 ) {
-
+  using Tensor = GQTensor<TenElemT, QNT>;
   std::cout << "\n";
   std::cout << "=====> Sweep Parameters <=====" << "\n";
   std::cout << "MPS/MPO size: \t " << mpo.size() << "\n";
@@ -91,7 +91,6 @@ std::pair<size_t, size_t> FiniteVMPSInit(
   std::cout << "The number of threads: \t" << hp_numeric::GetTensorManipulationThreads() << "\n";
 
   std::cout << "=====> Checking and updating boundary tensors =====>" << std::endl;
-  using Tensor = GQTensor<TenElemT, QNT>;
   auto [left_boundary, right_boundary] = CheckAndUpdateBoundaryMPSTensors(
       mps,
       sweep_params.mps_path,
@@ -107,7 +106,7 @@ std::pair<size_t, size_t> FiniteVMPSInit(
     std::cout << "=====> Creating the environment tensors =====>" << std::endl;
     InitEnvs(mps, mpo, sweep_params.mps_path, sweep_params.temp_path, left_boundary + 2);
   } else {
-    std::cout << "The environment tensors have existed." << std::endl;
+    std::cout << "The environment tensors exist." << std::endl;
   }
 
   //update the left env of left_boundary site and right env of right_boundary site
@@ -121,16 +120,16 @@ std::pair<size_t, size_t> FiniteVMPSInit(
  * This function makes sure the bond dimension
  * of tensors near ends are sufficiently large. If the bond dimension is not sufficient,
  * the tensor will replaced by combiner, and one more contract to make sure the mps is
- * not changed. Left/right cannonicalization condition of tensors on each sides
+ * not changed. Left/right canonical condition of tensors on each sides
  * are also promised in this procedure, so that the later vmps only need doing between
  * left and right boundary.
  * The first tensors that need to be truncate gives the left boundary and
  * right boundary.
  *
- * Thus a design is for comptiblity with other vmps function's results. (2021-08-27)
+ * Thus a design is for compatibility with other vmps function's results. (2021-08-27)
  *
- * @return left_boundary    the most left site needs to update after
- * @return right_boundary   the most right site needs to update after
+ * @return left_boundary    the most left site needs to update in VMPS
+ * @return right_boundary   the most right site needs to update in VMPS
  * @note we suppose the centre of mps <= left_boundary+1 before call this function,
  *       and the centre will be moved to left_boundary+1 when return;
  *
@@ -163,7 +162,7 @@ std::pair<size_t, size_t> CheckAndUpdateBoundaryMPSTensors(
     //make sure at least three sites are used to sweep
   }
 
-  //Assum the central of MPS at zero
+  //Assume the central of MPS at zero
 
   //Left Side
   mps.LoadTen(0, GenMPSTenName(mps_path, 0));

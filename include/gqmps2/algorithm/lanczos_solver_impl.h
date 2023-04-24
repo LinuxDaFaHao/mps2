@@ -14,27 +14,23 @@
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"                // Timer
 
-
 #include <iostream>
 #include <vector>     // vector
 #include <cstring>
 
 #include "mkl.h"
 
-
 namespace gqmps2 {
-
 
 using namespace gqten;
 
-
 // Forward declarations.
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
     const std::vector<GQTensor<TenElemT, QNT> *> &,
     GQTensor<TenElemT, QNT> *
 );
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
     const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
     GQTensor<TenElemT, QNT> *state
@@ -42,13 +38,12 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
 
 void TridiagGsSolver(
     const std::vector<double> &, const std::vector<double> &, const size_t,
-    double &, double * &, const char);
-
+    double &, double *&, const char);
 
 // Helpers.
-template <typename TenT>
+template<typename TenT>
 inline void InplaceContract(
-    TenT * &lhs, const TenT *rhs,
+    TenT *&lhs, const TenT *rhs,
     const std::vector<std::vector<size_t>> &axes) {
   auto res = new TenT;
   Contract(lhs, rhs, axes, res);
@@ -56,27 +51,26 @@ inline void InplaceContract(
   lhs = res;
 }
 
-
-template <typename TenT, typename T>
+template<typename TenT, typename T>
 inline void LanczosFree(
-    T * &a,
+    T *&a,
     std::vector<TenT *> &b,
-    TenT * &last_mat_mul_vec_res
+    TenT *&last_mat_mul_vec_res
 ) {
-  if (a != nullptr) { delete [] a; }
-  for (auto &ptr : b) { delete ptr; }
+  if (a != nullptr) { delete[] a; }
+  for (auto &ptr: b) { delete ptr; }
   delete last_mat_mul_vec_res;
 }
 
 //multithread version
-template <typename TenT, typename T>
+template<typename TenT, typename T>
 inline void LanczosFree(
-    T * &a,
+    T *&a,
     std::vector<TenT *> &b,
     const size_t b_size,
-    TenT * &last_mat_mul_vec_res
+    TenT *&last_mat_mul_vec_res
 ) {
-  if (a != nullptr) { delete [] a; }
+  if (a != nullptr) { delete[] a; }
   const int ompth = hp_numeric::tensor_manipulation_num_threads;
 #pragma omp parallel for default(shared) num_threads(ompth) schedule(static)
   for (size_t i = 0; i < b_size; i++) {
@@ -86,21 +80,17 @@ inline void LanczosFree(
   delete last_mat_mul_vec_res;
 }
 
-
 inline double Real(const GQTEN_Double d) { return d; }
-
 
 inline double Real(const GQTEN_Complex z) { return z.real(); }
 
-
 // Lanczos solver.
-template <typename TenT>
+template<typename TenT>
 struct LanczosRes {
   size_t iters;
   double gs_eng;
   TenT *gs_vec;
 };
-
 
 /**
 Obtain the lowest energy eigenvalue and corresponding eigenstate from the effective
@@ -111,11 +101,11 @@ Hamiltonian and a initial state using Lanczos algorithm.
 @param eff_ham_mul_state Function pointer to effective Hamiltonian multiply to state.
 @param params Parameters for Lanczos solver.
 */
-template <typename TenT>
+template<typename TenT>
 LanczosRes<TenT> LanczosSolver(
     const std::vector<TenT *> &rpeff_ham,
     TenT *pinit_state,
-    TenT *(* eff_ham_mul_state)(const std::vector<TenT *> &, TenT *),     //this is a pointer pointing to a function
+    TenT *(*eff_ham_mul_state)(const std::vector<TenT *> &, TenT *),     //this is a pointer pointing to a function
     const LanczosParams &params
 ) {
   // Take care that init_state will be destroyed after call the solver
@@ -124,7 +114,7 @@ LanczosRes<TenT> LanczosSolver(
   LanczosRes<TenT> lancz_res;
 
   std::vector<std::vector<size_t>> energy_measu_ctrct_axes;
-  if (pinit_state->Rank() ==3) {            // For single site update algorithm
+  if (pinit_state->Rank() == 3) {            // For single site update algorithm
     energy_measu_ctrct_axes = {{0, 1, 2}, {0, 1, 2}};
   } else if (pinit_state->Rank() == 4) {    // For two site update algorithm
     energy_measu_ctrct_axes = {{0, 1, 2, 3}, {0, 1, 2, 3}};
@@ -166,11 +156,11 @@ LanczosRes<TenT> LanczosSolver(
     m += 1;
     auto gamma = last_mat_mul_vec_res;
     if (m == 1) {
-      LinearCombine({-a[m-1]}, {bases[m-1]}, 1.0, gamma);
+      LinearCombine({-a[m - 1]}, {bases[m - 1]}, 1.0, gamma);
     } else {
       LinearCombine(
-          {-a[m-1], -std::sqrt(N[m-1])},
-          {bases[m-1], bases[m-2]},
+          {-a[m - 1], -std::sqrt(N[m - 1])},
+          {bases[m - 1], bases[m - 2]},
           1.0,
           gamma
       );
@@ -197,8 +187,8 @@ LanczosRes<TenT> LanczosSolver(
       }
     }
 
-    N[m] = norm_gamma*norm_gamma;
-    b[m-1] = norm_gamma;
+    N[m] = norm_gamma * norm_gamma;
+    b[m - 1] = norm_gamma;
     bases[m] = gamma;
 
 #ifdef GQMPS2_TIMING_MODE
@@ -220,18 +210,18 @@ LanczosRes<TenT> LanczosSolver(
         &temp_scalar_ten
     );
     a[m] = Real(temp_scalar_ten());
-    TridiagGsSolver(a, b, m+1, eigval, eigvec, 'N');
+    TridiagGsSolver(a, b, m + 1, eigval, eigvec, 'N');
     auto energy0_new = eigval;
     if (
         ((energy0 - energy0_new) < params.error) ||
-        (m == eff_ham_eff_dim) ||
-        (m == params.max_iterations - 1)
-    ) {
-      TridiagGsSolver(a, b, m+1, eigval, eigvec, 'V');
+            (m == eff_ham_eff_dim) ||
+            (m == params.max_iterations - 1)
+        ) {
+      TridiagGsSolver(a, b, m + 1, eigval, eigvec, 'V');
       energy0 = energy0_new;
       auto gs_vec = new TenT(bases[0]->GetIndexes());
-      LinearCombine(m+1, eigvec, bases, 0.0, gs_vec);
-      lancz_res.iters = m+1;
+      LinearCombine(m + 1, eigvec, bases, 0.0, gs_vec);
+      lancz_res.iters = m + 1;
       lancz_res.gs_eng = energy0;
       lancz_res.gs_vec = gs_vec;
       LanczosFree(eigvec, bases, m + 1, last_mat_mul_vec_res);
@@ -241,7 +231,6 @@ LanczosRes<TenT> LanczosSolver(
     }
   }
 }
-
 
 /*
  * |----0                       0-----
@@ -253,7 +242,7 @@ LanczosRes<TenT> LanczosSolver(
  * |          |        |             |
  * |----2 0-------------------3 2----|
  */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
     const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
     GQTensor<TenElemT, QNT> *state
@@ -265,18 +254,18 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
   Contract<TenElemT, QNT, true, true>(temp_ten1, *eff_ham[1], 1, 0, 2, temp_ten2);
   Contract<TenElemT, QNT, true, true>(temp_ten2, *eff_ham[2], 4, 0, 2, temp_ten3);
   Contract<TenElemT, QNT, true, false>(temp_ten3, *eff_ham[3], 4, 1, 2, *res);
-  if(hp_numeric::tensor_manipulation_num_threads >= 3){
-    #pragma omp parallel sections num_threads(3)
+  if (hp_numeric::tensor_manipulation_num_threads >= 3) {
+#pragma omp parallel sections num_threads(3)
     {
-      #pragma omp section
+#pragma omp section
       {
         temp_ten1.GetBlkSparDataTen().Clear();
       }
-      #pragma omp section
+#pragma omp section
       {
         temp_ten2.GetBlkSparDataTen().Clear();
       }
-      #pragma omp section
+#pragma omp section
       {
         temp_ten3.GetBlkSparDataTen().Clear();
       }
@@ -285,8 +274,7 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
   return res;
 }
 
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
     const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
     GQTensor<TenElemT, QNT> *state
@@ -300,56 +288,49 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
   return res;
 }
 
-
 inline void TridiagGsSolver(
     const std::vector<double> &a, const std::vector<double> &b, const size_t n,
-    double &gs_eng, double * &gs_vec, const char jobz) {
-  auto d = new double [n];
-  std::memcpy(d, a.data(), n*sizeof(double));
-  auto e = new double [n];
-  std::memcpy(e, b.data(), (n-1)*sizeof(double));
+    double &gs_eng, double *&gs_vec, const char jobz) {
+  auto d = new double[n];
+  std::memcpy(d, a.data(), n * sizeof(double));
+  auto e = new double[n];
+  std::memcpy(e, b.data(), (n - 1) * sizeof(double));
   long ldz;
   auto stev_err_msg = "?stev error.";
   auto stev_jobz_err_msg = "jobz must be  'N' or 'V', but ";
   switch (jobz) {
-    case 'N':
-      ldz = 1;
+    case 'N':ldz = 1;
       break;
-    case 'V':
-      ldz = n;
+    case 'V':ldz = n;
       break;
-    default:
-      std::cout << stev_jobz_err_msg << jobz << std::endl;
+    default:std::cout << stev_jobz_err_msg << jobz << std::endl;
       std::cout << stev_err_msg << std::endl;
       exit(1);
   }
-  auto z = new double [ldz*n];
+  auto z = new double[ldz * n];
   auto info = LAPACKE_dstev(    // TODO: Try dstevd dstevx some day.
-                  LAPACK_ROW_MAJOR, jobz,
-                  n,
-                  d, e,
-                  z,
-                  n);     // TODO: Why can not use ldz???
+      LAPACK_ROW_MAJOR, jobz,
+      n,
+      d, e,
+      z,
+      n);     // TODO: Why can not use ldz???
   if (info != 0) {
     std::cout << stev_err_msg << std::endl;
     exit(1);
   }
   switch (jobz) {
-    case 'N':
+    case 'N':break;
+    case 'V':gs_vec = new double[n];
+      for (size_t i = 0; i < n; ++i) { gs_vec[i] = z[i * n]; }
       break;
-    case 'V':
-      gs_vec = new double [n];
-      for (size_t i = 0; i < n; ++i) { gs_vec[i] = z[i*n]; }
-      break;
-    default:
-      std::cout << stev_jobz_err_msg << jobz << std::endl; 
+    default:std::cout << stev_jobz_err_msg << jobz << std::endl;
       std::cout << stev_err_msg << std::endl;
       exit(1);
   }
   gs_eng = d[0];
-  delete [] d;
-  delete [] e;
-  delete [] z;
+  delete[] d;
+  delete[] e;
+  delete[] z;
 
 }
 } /* gqmps2 */ 

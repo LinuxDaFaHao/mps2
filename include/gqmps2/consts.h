@@ -29,6 +29,7 @@ const std::string kMpsPath = "mps";
 const std::string kRuntimeTempPath = ".temp";
 const std::string kEnvFileBaseName = "env";
 const std::string kMpsTenBaseName = "mps_ten";
+const std::string kOpFileBaseName = "op";
 
 const int kLanczEnergyOutputPrecision = 16;
 

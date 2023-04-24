@@ -13,7 +13,6 @@
 #ifndef GQMPS2_ONE_DIM_TN_MPS_FINITE_MPS_FINITE_MPS_H
 #define GQMPS2_ONE_DIM_TN_MPS_FINITE_MPS_FINITE_MPS_H
 
-
 #include "gqmps2/one_dim_tn/mps/mps.h"    // MPS
 #include "gqten/gqten.h"                  // SVD, Contract
 
@@ -21,17 +20,14 @@
 #include <iomanip>    // fix, scientific, setw
 
 #ifdef Release
-  #define NDEBUG
+#define NDEBUG
 #endif
 #include <assert.h>     // assert
-
 
 namespace gqmps2 {
 using namespace gqten;
 
-
 const int kUncentralizedCenterIdx = -1;
-
 
 /// Canonical type of a MPS local tensor.
 enum MPSTenCanoType {
@@ -40,18 +36,18 @@ enum MPSTenCanoType {
   RIGHT   ///< Right canonical MPS tensor.
 };
 
-
 /**
 The finite matrix product state class.
 
 @tparam TenElemT Element type of the local tensors.
 @tparam QNT Quantum number type of the system.
 */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 class FiniteMPS : public MPS<TenElemT, QNT> {
-public:
+ public:
   using LocalTenT = typename MPS<TenElemT, QNT>::LocalTenT;
 
+  FiniteMPS(void) = default;
   /**
   Create a empty finite MPS using system information.
 
@@ -80,7 +76,7 @@ public:
   @param idx Index of the MPS local tensor.
   */
   const LocalTenT &operator[](const size_t idx) const {
-    return DuoVector<LocalTenT>::operator[](idx); 
+    return DuoVector<LocalTenT>::operator[](idx);
   }
 
   /**
@@ -89,9 +85,9 @@ public:
 
   @param idx Index of the MPS local tensor.
   */
-  LocalTenT * &operator()(const size_t idx) {
+  LocalTenT *&operator()(const size_t idx) {
     tens_cano_type_[idx] = MPSTenCanoType::NONE;
-    center_ = kUncentralizedCenterIdx; 
+    center_ = kUncentralizedCenterIdx;
     return DuoVector<LocalTenT>::operator()(idx);
   }
 
@@ -106,7 +102,7 @@ public:
 
   // MPS global operations, that means all of the tensors should in memory when calling these functions.
   void Centralize(const int);
-  
+
   // MPS partial global operations.
   void LeftCanonicalize(const size_t);
   void RightCanonicalize(const size_t);
@@ -137,18 +133,17 @@ public:
     return tens_cano_type_[idx];
   }
 
-private:
+ private:
   int center_;
   std::vector<MPSTenCanoType> tens_cano_type_;
 };
-
 
 /**
 Centralize the finite MPS.
 
 @param target_center The new center of the finite MPS.
 */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void FiniteMPS<TenElemT, QNT>::Centralize(const int target_center) {
   assert(target_center >= 0);
   auto mps_tail_idx = this->size() - 1;
@@ -159,8 +154,7 @@ void FiniteMPS<TenElemT, QNT>::Centralize(const int target_center) {
   center_ = target_center;
 }
 
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void FiniteMPS<TenElemT, QNT>::LeftCanonicalize(const size_t stop_idx) {
   size_t start_idx;
   for (size_t i = 0; i <= stop_idx; ++i) {
@@ -171,8 +165,7 @@ void FiniteMPS<TenElemT, QNT>::LeftCanonicalize(const size_t stop_idx) {
   for (size_t i = start_idx; i <= stop_idx; ++i) { LeftCanonicalizeTen(i); }
 }
 
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void FiniteMPS<TenElemT, QNT>::LeftCanonicalizeTen(const size_t site_idx) {
   assert(site_idx < this->size() - 1);
   size_t ldims(2);
@@ -183,7 +176,7 @@ void FiniteMPS<TenElemT, QNT>::LeftCanonicalizeTen(const size_t site_idx) {
   (*this)(site_idx) = pq;
 
   auto pnext_ten = new LocalTenT;
-  Contract(&r, (*this)(site_idx+1), {{1}, {0}}, pnext_ten);
+  Contract(&r, (*this)(site_idx + 1), {{1}, {0}}, pnext_ten);
   delete (*this)(site_idx + 1);
   (*this)(site_idx + 1) = pnext_ten;
 
@@ -191,8 +184,7 @@ void FiniteMPS<TenElemT, QNT>::LeftCanonicalizeTen(const size_t site_idx) {
   tens_cano_type_[site_idx + 1] = MPSTenCanoType::NONE;
 }
 
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void FiniteMPS<TenElemT, QNT>::RightCanonicalize(const size_t stop_idx) {
   auto mps_tail_idx = this->size() - 1;
   size_t start_idx;
@@ -204,8 +196,7 @@ void FiniteMPS<TenElemT, QNT>::RightCanonicalize(const size_t stop_idx) {
   for (size_t i = start_idx; i >= stop_idx; --i) { RightCanonicalizeTen(i); }
 }
 
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void FiniteMPS<TenElemT, QNT>::RightCanonicalizeTen(const size_t site_idx) {
   ///< TODO: using LU decomposition
   assert(site_idx > 0);
@@ -242,7 +233,7 @@ tensor generated from each SVD step will be normalized.
 @param Dmin Minimal bond dimension
 @param Dmax Maximal bond dimension
 */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void TruncateMPS(
     FiniteMPS<TenElemT, QNT> &mps,
     const GQTEN_Double trunc_err,

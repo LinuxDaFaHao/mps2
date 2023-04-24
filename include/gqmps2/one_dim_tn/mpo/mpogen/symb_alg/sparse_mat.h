@@ -41,7 +41,7 @@ public:
   /**
    * Element getter and setter.
    *
-   * @param x   raw number
+   * @param x   row number
    * @param y   column number
    * @return
    */
@@ -56,6 +56,15 @@ public:
 
   void Reserve(const size_t size){
     data.reserve(size);
+  }
+
+  bool IsNull(const size_t x, const size_t y) const {
+    auto offset = CalcOffset(x, y);
+    if (indexes[offset] == -1) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   void SetElem(const size_t x, const size_t y, const ElemType &elem) {

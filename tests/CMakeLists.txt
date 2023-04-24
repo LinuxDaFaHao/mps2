@@ -228,7 +228,11 @@ add_unittest(test_two_site_noise_algo
   "test_algorithm/test_two_site_noise_update_finite_vmps.cc"
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
 )
-
+# Two-site update finite DMRG
+add_unittest(test_finite_dmrg
+        "test_algorithm/test_finite_dmrg.cpp"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
+        )
 ## Test simulation case parameters parser.
 add_unittest(test_case_params_parser
   test_case_params_parser.cc
