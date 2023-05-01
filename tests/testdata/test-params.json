@@ -5,6 +5,8 @@
     "Char": "c",
     "String": "string",
     "Boolean": false,
+    "IntVec": [1, -1, 3],
+    "SizeTVec": [4, 7, 10],
     "DoubleVec": [0.1, 0.02, 0.003]
   },
 

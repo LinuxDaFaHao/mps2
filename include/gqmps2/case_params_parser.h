@@ -14,7 +14,6 @@
 #ifndef GQMPS2_CASE_PARAMS_PARSER_H
 #define GQMPS2_CASE_PARAMS_PARSER_H
 
-
 #include "gqmps2/consts.h"
 
 #include <iostream>
@@ -22,9 +21,7 @@
 
 #include "gqmps2/third_party/nlohmann/json.hpp"     // json
 
-
 namespace gqmps2 {
-
 
 /**
 Basic simulation case parameter parser.
@@ -32,7 +29,7 @@ Basic simulation case parameter parser.
 @since version 0.0.0
 */
 class CaseParamsParserBasic {
-public:
+ public:
   using json = nlohmann::json;
 
   /**
@@ -96,14 +93,28 @@ public:
     return case_params_[item].get<bool>();
   }
 
+  /// Parse a std::vector<int> parameter.
+  std::vector<int> ParseIntVec(
+      const std::string &item
+  ) {
+    return case_params_[item].get<std::vector<int>>();
+  }
+
+  /// Parse a std::vector<int> parameter.
+  std::vector<size_t> ParseSizeTVec(
+      const std::string &item
+  ) {
+    return case_params_[item].get<std::vector<size_t>>();
+  }
+
   /// Parse a std::vector<double> parameter.
   std::vector<double> ParseDoubleVec(
-      const std:: string &item    ///< Parameter key.
+      const std::string &item    ///< Parameter key.
   ) {
     return case_params_[item].get<std::vector<double>>();
   }
-private:
+ private:
   json case_params_;
 };
-} /* gqmps2 */ 
+} /* gqmps2 */
 #endif /* ifndef GQMPS2_CASE_PARAMS_PARSER_H */

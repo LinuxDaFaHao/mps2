@@ -10,22 +10,21 @@
 
 #include <string>
 
-
 using namespace gqmps2;
-
 
 // Input arguments.
 char *json_file;
 
-
 // Custom case parameter parser.
 struct CustomCaseParamsParser : public CaseParamsParserBasic {
   CustomCaseParamsParser(const char *f) : CaseParamsParserBasic(f) {
-    case_int = ParseInt("Int"); 
+    case_int = ParseInt("Int");
     case_double = ParseDouble("Double");
     case_char = ParseChar("Char");
     case_str = ParseStr("String");
     case_bool = ParseBool("Boolean");
+    case_int_vec = ParseIntVec("IntVec");
+    case_size_t_vec = ParseSizeTVec("SizeTVec");
     case_double_vec = ParseDoubleVec("DoubleVec");
   }
 
@@ -34,9 +33,10 @@ struct CustomCaseParamsParser : public CaseParamsParserBasic {
   char case_char;
   std::string case_str;
   bool case_bool;
+  std::vector<int> case_int_vec;
+  std::vector<size_t> case_size_t_vec;
   std::vector<double> case_double_vec;
 };
-
 
 TEST(TestCaseParamsParser, Case1) {
   CustomCaseParamsParser params(json_file);
@@ -45,9 +45,10 @@ TEST(TestCaseParamsParser, Case1) {
   EXPECT_EQ(params.case_char, 'c');
   EXPECT_EQ(params.case_str, "string");
   EXPECT_EQ(params.case_bool, false);
+  EXPECT_EQ(params.case_size_t_vec, std::vector<size_t>({4, 7, 10}));
+  EXPECT_EQ(params.case_int_vec, std::vector<int>({1, -1, 3}));
   EXPECT_EQ(params.case_double_vec, std::vector<double>({0.1, 0.02, 0.003}));
 }
-
 
 int main(int argc, char *argv[]) {
   testing::InitGoogleTest(&argc, argv);
