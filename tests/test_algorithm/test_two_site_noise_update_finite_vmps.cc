@@ -85,7 +85,7 @@ void RunTestTwoSiteNoiseAlgorithmCase(
 
 
 // Test spin systems
-struct TestTwoSiteAlgorithmSpinSystem : public testing::Test {
+struct TestNoisedTwoSiteAlgorithmSpinSystem : public testing::Test {
   size_t N = 6;
 
   U1QN qn0 = U1QN({QNCard("Sz", U1QNVal(0))});
@@ -128,7 +128,7 @@ struct TestTwoSiteAlgorithmSpinSystem : public testing::Test {
 };
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DIsing) {
+TEST_F(TestNoisedTwoSiteAlgorithmSpinSystem, 1DIsing) {
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
   for (size_t i = 0; i < N-1; ++i) {
     dmpo_gen.AddTerm(1, {dsz, dsz}, {i, i+1});
@@ -185,7 +185,7 @@ TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DIsing) {
 }
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DHeisenberg) {
+TEST_F(TestNoisedTwoSiteAlgorithmSpinSystem, 1DHeisenberg) {
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
   for (size_t i = 0; i < N-1; ++i) {
     dmpo_gen.AddTerm(1,   {dsz, dsz}, {i, i+1});
@@ -244,7 +244,7 @@ TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DHeisenberg) {
 }
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 2DHeisenberg) {
+TEST_F(TestNoisedTwoSiteAlgorithmSpinSystem, 2DHeisenberg) {
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
   std::vector<std::pair<size_t, size_t>> nn_pairs = {
       std::make_pair(0, 1),
@@ -311,7 +311,7 @@ TEST_F(TestTwoSiteAlgorithmSpinSystem, 2DHeisenberg) {
 }
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 2DKitaevSimpleCase) {
+TEST_F(TestNoisedTwoSiteAlgorithmSpinSystem, 2DKitaevSimpleCase) {
   size_t Nx = 4;
   size_t Ny = 2;
   size_t N1 = Nx*Ny;

@@ -83,10 +83,20 @@ template<typename TenElemT, typename QNT>
 void MPOGenerator<TenElemT, QNT>::AddTerm(
     const TenElemT coef,
     const GQTensorVec &local_ops,
-    const std::vector<size_t> &local_ops_idxs
+    std::vector<size_t> local_ops_idxs
 ) {
   assert(local_ops.size() == local_ops_idxs.size());
-  assert(std::is_sorted(local_ops_idxs.cbegin(), local_ops_idxs.cend()));
+  std::vector<size_t> order_indices(local_ops.size());
+  std::iota(order_indices.begin(), order_indices.end(), 0);
+  if (!std::is_sorted(local_ops_idxs.cbegin(), local_ops_idxs.cend())) {
+    std::cout << "sort operators and sites according the site order. " << std::endl;
+    std::sort(order_indices.begin(), order_indices.end(),
+              [&](size_t i, size_t j) -> bool {
+                return local_ops_idxs[i] < local_ops_idxs[j];
+              });
+    GQTensorVec local_ops_cp(local_ops.size());
+    std::sort(local_ops_idxs.begin(), local_ops_idxs.end());
+  }
   assert(local_ops_idxs.back() < N_);
   if (coef == TenElemT(0)) { return; }   // If coef is zero, do nothing.
 
@@ -99,7 +109,7 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
     if (poss_it != local_ops_idxs.cend()) {     // Nontrivial operator
       auto local_op_loc =
           poss_it - local_ops_idxs.cbegin();    // Location of the local operator in the local operators list.
-      auto op_label = op_label_convertor_.Convert(local_ops[local_op_loc]);
+      auto op_label = op_label_convertor_.Convert(local_ops[order_indices[local_op_loc]]);
       if (local_op_loc == 0) {
         ntrvl_ops_reprs.push_back(OpRepr(coef_label, op_label));
       } else {

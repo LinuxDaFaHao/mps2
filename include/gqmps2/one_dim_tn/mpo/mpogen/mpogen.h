@@ -14,7 +14,6 @@
 #ifndef GQMPS2_ONE_DIM_TN_MPO_MPOGEN_MPOGEN_H
 #define GQMPS2_ONE_DIM_TN_MPO_MPOGEN_MPOGEN_H
 
-
 #include "gqmps2/consts.h"       // kNullUintVec, kNullUintVecVec
 #include "gqmps2/site_vec.h"     // SiteVec
 #include "gqmps2/one_dim_tn/mpo/mpo.h"    // MPO
@@ -23,10 +22,8 @@
 #include "gqmps2/one_dim_tn/mpo/mpogen/symb_alg/coef_op_alg.h"
 #include "gqten/gqten.h"
 
-
 namespace gqmps2 {
 using namespace gqten;
-
 
 /**
 A generic MPO generator. A matrix-product operator (MPO) generator which can
@@ -38,9 +35,9 @@ interaction term.
 
 @since version 0.0.0
 */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 class MPOGenerator {
-public:
+ public:
   using TenElemVec = std::vector<TenElemT>;
   using IndexT = Index<QNT>;
   using QNSctT = QNSector<QNT>;
@@ -53,7 +50,7 @@ public:
   void AddTerm(
       const TenElemT,
       const GQTensorVec &,
-      const std::vector<size_t> &
+      std::vector<size_t>
   );
 
   void AddTerm(
@@ -61,19 +58,17 @@ public:
       const GQTensorVec &,
       const std::vector<size_t> &,
       const GQTensorVec &,
-      const std::vector<
-          std::vector<size_t>
-      > &inst_ops_idxs_set = kNullUintVecVec
+      const std::vector<std::vector<size_t>> &inst_ops_idxs_set = kNullUintVecVec
   );
 
   void AddTerm(
-    const TenElemT,
-    const GQTensorT &,
-    const size_t,
-    const GQTensorT &op2 = GQTensorT(),
-    const size_t op2_idx = 0,
-    const GQTensorT &inst_op = GQTensorT(),
-    const std::vector<size_t> &inst_op_idxs = kNullUintVec
+      const TenElemT,
+      const GQTensorT &,
+      const size_t,
+      const GQTensorT &op2 = GQTensorT(),
+      const size_t op2_idx = 0,
+      const GQTensorT &inst_op = GQTensorT(),
+      const std::vector<size_t> &inst_op_idxs = kNullUintVec
   );
 
   FSM GetFSM(void) { return fsm_; }
@@ -82,7 +77,7 @@ public:
 
   MatReprMPO<GQTensorT> GenMatReprMPO(void);
 
-private:
+ private:
   size_t N_;
   SiteVec<TenElemT, QNT> site_vec_;
   std::vector<IndexT> pb_in_vector_;
@@ -98,8 +93,8 @@ private:
   );
 
   QNT CalcTgtRvbQN_(
-    const size_t, const size_t, const OpRepr &,
-    const GQTensorVec &, const IndexT &
+      const size_t, const size_t, const OpRepr &,
+      const GQTensorVec &, const IndexT &
   );
 
   GQTensorT HeadMpoTenRepr2MpoTen_(
@@ -127,6 +122,5 @@ private:
 
 // Implementation details
 #include "gqmps2/one_dim_tn/mpo/mpogen/mpogen_impl.h"
-
 
 #endif /* ifndef GQMPS2_ONE_DIM_TN_MPO_MPOGEN_MPOGEN_H */

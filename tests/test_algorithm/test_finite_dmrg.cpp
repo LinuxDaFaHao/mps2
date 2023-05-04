@@ -7,6 +7,8 @@
 * Description: GraceQ/mps2 project. Unittest for DMRG.
 */
 
+#define GQTEN_COUNT_FLOPS 1
+
 #include "gqmps2/gqmps2.h"
 #include "gtest/gtest.h"
 #include "gqten/gqten.h"
@@ -81,14 +83,20 @@ void RunTestDMRGCase(
     const SweepParams &sweep_params,
     const double benmrk_e0, const double precision
 ) {
+  size_t start_flops = flops;
+  Timer contract_timer("dmrg");
   auto e0 = FiniteDMRG(mps, mat_repr_mpo, sweep_params);
+  double elapsed_time = contract_timer.Elapsed();
+  size_t end_flops = flops;
+  double Gflops_s = (end_flops - start_flops) * 1.e-9 / elapsed_time;
+  std::cout << "flops = " << end_flops - start_flops << std::endl;
   EXPECT_NEAR(e0, benmrk_e0, precision);
   EXPECT_TRUE(mps.empty());
 }
 
 
 // Test spin systems
-struct TestTwoSiteAlgorithmSpinSystem : public testing::Test {
+struct TestDMRGSpinSystem : public testing::Test {
   size_t N = 6;
 
   U1QN qn0 = U1QN({QNCard("Sz", U1QNVal(0))});
@@ -132,7 +140,7 @@ struct TestTwoSiteAlgorithmSpinSystem : public testing::Test {
 
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DIsing) {
+TEST_F(TestDMRGSpinSystem, 1DIsing) {
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
   for (size_t i = 0; i < N-1; ++i) {
     dmpo_gen.AddTerm(1, {dsz, dsz}, {i, i+1});
@@ -190,7 +198,7 @@ TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DIsing) {
 
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DHeisenberg) {
+TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
   for (size_t i = 0; i < N-1; ++i) {
     dmpo_gen.AddTerm(1,   {dsz, dsz}, {i, i+1});
@@ -247,7 +255,7 @@ TEST_F(TestTwoSiteAlgorithmSpinSystem, 1DHeisenberg) {
 }
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 2DHeisenberg) {
+TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
   std::vector<std::pair<size_t, size_t>> nn_pairs = {
       std::make_pair(0, 1),
@@ -308,7 +316,7 @@ TEST_F(TestTwoSiteAlgorithmSpinSystem, 2DHeisenberg) {
 }
 
 
-TEST_F(TestTwoSiteAlgorithmSpinSystem, 2DKitaevSimpleCase) {
+TEST_F(TestDMRGSpinSystem, 2DKitaevSimpleCase) {
   size_t Nx = 4;
   size_t Ny = 2;
   size_t N1 = Nx*Ny;

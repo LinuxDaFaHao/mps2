@@ -5,6 +5,9 @@
 *
 * Description: GraceQ/mps2 project. Unittest for two sites algorithm.
 */
+
+#define GQTEN_COUNT_FLOPS 1
+
 #include "gqmps2/gqmps2.h"
 #include "gtest/gtest.h"
 #include "gqten/gqten.h"
@@ -82,7 +85,17 @@ void RunTestTwoSiteAlgorithmCase(
     const SweepParams &sweep_params,
     const double benmrk_e0, const double precision
 ) {
+
+  size_t start_flops = flops;
+  Timer contract_timer("vmps");
   auto e0 = TwoSiteFiniteVMPS(mps, mpo, sweep_params);
+  double elapsed_time = contract_timer.Elapsed();
+  size_t end_flops = flops;
+  double Gflops_s = (end_flops - start_flops) * 1.e-9 / elapsed_time;
+  std::cout << "flops = " << end_flops - start_flops << std::endl;
+
+  std::cout << "Gflops/s = " << Gflops_s << std::endl;
+
   EXPECT_NEAR(e0, benmrk_e0, precision);
   EXPECT_TRUE(mps.empty());
 }
