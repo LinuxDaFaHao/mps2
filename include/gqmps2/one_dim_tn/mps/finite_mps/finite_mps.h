@@ -109,7 +109,7 @@ class FiniteMPS : public MPS<TenElemT, QNT> {
 
   // MPS local operations. Only tensors near the target site are needed in memory.
   void LeftCanonicalizeTen(const size_t);
-  void RightCanonicalizeTen(const size_t);
+  GQTensor<GQTEN_Double, QNT> RightCanonicalizeTen(const size_t);
 
   // Properties getter.
   /**
@@ -132,6 +132,15 @@ class FiniteMPS : public MPS<TenElemT, QNT> {
   MPSTenCanoType GetTenCanoType(const size_t idx) const {
     return tens_cano_type_[idx];
   }
+
+  /**
+   *
+   * @param n order the the entanglement Entropy. n=1 for von Neumann entropy; n>1 for Renyi entropy
+   * @return
+   */
+  std::vector<double> GetEntanglementEntropy(size_t n);
+
+  void Reverse();
 
  private:
   int center_;
@@ -197,7 +206,7 @@ void FiniteMPS<TenElemT, QNT>::RightCanonicalize(const size_t stop_idx) {
 }
 
 template<typename TenElemT, typename QNT>
-void FiniteMPS<TenElemT, QNT>::RightCanonicalizeTen(const size_t site_idx) {
+GQTensor<GQTEN_Double, QNT> FiniteMPS<TenElemT, QNT>::RightCanonicalizeTen(const size_t site_idx) {
   ///< TODO: using LU decomposition
   assert(site_idx > 0);
   size_t ldims = 1;
@@ -219,8 +228,60 @@ void FiniteMPS<TenElemT, QNT>::RightCanonicalizeTen(const size_t site_idx) {
 
   tens_cano_type_[site_idx] = MPSTenCanoType::RIGHT;
   tens_cano_type_[site_idx - 1] = MPSTenCanoType::NONE;
+  return s;
 }
 
+template<typename TenElemT, typename QNT>
+std::vector<double> FiniteMPS<TenElemT, QNT>::GetEntanglementEntropy(size_t n) {
+  size_t N = this->size();
+  std::vector<double> ee_list(N - 1);
+  Centralize(N - 1);
+  (*this)[N - 1].Normalize();
+
+  for (size_t i = N - 1; i >= 1; --i) { // site
+    auto s = RightCanonicalizeTen(i);
+    double ee = 0;
+    double sum_of_p2n = 0.0;
+    for (size_t k = 0; k < s.GetShape()[0]; ++k) { // indices of singular value matrix
+      double singular_value = s(k, k);
+      double p = singular_value * singular_value;
+      if (n == 1) {
+        ee += (-p * std::log(p));
+      } else {
+        double p_to_n = p;
+        for (size_t j = 1; j < n; j++) { // order of power
+          p_to_n *= p;
+        }
+        sum_of_p2n += p_to_n;
+      }
+    }
+    if (n == 1) {
+      ee_list[i - 1] = ee;
+    } else {
+      ee_list[i - 1] = -std::log(sum_of_p2n) / (double) (n - 1);
+      // note above formula must be in form of n-1 rather 1-n because of n is type of size_t
+    }
+  }
+  return ee_list;
+}
+
+template<typename TenElemT, typename QNT>
+void FiniteMPS<TenElemT, QNT>::Reverse() {
+  size_t N = this->size();
+  if (N % 2 == 0) {
+    for (size_t i = 0; i < N / 2; i++) {
+      std::swap((*this)(i), (*this)(N - 1 - i));
+    }
+  } else {
+    for (size_t i = 0; i < (N - 1) / 2; i++) {
+      std::swap((*this)(i), (*this)(N - 1 - i));
+    }
+  }
+  for (size_t i = 0; i < N; i++) {
+    (*this)(i)->Transpose({2, 1, 0});
+  }
+  //note the indices directions will be changed.
+}
 
 // Non-member function for finite MPS
 /**
