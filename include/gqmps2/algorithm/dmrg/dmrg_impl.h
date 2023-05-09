@@ -22,15 +22,15 @@ using namespace gqten;
 
 //forward declaration
 template<typename TenElemT, typename QNT>
-RightOperatorGroup<GQTensor<TenElemT, QNT>> UpdateRightBlockOps(
-    const RightOperatorGroup<GQTensor<TenElemT, QNT>> &,
+RightBlockOperatorGroup<GQTensor<TenElemT, QNT>> UpdateRightBlockOps(
+    const RightBlockOperatorGroup<GQTensor<TenElemT, QNT>> &,
     const GQTensor<TenElemT, QNT> &,
     const SparMat<GQTensor<TenElemT, QNT>> &
 );
 
 template<typename TenElemT, typename QNT>
-LeftOperatorGroup<GQTensor<TenElemT, QNT>> UpdateLeftBlockOps(
-    const LeftOperatorGroup<GQTensor<TenElemT, QNT>> &,
+LeftBlockOperatorGroup<GQTensor<TenElemT, QNT>> UpdateLeftBlockOps(
+    const LeftBlockOperatorGroup<GQTensor<TenElemT, QNT>> &,
     const GQTensor<TenElemT, QNT> &,
     const SparMat<GQTensor<TenElemT, QNT>> &
 );
@@ -65,8 +65,8 @@ class DMRGExecutor : public Executor {
   const MatReprMPO<Tensor> mat_repr_mpo_;
   double e0_;  // energy;
 
-  std::vector<LeftOperatorGroup<Tensor>> lopg_vec_;
-  std::vector<RightOperatorGroup<Tensor>> ropg_vec_;
+  std::vector<LeftBlockOperatorGroup<Tensor>> lopg_vec_;
+  std::vector<RightBlockOperatorGroup<Tensor>> ropg_vec_;
 
   size_t left_boundary_;
   size_t right_boundary_;
@@ -75,7 +75,9 @@ class DMRGExecutor : public Executor {
   size_t l_site_;
   size_t r_site_;
 
-  EffectiveHamiltonianTermGroup<Tensor> hamiltonian_terms_;
+  std::vector<Tensor> block_site_ops_;
+  std::vector<Tensor> site_block_ops_;
+  SuperBlockHamiltonianTerms<Tensor> hamiltonian_terms_;
 };
 
 template<typename TenElemT, typename QNT>
@@ -165,8 +167,9 @@ double DMRGExecutor<TenElemT, QNT>::TwoSiteUpdate_() {
   Timer lancz_timer("two_site_dmrg_lancz");
   auto lancz_res = LanczosSolver(
       hamiltonian_terms_, init_state,
-      &eff_ham_terms_mul_two_site_state,
-      sweep_params.lancz_params
+      sweep_params.lancz_params,
+      block_site_ops_,
+      site_block_ops_
   );
   auto lancz_elapsed_time = lancz_timer.Elapsed();
 
@@ -246,18 +249,28 @@ double DMRGExecutor<TenElemT, QNT>::TwoSiteUpdate_() {
 template<typename TenElemT, typename QNT>
 void DMRGExecutor<TenElemT, QNT>::SetEffectiveHamiltonianTerms_() {
   hamiltonian_terms_.clear();
-  for (size_t i = 0; i < lopg_vec_[l_site_].size(); i++) {
-    for (size_t j = 0; j < mat_repr_mpo_[l_site_].cols; j++) {
-      for (size_t k = 0; k < mat_repr_mpo_[r_site_].cols; k++) {
-        if ((!mat_repr_mpo_[l_site_].IsNull(i, j)) && (!mat_repr_mpo_[r_site_].IsNull(j, k))) {
-          EffectiveHamiltonianTerm<Tensor> ham_term = {&lopg_vec_[l_site_][i],
-                                                       const_cast<Tensor *>(&mat_repr_mpo_[l_site_](i, j)),
-                                                       const_cast<Tensor *>(&mat_repr_mpo_[r_site_](j, k)),
-                                                       &ropg_vec_[(N_ - 1) - r_site_][k]};
-          hamiltonian_terms_.push_back(ham_term);
-        }
+  block_site_ops_.clear();
+  site_block_ops_.clear();
+  // in the sense of this function, we should set the block_site_ops_ and site_block_ops_ here
+  // but, for the convenience of MPI parallel, we move this part into LanczosSolver
+  for (size_t j = 0; j < mat_repr_mpo_[l_site_].cols; j++) { // the middle index
+    BlockSiteHamiltonianTermGroup<Tensor> block_site_terms; //left two blocks
+    SiteBlockHamiltonianTermGroup<Tensor> site_block_terms; //right two blocks
+    for (size_t i = 0; i < lopg_vec_[l_site_].size(); i++) {
+      if (!mat_repr_mpo_[l_site_].IsNull(i, j)) {
+        BlockSiteHamiltonianTerm<Tensor> block_site_term = {&lopg_vec_[l_site_][i],
+                                                            const_cast<Tensor *>(&mat_repr_mpo_[l_site_](i, j))};
+        block_site_terms.emplace_back(block_site_term);
       }
     }
+    for (size_t k = 0; k < mat_repr_mpo_[r_site_].cols; k++) {
+      if (!mat_repr_mpo_[r_site_].IsNull(j, k)) {
+        SiteBlockHamiltonianTerm<Tensor> site_block_term = {const_cast<Tensor *>(&mat_repr_mpo_[r_site_](j, k)),
+                                                            &ropg_vec_[(N_ - 1) - r_site_][k]};
+        site_block_terms.emplace_back(site_block_term);
+      }
+    }
+    hamiltonian_terms_.emplace_back(std::make_pair(block_site_terms, site_block_terms));
   }
 }
 
@@ -306,11 +319,11 @@ void DMRGExecutor<TenElemT, QNT>::LoadRelatedTensSweep_(
         );
         auto lblock_len = l_site_;
         size_t lopg_size = mat_repr_mpo_[l_site_].rows;
-        lopg_vec_[lblock_len] = LeftOperatorGroup<Tensor>(lopg_size);
+        lopg_vec_[lblock_len] = LeftBlockOperatorGroup<Tensor>(lopg_size);
         ReadOperatorGroup("l", lblock_len, lopg_vec_[lblock_len], sweep_params.temp_path);
         auto rblock_len = N_ - 1 - r_site_;
         size_t ropg_size = mat_repr_mpo_[r_site_].cols;
-        ropg_vec_[rblock_len] = RightOperatorGroup<GQTensor<TenElemT, QNT>>(ropg_size);
+        ropg_vec_[rblock_len] = RightBlockOperatorGroup<GQTensor<TenElemT, QNT>>(ropg_size);
         ReadAndRemoveOperatorGroup("r", rblock_len, ropg_vec_[rblock_len], sweep_params.temp_path);
       } else {
         mps_.LoadTen(r_site_,
@@ -318,7 +331,7 @@ void DMRGExecutor<TenElemT, QNT>::LoadRelatedTensSweep_(
         );
         auto rblock_len = (N_ - 1) - r_site_;
         size_t ropg_size = mat_repr_mpo_[r_site_].cols;
-        ropg_vec_[rblock_len] = RightOperatorGroup<GQTensor<TenElemT, QNT>>(ropg_size);
+        ropg_vec_[rblock_len] = RightBlockOperatorGroup<GQTensor<TenElemT, QNT>>(ropg_size);
         ReadAndRemoveOperatorGroup("r", rblock_len, ropg_vec_[rblock_len], sweep_params.temp_path);
       }
       break;
@@ -329,11 +342,11 @@ void DMRGExecutor<TenElemT, QNT>::LoadRelatedTensSweep_(
         );
         auto rblock_len = (N_ - 1) - r_site_;
         size_t ropg_size = mat_repr_mpo_[r_site_].cols;
-        ropg_vec_[rblock_len] = RightOperatorGroup<GQTensor<TenElemT, QNT>>(ropg_size);
+        ropg_vec_[rblock_len] = RightBlockOperatorGroup<GQTensor<TenElemT, QNT>>(ropg_size);
         ReadOperatorGroup("r", rblock_len, ropg_vec_[rblock_len], sweep_params.temp_path);
         auto lblock_len = l_site_;
         size_t lopg_size = mat_repr_mpo_[l_site_].rows;
-        lopg_vec_[l_site_] = LeftOperatorGroup<GQTensor<TenElemT, QNT>>(lopg_size);
+        lopg_vec_[l_site_] = LeftBlockOperatorGroup<GQTensor<TenElemT, QNT>>(lopg_size);
         ReadAndRemoveOperatorGroup("l", lblock_len, lopg_vec_[l_site_], sweep_params.temp_path);
       } else {
         mps_.LoadTen(l_site_,
@@ -341,7 +354,7 @@ void DMRGExecutor<TenElemT, QNT>::LoadRelatedTensSweep_(
         );
         auto lblock_len = l_site_;
         size_t lopg_size = mat_repr_mpo_[l_site_].rows;
-        lopg_vec_[l_site_] = LeftOperatorGroup<GQTensor<TenElemT, QNT>>(lopg_size);
+        lopg_vec_[l_site_] = LeftBlockOperatorGroup<GQTensor<TenElemT, QNT>>(lopg_size);
         ReadAndRemoveOperatorGroup("l", lblock_len, lopg_vec_[l_site_], sweep_params.temp_path);
       }
       break;

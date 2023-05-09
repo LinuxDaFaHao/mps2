@@ -12,7 +12,7 @@
 
 #include "gqten/gqten.h"
 #include "gqmps2/consts.h"                //kOpFileBaseName
-#include "gqmps2/algorithm/dmrg/dmrg.h"   //RightOperatorGroup
+#include "gqmps2/algorithm/dmrg/dmrg.h"   //RightBlockOperatorGroup
 #include "gqmps2/utilities.h"             //WriteGQTensorTOFile
 
 namespace gqmps2 {
@@ -34,7 +34,7 @@ template<typename TenT>
 void WriteOperatorGroup(
     const std::string &dir,
     const size_t blk_len,
-    OperatorGroup<TenT> &op_gp,
+    BlockOperatorGroup<TenT> &op_gp,
     const std::string &temp_path
 ) {
   for (size_t comp = 0; comp < op_gp.size(); comp++) {
@@ -49,7 +49,7 @@ template<typename TenT>
 bool ReadOperatorGroup(
     const std::string &dir,
     const size_t blk_len,
-    OperatorGroup<TenT> &op_gp,
+    BlockOperatorGroup<TenT> &op_gp,
     const std::string &temp_path
 ) {
   bool read_success(true);
@@ -64,7 +64,7 @@ template<typename TenT>
 bool ReadAndRemoveOperatorGroup(
     const std::string &dir,
     const size_t blk_len,
-    OperatorGroup<TenT> &op_gp,
+    BlockOperatorGroup<TenT> &op_gp,
     const std::string &temp_path
 ) {
   bool read_success(true);

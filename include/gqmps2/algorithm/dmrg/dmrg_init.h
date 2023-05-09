@@ -110,14 +110,14 @@ inline bool NeedGenerateBlockOps(
 }
 
 template<typename TenElemT, typename QNT>
-RightOperatorGroup<GQTensor<TenElemT, QNT>> UpdateRightBlockOps(
-    const RightOperatorGroup<GQTensor<TenElemT, QNT>> &rog,   // site i's env tensors
+RightBlockOperatorGroup<GQTensor<TenElemT, QNT>> UpdateRightBlockOps(
+    const RightBlockOperatorGroup<GQTensor<TenElemT, QNT>> &rog,   // site i's env tensors
     const GQTensor<TenElemT, QNT> &mps,                       // site i
     const SparMat<GQTensor<TenElemT, QNT>> &mat_repr_mpo   // site i
 ) {
   using TenT = GQTensor<TenElemT, QNT>;
   assert(rog.size() == mat_repr_mpo.cols);
-  RightOperatorGroup<GQTensor<TenElemT, QNT>> rog_next(mat_repr_mpo.rows);
+  RightBlockOperatorGroup<GQTensor<TenElemT, QNT>> rog_next(mat_repr_mpo.rows);
   std::vector<GQTensor<TenElemT, QNT>> temp_vec1(rog.size()); // rog * mps;
   std::vector<GQTensor<TenElemT, QNT>> temp_vec2(rog_next.size()); //rog * mps * mat_repr_mpo
 
@@ -150,14 +150,14 @@ RightOperatorGroup<GQTensor<TenElemT, QNT>> UpdateRightBlockOps(
 }
 
 template<typename TenElemT, typename QNT>
-LeftOperatorGroup<GQTensor<TenElemT, QNT>> UpdateLeftBlockOps(
-    const LeftOperatorGroup<GQTensor<TenElemT, QNT>> &log,   // site i's env tensors
+LeftBlockOperatorGroup<GQTensor<TenElemT, QNT>> UpdateLeftBlockOps(
+    const LeftBlockOperatorGroup<GQTensor<TenElemT, QNT>> &log,   // site i's env tensors
     const GQTensor<TenElemT, QNT> &mps,                       // site i
     const SparMat<GQTensor<TenElemT, QNT>> &mat_repr_mpo   // site i
 ) {
   using TenT = GQTensor<TenElemT, QNT>;
   assert(log.size() == mat_repr_mpo.rows);
-  RightOperatorGroup<GQTensor<TenElemT, QNT>> log_next(mat_repr_mpo.cols);
+  RightBlockOperatorGroup<GQTensor<TenElemT, QNT>> log_next(mat_repr_mpo.cols);
   std::vector<GQTensor<TenElemT, QNT>> temp_vec1(log.size()); // rog * mps;
   std::vector<GQTensor<TenElemT, QNT>> temp_vec2(log_next.size()); //rog * mps * mat_repr_mpo
 
@@ -201,7 +201,7 @@ void UpdateBoundaryBlockOps(
   auto N = mps.size();
 
   // right operators
-  RightOperatorGroup<TenT> rog(1);
+  RightBlockOperatorGroup<TenT> rog(1);
   mps.LoadTen(N - 1, GenMPSTenName(mps_path, N - 1));
   auto trivial_index = mps.back().GetIndexes()[2];
   auto trivial_index_inv = InverseIndex(trivial_index);
@@ -226,7 +226,7 @@ void UpdateBoundaryBlockOps(
   WriteOperatorGroup("r", N - right_boundary, rog_next, temp_path);
 
   // left operators
-  LeftOperatorGroup<TenT> log(1);
+  LeftBlockOperatorGroup<TenT> log(1);
   mps.LoadTen(0, GenMPSTenName(mps_path, 0));
   trivial_index = mps.front().GetIndexes()[0];
   trivial_index_inv = InverseIndex(trivial_index);
@@ -273,7 +273,7 @@ void InitBlockOps(
   auto N = mps.size();
 
   // right operators
-  RightOperatorGroup<TenT> rog(1);
+  RightBlockOperatorGroup<TenT> rog(1);
   mps.LoadTen(N - 1, GenMPSTenName(mps_path, N - 1));
   auto trivial_index = mps.back().GetIndexes()[2];
   auto trivial_index_inv = InverseIndex(trivial_index);

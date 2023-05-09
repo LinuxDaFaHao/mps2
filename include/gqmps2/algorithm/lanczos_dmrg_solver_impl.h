@@ -26,9 +26,19 @@ namespace gqmps2 {
 using namespace gqten;
 
 // Forward declarations.
+
 template<typename TenElemT, typename QNT>
-GQTensor<TenElemT, QNT> *eff_ham_terms_mul_two_site_state(
-    const EffectiveHamiltonianTermGroup<GQTensor<TenElemT, QNT>> &eff_ham,
+GQTensor<TenElemT, QNT> *first_super_block_hamiltonian_mul_two_site_state(
+    const SuperBlockHamiltonianTerms<GQTensor<TenElemT, QNT>> &eff_ham,
+    GQTensor<TenElemT, QNT> *state,
+    std::vector<GQTensor<TenElemT, QNT>> &block_site_ops,  //output
+    std::vector<GQTensor<TenElemT, QNT>> &site_block_ops   //output
+);
+
+template<typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> *super_block_hamiltonian_mul_two_site_state(
+    const std::vector<GQTensor<TenElemT, QNT>> &block_site_ops,
+    const std::vector<GQTensor<TenElemT, QNT>> &site_block_ops,
     GQTensor<TenElemT, QNT> *state
 );
 
@@ -43,11 +53,11 @@ Hamiltonian and a initial state using Lanczos algorithm.
 */
 template<typename TenT>
 LanczosRes<TenT> LanczosSolver(
-    const EffectiveHamiltonianTermGroup<TenT> &eff_ham,
+    const SuperBlockHamiltonianTerms<TenT> &eff_ham,
     TenT *pinit_state,
-    TenT *(*eff_ham_mul_state)(const EffectiveHamiltonianTermGroup<TenT> &,
-                               TenT *),     //this is a pointer pointing to a function
-    const LanczosParams &params
+    const LanczosParams &params,
+    std::vector<TenT> &block_site_ops,  //output
+    std::vector<TenT> &site_block_ops   //output
 ) {
   // Take care that init_state will be destroyed after call the solver
   size_t eff_ham_eff_dim = pinit_state->size();
@@ -74,7 +84,7 @@ LanczosRes<TenT> LanczosSolver(
   Timer mat_vec_timer("lancz_mat_vec");
 #endif
 
-  auto last_mat_mul_vec_res = (*eff_ham_mul_state)(eff_ham, bases[0]);
+  auto last_mat_mul_vec_res = first_super_block_hamiltonian_mul_two_site_state(eff_ham, bases[0], block_site_ops, site_block_ops);
 
 #ifdef GQMPS2_TIMING_MODE
   mat_vec_timer.PrintElapsed();
@@ -136,7 +146,7 @@ LanczosRes<TenT> LanczosSolver(
     mat_vec_timer.ClearAndRestart();
 #endif
 
-    last_mat_mul_vec_res = (*eff_ham_mul_state)(eff_ham, bases[m]);
+    last_mat_mul_vec_res = super_block_hamiltonian_mul_two_site_state(block_site_ops, site_block_ops, bases[m]);
 
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.PrintElapsed();
@@ -184,29 +194,79 @@ LanczosRes<TenT> LanczosSolver(
  * |----0 0-------------------3 0----|
  */
 template<typename TenElemT, typename QNT>
-GQTensor<TenElemT, QNT> *eff_ham_terms_mul_two_site_state(
-    const EffectiveHamiltonianTermGroup<GQTensor<TenElemT, QNT>> &eff_ham,
-    GQTensor<TenElemT, QNT> *state
+GQTensor<TenElemT, QNT> *first_super_block_hamiltonian_mul_two_site_state( //first time do this
+    const SuperBlockHamiltonianTerms<GQTensor<TenElemT, QNT>> &eff_ham,
+    GQTensor<TenElemT, QNT> *state,
+    std::vector<GQTensor<TenElemT, QNT>> &block_site_ops,  //output
+    std::vector<GQTensor<TenElemT, QNT>> &site_block_ops   //output
 ) {
   using TenT = GQTensor<TenElemT, QNT>;
   size_t num_terms = eff_ham.size();
+  block_site_ops.resize(num_terms);
+  site_block_ops.resize(num_terms);
+  for (size_t i = 0; i < num_terms; i++) {
+    // for block-site
+    auto &block_site_terms = eff_ham[i].first;
+    auto pblock_site_ops_res_s = std::vector<TenT *>(block_site_terms.size());
+    for (size_t j = 0; j < block_site_terms.size(); j++) {
+      pblock_site_ops_res_s[j] = new TenT();
+      Contract(block_site_terms[j][0], block_site_terms[j][1], {{}, {}}, pblock_site_ops_res_s[j]);
+    }
+    std::vector<TenElemT> coefs = std::vector<TenElemT>(block_site_terms.size(), TenElemT(1.0));
+    LinearCombine(coefs, pblock_site_ops_res_s, TenElemT(0.0), &block_site_ops[i]);
+    for (size_t j = 0; j < block_site_terms.size(); j++) {
+      delete pblock_site_ops_res_s[j];
+    }
+
+    // for site-block
+    auto &site_block_terms = eff_ham[i].second;
+    auto psite_block_ops_res_s = std::vector<TenT *>(site_block_terms.size());
+    for (size_t j = 0; j < site_block_terms.size(); j++) {
+      psite_block_ops_res_s[j] = new TenT();
+      Contract(site_block_terms[j][0], site_block_terms[j][1], {{}, {}}, psite_block_ops_res_s[j]);
+    }
+    coefs = std::vector<TenElemT>(site_block_terms.size(), TenElemT(1.0));
+    LinearCombine(coefs, psite_block_ops_res_s, TenElemT(0.0), &site_block_ops[i]);
+    for (size_t j = 0; j < site_block_terms.size(); j++) {
+      delete psite_block_ops_res_s[j];
+    }
+  }
+
   auto multiplication_res = std::vector<TenT>(num_terms);
   auto pmultiplication_res = std::vector<TenT *>(num_terms);
   const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
   for (size_t i = 0; i < num_terms; i++) {
-    const EffectiveHamiltonianTerm<GQTensor<TenElemT, QNT>> &term = eff_ham[i];
-    TenT temp1, temp2, temp3;
-    Contract<TenElemT, QNT, false, true>(*state, *term[0], 0, 0, 1, temp1);
-    Contract<TenElemT, QNT, false, true>(temp1, *term[1], 0, 0, 1, temp2);
-    Contract<TenElemT, QNT, false, true>(temp2, *term[2], 0, 0, 1, temp3);
-    Contract<TenElemT, QNT, false, true>(temp3, *term[3], 0, 0, 1, multiplication_res[i]);
+    TenT temp1;
+    Contract(&block_site_ops[i], state, {{0, 2}, {0, 1}}, &temp1);
+    Contract(&temp1, &site_block_ops[i], {{2, 3}, {0, 2}}, &multiplication_res[i]);
     pmultiplication_res[i] = &multiplication_res[i];
   }
-
   auto res = new TenT;
   //TODO: optimize the summation
   LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), res);
+  return res;
+}
 
+template<typename TenElemT, typename QNT>
+GQTensor<TenElemT, QNT> *super_block_hamiltonian_mul_two_site_state(
+    const std::vector<GQTensor<TenElemT, QNT>> &block_site_ops,
+    const std::vector<GQTensor<TenElemT, QNT>> &site_block_ops,
+    GQTensor<TenElemT, QNT> *state
+) {
+  using TenT = GQTensor<TenElemT, QNT>;
+  size_t num_terms = block_site_ops.size();
+  auto multiplication_res = std::vector<TenT>(num_terms);
+  auto pmultiplication_res = std::vector<TenT *>(num_terms);
+  const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
+  for (size_t i = 0; i < num_terms; i++) {
+    TenT temp1;
+    Contract(&block_site_ops[i], state, {{0, 2}, {0, 1}}, &temp1);
+    Contract(&temp1, &site_block_ops[i], {{2, 3}, {0, 2}}, &multiplication_res[i]);
+    pmultiplication_res[i] = &multiplication_res[i];
+  }
+  auto res = new TenT;
+  //TODO: optimize the summation
+  LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), res);
   return res;
 }
 

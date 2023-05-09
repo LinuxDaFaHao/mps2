@@ -14,13 +14,29 @@
 
 namespace gqmps2 {
 template<typename TenT>
-using RightOperatorGroup = std::vector<TenT>;
+using RightBlockOperatorGroup = std::vector<TenT>; // right block == environment
 
 template<typename TenT>
-using LeftOperatorGroup = std::vector<TenT>;
+using LeftBlockOperatorGroup = std::vector<TenT>; //left block == system
 
 template<typename TenT>
-using OperatorGroup = std::vector<TenT>;
+using BlockOperatorGroup = std::vector<TenT>;
+
+template<typename TenT>
+using BlockSiteHamiltonianTerm = std::array<TenT *, 2>;
+
+template<typename TenT>
+using BlockSiteHamiltonianTermGroup = std::vector<BlockSiteHamiltonianTerm<TenT>>;
+
+template<typename TenT>
+using SiteBlockHamiltonianTerm = std::array<TenT *, 2>;
+
+template<typename TenT>
+using SiteBlockHamiltonianTermGroup = std::vector<SiteBlockHamiltonianTerm<TenT>>;
+
+template<typename TenT>
+using SuperBlockHamiltonianTerms = std::vector<std::pair<BlockSiteHamiltonianTermGroup<TenT>,
+                                                         SiteBlockHamiltonianTermGroup<TenT>>>;
 
 template<typename TenT>
 using EffectiveHamiltonianTerm = std::array<TenT *, 4>;
@@ -35,8 +51,8 @@ class EffectiveHamiltonian {
 
   }
 
-  RightOperatorGroup<TenT> right_op_gp;
-  LeftOperatorGroup<TenT> left_op_gp;
+  RightBlockOperatorGroup<TenT> right_op_gp;
+  LeftBlockOperatorGroup<TenT> left_op_gp;
   MatReprMPO<TenT> mat_repr_mpo_a; //left site
   MatReprMPO<TenT> mat_repr_mpo_b; //right site
 };
