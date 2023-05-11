@@ -21,21 +21,22 @@
 
 namespace gqmps2 {
 
+using TwoSiteMPINoisedVMPSSweepParams = SingleVMPSSweepParams;
 
-struct TwoSiteMPINoisedVMPSSweepParams : public TwoSiteMPIVMPSSweepParams {
-  TwoSiteMPINoisedVMPSSweepParams(
-    const size_t sweeps,
-    const size_t dmin, const size_t dmax, const double trunc_err,
-    const LanczosParams &lancz_params,
-    const std::vector<double> noises = std::vector<double>(1, 0.0),
-    const std::string mps_path = kMpsPath,
-    const std::string temp_path = kRuntimeTempPath
-  ) :
-    TwoSiteMPIVMPSSweepParams(sweeps, dmin, dmax, trunc_err,
-    lancz_params, mps_path, temp_path), noises(noises) {}
-public:
-  std::vector<double> noises;
-};
+//struct TwoSiteMPINoisedVMPSSweepParams : public TwoSiteMPIVMPSSweepParams {
+//  TwoSiteMPINoisedVMPSSweepParams(
+//    const size_t sweeps,
+//    const size_t dmin, const size_t dmax, const double trunc_err,
+//    const LanczosParams &lancz_params,
+//    const std::vector<double> noises = std::vector<double>(1, 0.0),
+//    const std::string mps_path = kMpsPath,
+//    const std::string temp_path = kRuntimeTempPath
+//  ) :
+//    TwoSiteMPIVMPSSweepParams(sweeps, dmin, dmax, trunc_err,
+//    lancz_params, mps_path, temp_path), noises(noises) {}
+//public:
+//  std::vector<double> noises;
+//};
 
 }//gqmps2
 

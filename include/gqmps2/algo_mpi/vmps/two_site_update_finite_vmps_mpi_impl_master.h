@@ -36,7 +36,7 @@ void LoadRelatedTensOnTwoSiteAlgWhenRightMoving(
     TenVec<GQTensor<TenElemT, QNT>> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     const size_t, const size_t,
-    const TwoSiteMPIVMPSSweepParams &
+    const SweepParams &
 );
 
 //forward declaration
@@ -79,7 +79,7 @@ template<typename TenElemT, typename QNT>
 inline GQTEN_Double TwoSiteFiniteVMPS(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPIVMPSSweepParams &sweep_params,
+    const SweepParams &sweep_params,
     mpi::communicator &world
 ) {
   GQTEN_Double e0(0.0);
@@ -95,7 +95,7 @@ template<typename TenElemT, typename QNT>
 GQTEN_Double MasterTwoSiteFiniteVMPS(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPIVMPSSweepParams &sweep_params,
+    const SweepParams &sweep_params,
     mpi::communicator world
 ) {
   assert(world.rank() == kMasterRank); //only master can call this function
@@ -138,7 +138,7 @@ template<typename TenElemT, typename QNT>
 double TwoSiteFiniteVMPSSweep(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPIVMPSSweepParams &sweep_params,
+    const SweepParams &sweep_params,
     const size_t left_boundary,
     const size_t right_boundary,
     mpi::communicator world
@@ -170,7 +170,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPIVMPSSweepParams &sweep_params,
+    const SweepParams &sweep_params,
     const char dir,
     const size_t target_site,
     mpi::communicator world
@@ -338,7 +338,7 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenRightMoving(
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
     const size_t left_boundary,
-    const TwoSiteMPIVMPSSweepParams &sweep_params
+    const SweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
   Timer preprocessing_timer("two_site_fvmps_preprocessing");
@@ -378,7 +378,7 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenLeftMoving(
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
     const size_t right_boundary,
-    const TwoSiteMPIVMPSSweepParams &sweep_params
+    const SweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
   Timer preprocessing_timer("two_site_fvmps_preprocessing");
@@ -416,7 +416,7 @@ inline void DumpRelatedTensOnTwoSiteAlgWhenRightMoving(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
-    const TwoSiteMPIVMPSSweepParams &sweep_params
+    const SweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
   Timer postprocessing_timer("two_site_fvmps_postprocessing");
@@ -444,7 +444,7 @@ inline void DumpRelatedTensOnTwoSiteAlgWhenLeftMoving(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
-    const TwoSiteMPIVMPSSweepParams &sweep_params
+    const SweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
   Timer postprocessing_timer("two_site_fvmps_postprocessing");

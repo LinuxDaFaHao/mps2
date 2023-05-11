@@ -84,7 +84,8 @@ LanczosRes<TenT> LanczosSolver(
   Timer mat_vec_timer("lancz_mat_vec");
 #endif
 
-  auto last_mat_mul_vec_res = first_super_block_hamiltonian_mul_two_site_state(eff_ham, bases[0], block_site_ops, site_block_ops);
+  auto last_mat_mul_vec_res =
+      first_super_block_hamiltonian_mul_two_site_state(eff_ham, bases[0], block_site_ops, site_block_ops);
 
 #ifdef GQMPS2_TIMING_MODE
   mat_vec_timer.PrintElapsed();
@@ -217,7 +218,7 @@ GQTensor<TenElemT, QNT> *first_super_block_hamiltonian_mul_two_site_state( //fir
     for (size_t j = 0; j < block_site_terms.size(); j++) {
       delete pblock_site_ops_res_s[j];
     }
-
+    block_site_ops[i].Transpose({1, 3, 0, 2});
     // for site-block
     auto &site_block_terms = eff_ham[i].second;
     auto psite_block_ops_res_s = std::vector<TenT *>(site_block_terms.size());
@@ -230,6 +231,7 @@ GQTensor<TenElemT, QNT> *first_super_block_hamiltonian_mul_two_site_state( //fir
     for (size_t j = 0; j < site_block_terms.size(); j++) {
       delete psite_block_ops_res_s[j];
     }
+    site_block_ops[i].Transpose({0, 2, 1, 3});
   }
 
   auto multiplication_res = std::vector<TenT>(num_terms);
@@ -237,8 +239,8 @@ GQTensor<TenElemT, QNT> *first_super_block_hamiltonian_mul_two_site_state( //fir
   const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
   for (size_t i = 0; i < num_terms; i++) {
     TenT temp1;
-    Contract(&block_site_ops[i], state, {{0, 2}, {0, 1}}, &temp1);
-    Contract(&temp1, &site_block_ops[i], {{2, 3}, {0, 2}}, &multiplication_res[i]);
+    Contract(&block_site_ops[i], state, {{2, 3}, {0, 1}}, &temp1);
+    Contract(&temp1, &site_block_ops[i], {{2, 3}, {0, 1}}, &multiplication_res[i]);
     pmultiplication_res[i] = &multiplication_res[i];
   }
   auto res = new TenT;
@@ -260,8 +262,8 @@ GQTensor<TenElemT, QNT> *super_block_hamiltonian_mul_two_site_state(
   const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
   for (size_t i = 0; i < num_terms; i++) {
     TenT temp1;
-    Contract(&block_site_ops[i], state, {{0, 2}, {0, 1}}, &temp1);
-    Contract(&temp1, &site_block_ops[i], {{2, 3}, {0, 2}}, &multiplication_res[i]);
+    Contract(&block_site_ops[i], state, {{2, 3}, {0, 1}}, &temp1);
+    Contract(&temp1, &site_block_ops[i], {{2, 3}, {0, 1}}, &multiplication_res[i]);
     pmultiplication_res[i] = &multiplication_res[i];
   }
   auto res = new TenT;

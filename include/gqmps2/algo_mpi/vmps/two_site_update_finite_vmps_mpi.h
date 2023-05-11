@@ -21,17 +21,17 @@
 
 namespace gqmps2 {
 
-struct TwoSiteMPIVMPSSweepParams : public SweepParams {
-  TwoSiteMPIVMPSSweepParams(
-      const size_t sweeps,
-      const size_t dmin, const size_t dmax, const double trunc_err,
-      const LanczosParams &lancz_params,
-      const std::string mps_path = kMpsPath,
-      const std::string temp_path = kRuntimeTempPath
-  ) :
-      SweepParams(sweeps, dmin, dmax, trunc_err,
-      lancz_params, mps_path, temp_path) {}
-};
+//struct TwoSiteMPIVMPSSweepParams : public SweepParams {
+//  TwoSiteMPIVMPSSweepParams(
+//      const size_t sweeps,
+//      const size_t dmin, const size_t dmax, const double trunc_err,
+//      const LanczosParams &lancz_params,
+//      const std::string mps_path = kMpsPath,
+//      const std::string temp_path = kRuntimeTempPath
+//  ) :
+//      SweepParams(sweeps, dmin, dmax, trunc_err,
+//      lancz_params, mps_path, temp_path) {}
+//};
 
 }//gqmps2
 

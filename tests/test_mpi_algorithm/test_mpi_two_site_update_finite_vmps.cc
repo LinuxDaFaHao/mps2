@@ -189,7 +189,7 @@ int main(){
   }
 
 
-  auto sweep_params = TwoSiteMPIVMPSSweepParams(
+  auto sweep_params = SweepParams(
                           4,
                           100, 100, 1.0E-9,
                           LanczosParams(1.0E-7)

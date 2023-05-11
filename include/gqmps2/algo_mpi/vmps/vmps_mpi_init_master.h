@@ -76,7 +76,7 @@ template<typename TenElemT, typename QNT>
 std::pair<size_t, size_t> TwoSiteFiniteVMPSInit(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPIVMPSSweepParams &sweep_params,
+    const SweepParams &sweep_params,
     mpi::communicator world) {
 
   assert(world.rank() == 0);

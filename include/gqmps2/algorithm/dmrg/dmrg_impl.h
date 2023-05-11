@@ -46,7 +46,7 @@ class DMRGExecutor : public Executor {
 
   ~DMRGExecutor() = default;
   void Execute() override;
-  const double GetEnergy() const {
+  double GetEnergy() const {
     return e0_;
   }
 
