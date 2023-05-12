@@ -10,7 +10,7 @@
 #ifndef GQMPS2_ALGO_MPI_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_MPI_IMPL_H
 #define GQMPS2_ALGO_MPI_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_MPI_IMPL_H
 
-#include "gqmps2/algo_mpi/framework.h"                            //kMasterRank, Order...
+#include "gqmps2/algo_mpi/mps_algo_order.h"                            //kMasterRank, Order...
 #include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h" //MPITDVPSweepParams
 #include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"    //DynamicMeasuRes..
 #include "gqmps2/algo_mpi/lanczos_expmv_solver_mpi.h"             //MasterLanczosExpmvSolver, SlaveLanczosExpmvSolver

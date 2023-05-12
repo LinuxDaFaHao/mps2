@@ -14,7 +14,7 @@
 #include <stdlib.h>                             // size_t
 #include "gqmps2/algorithm/lanczos_solver.h"    // Lanczos Params
 #include "boost/mpi.hpp"                        // mpi::communicator
-#include "gqmps2/algo_mpi/framework.h"          // order
+#include "gqmps2/algo_mpi/mps_algo_order.h"          // order
 #include "gqten/gqten.h"                        // GQTensor
 
 namespace gqmps2 {
@@ -49,8 +49,8 @@ void SlaveLanczosSolver(
   broadcast_eff_ham_timer.PrintElapsed();
 #endif
 
-  VMPS_ORDER order = lanczos_mat_vec;
-  while (order == lanczos_mat_vec) {
+  MPS_AlGO_ORDER order = lanczos_mat_vec_dynamic;
+  while (order == lanczos_mat_vec_dynamic) {
     slave_two_site_eff_ham_mul_state(rpeff_ham, world);
     order = SlaveGetBroadcastOrder(world);
   }

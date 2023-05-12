@@ -154,7 +154,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.ClearAndRestart();
 #endif
-    MasterBroadcastOrder(lanczos_mat_vec, world);
+    MasterBroadcastOrder(lanczos_mat_vec_dynamic, world);
     last_mat_mul_vec_res = new TenT();
     a[m] = master_two_site_eff_ham_mul_state(
         rpeff_ham,

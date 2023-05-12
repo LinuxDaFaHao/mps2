@@ -13,7 +13,7 @@
 
 #include "gqten/gqten.h"
 #include "boost/mpi.hpp"
-#include "gqmps2/algo_mpi/framework.h"
+#include "gqmps2/algo_mpi/mps_algo_order.h"
 #include "gqmps2/algo_mpi/env_tensor_update_slave.h"  //SlaveGrowRightEnvironmentInit
 namespace gqmps2 {
 using namespace gqten;

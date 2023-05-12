@@ -43,7 +43,7 @@ endif()
 
 find_package(Boost
   1.76.0
-  REQUIRED 
+  REQUIRED
   COMPONENTS serialization mpi)
 
 find_package(MPI REQUIRED)
@@ -106,7 +106,7 @@ macro(add_mpi_unittest
     ${TEST_SRC})
 
     target_compile_options(${TEST_NAME}
-      PRIVATE ${CFLAGS} 
+      PRIVATE ${CFLAGS}
       PRIVATE ${OMP_FLAGS}
     )
     target_include_directories(${TEST_NAME}
@@ -129,7 +129,7 @@ macro(add_mpi_unittest
       add_test(
         NAME ${TEST_NAME}
         COMMAND ${MPIEXEC_EXECUTABLE}
-            ${MPIEXEC_NUMPROC_FLAG} ${PROCESSOR_NUM} 
+            ${MPIEXEC_NUMPROC_FLAG} ${PROCESSOR_NUM}
             $<TARGET_FILE:${TEST_NAME}>)
     endif()
     set_target_properties(${TEST_NAME} PROPERTIES FOLDER tests)
@@ -142,7 +142,7 @@ macro(compile_unittest
     ${TEST_SRC})
 
     target_compile_options(${TEST_NAME}
-      PRIVATE ${CFLAGS} 
+      PRIVATE ${CFLAGS}
       PRIVATE ${OMP_FLAGS}
     )
     target_include_directories(${TEST_NAME}
@@ -239,6 +239,11 @@ add_unittest(test_case_params_parser
   "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
   "${CMAKE_CURRENT_LIST_DIR}/testdata/test-params.json" "")
 
+# Test mpi two site update
+add_mpi_unittest(test_mpi_finite_dmrg
+        "test_mpi_algorithm/test_mpi_dmrg.cc"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
+        )
 
 # Test mpi two site update
 add_mpi_unittest(test_mpi_two_site_update_finite_vmps

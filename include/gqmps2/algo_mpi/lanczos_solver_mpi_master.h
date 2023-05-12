@@ -22,7 +22,7 @@
 #include <stdlib.h>                             // size_t
 #include "gqmps2/algorithm/lanczos_solver.h"    // Lanczos Params
 #include "boost/mpi.hpp"                        // mpi::communicator
-#include "gqmps2/algo_mpi/framework.h"          // order
+#include "gqmps2/algo_mpi/mps_algo_order.h"          // order
 #include "gqten/gqten.h"                        // GQTensor
 
 namespace gqmps2 {
@@ -57,7 +57,6 @@ LanczosRes<TenT> MasterLanczosSolver(
   // Take care that init_state will be destroyed after call the solver
   size_t eff_ham_eff_dim = pinit_state->size();
 
-  //Broadcast eff_ham, TODO omp parallel
   const size_t eff_ham_size = pinit_state->Rank();//4
 #ifdef GQMPS2_TIMING_MODE
   Timer broadcast_eff_ham_timer("broadcast_eff_ham_send");
@@ -182,7 +181,7 @@ LanczosRes<TenT> MasterLanczosSolver(
 #ifdef GQMPS2_TIMING_MODE
     mat_vec_timer.ClearAndRestart();
 #endif
-    MasterBroadcastOrder(lanczos_mat_vec, world);
+    MasterBroadcastOrder(lanczos_mat_vec_dynamic, world);
     last_mat_mul_vec_res = new TenT();
     a[m] = master_two_site_eff_ham_mul_state(
         rpeff_ham,
@@ -242,7 +241,7 @@ LanczosRes<TenT> MasterLanczosSolver(
  * two site effective hamiltonian multiplying on state, the dispatch works of master.
  * and calculation the overlap by the way
  * 
- * Once the order lanczos_mat_vec has broadcast to Slave, master will prepare to arrage the tasks.
+ * Once the order lanczos_mat_vec_dynamic has broadcast to Slave, master will prepare to arrage the tasks.
  * tasks from 0 to slave_num-1 will automatically done by salves at first,
  * other tasks will be sorted from difficulty to easy, to get a more balancing assignment.
  * 

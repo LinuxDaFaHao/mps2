@@ -103,7 +103,7 @@ inline bool NeedGenerateBlockOps(
     }
     return false;
   } else {
-    std::cout << "No temp directory." << temp_path << "\n";
+    std::cout << "No temp directory " << temp_path << "\n";
     CreatPath(temp_path);
     return true;
   }

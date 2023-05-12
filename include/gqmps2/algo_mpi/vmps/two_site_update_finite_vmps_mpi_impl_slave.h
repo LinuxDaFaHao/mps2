@@ -14,7 +14,7 @@
 #include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
 #include "boost/mpi.hpp"                                            //boost::mpi
-#include "gqmps2/algo_mpi/framework.h"                              //VMPSORDER
+#include "gqmps2/algo_mpi/mps_algo_order.h"                              //VMPSORDER
 #include "gqmps2/algo_mpi/env_tensor_update_slave.h"                //MasterGrowLeftEnvironment, MasterGrowRightEnvironment
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"               //InitEnvsSlave
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
@@ -46,7 +46,7 @@ void SlaveTwoSiteFiniteVMPS(
   //global variables, and please careful the memory controlling for these variables.
   std::vector<TenT *> eff_ham(two_site_eff_ham_size);
 
-  VMPS_ORDER order = program_start;
+  MPS_AlGO_ORDER order = program_start;
   while (order != program_final) {
     order = SlaveGetBroadcastOrder(world);
     switch (order) {

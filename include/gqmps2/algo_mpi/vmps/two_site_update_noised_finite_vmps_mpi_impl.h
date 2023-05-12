@@ -18,7 +18,7 @@
 #include "gqten/gqten.h"
 #include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
 #include "boost/mpi.hpp"                                            //boost::mpi
-#include "gqmps2/algo_mpi/framework.h"                              //VMPSORDER
+#include "gqmps2/algo_mpi/mps_algo_order.h"                              //VMPSORDER
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams

@@ -20,7 +20,7 @@
 #include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
 #include "boost/mpi.hpp"                                            //boost::mpi
-#include "gqmps2/algo_mpi/framework.h"                              //VMPSORDER
+#include "gqmps2/algo_mpi/mps_algo_order.h"                              //VMPSORDER
 #include "gqmps2/algo_mpi/env_tensor_update_master.h"               //MasterGrowLeftEnvironment, MasterGrowRightEnvironment
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams

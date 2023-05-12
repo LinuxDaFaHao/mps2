@@ -14,7 +14,7 @@
 #include "gqmps2/algorithm/lanczos_solver.h"    // LanczParams
 #include <string>
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps_impl.h"   //MeasureEE
-#include "gqmps2/algorithm/lanczos_dmrg_solver_impl.h"                //LanczosSolver
+#include "gqmps2/algorithm/lanczos_dmrg_solver_impl.h"                //LanczosSolver_
 #include "gqmps2/algorithm/dmrg/operator_io.h"                        //ReadOperatorGroup
 
 namespace gqmps2 {
@@ -252,7 +252,7 @@ void DMRGExecutor<TenElemT, QNT>::SetEffectiveHamiltonianTerms_() {
   block_site_ops_.clear();
   site_block_ops_.clear();
   // in the sense of this function, we should set the block_site_ops_ and site_block_ops_ here
-  // but, for the convenience of MPI parallel, we move this part into LanczosSolver
+  // but, for the convenience of MPI parallel, we move this part into LanczosSolver_
   for (size_t j = 0; j < mat_repr_mpo_[l_site_].cols; j++) { // the middle index
     BlockSiteHamiltonianTermGroup<Tensor> block_site_terms; //left two blocks
     SiteBlockHamiltonianTermGroup<Tensor> site_block_terms; //right two blocks

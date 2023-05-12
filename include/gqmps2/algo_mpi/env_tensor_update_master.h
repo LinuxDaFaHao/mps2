@@ -18,7 +18,7 @@
 
 #include "gqten/gqten.h"
 #include "boost/mpi.hpp"
-#include "framework.h"
+#include "mps_algo_order.h"
 
 namespace gqmps2 {
 using namespace gqten;

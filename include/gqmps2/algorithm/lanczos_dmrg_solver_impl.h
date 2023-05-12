@@ -10,6 +10,10 @@
 @file lanczos_dmrg_solver_impl.h
 @brief Implementation details for Lanczos solver in DMRG.
 */
+
+#ifndef GQMPS2_ALGORITHM_LANCZOS_DMRG_SOLVER_IMPL_H
+#define GQMPS2_ALGORITHM_LANCZOS_DMRG_SOLVER_IMPL_H
+
 #include "gqmps2/algorithm/lanczos_solver.h"    // LanczosParams
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"                // Timer
@@ -273,3 +277,5 @@ GQTensor<TenElemT, QNT> *super_block_hamiltonian_mul_two_site_state(
 }
 
 } /* gqmps2 */
+
+#endif//GQMPS2_ALGORITHM_LANCZOS_DMRG_SOLVER_IMPL_H
