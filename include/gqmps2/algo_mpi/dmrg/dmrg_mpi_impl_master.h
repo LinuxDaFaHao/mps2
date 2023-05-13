@@ -641,7 +641,7 @@ void DMRGMPIMasterExecutor<TenElemT, QNT>::GrowLeftBlockOps_() {
 
   for (size_t i = 0; i < num_ops; i++) {
     size_t op_order;
-    auto recv_status = world_.recv(mpi::any_tag, mpi::any_tag, op_order);
+    auto recv_status = world_.recv(mpi::any_source, mpi::any_tag, op_order);
     auto slave_id = recv_status.source();
     recv_gqten(world_, slave_id, slave_id, lopg_vec_[l_block_len + 1][op_order]);
   }
@@ -656,7 +656,7 @@ void DMRGMPIMasterExecutor<TenElemT, QNT>::GrowRightBlockOps_() {
 
   for (size_t i = 0; i < num_ops; i++) {
     size_t op_order;
-    auto recv_status = world_.recv(mpi::any_tag, mpi::any_tag, op_order);
+    auto recv_status = world_.recv(mpi::any_source, mpi::any_tag, op_order);
     auto slave_id = recv_status.source();
     recv_gqten(world_, slave_id, slave_id, ropg_vec_[r_block_len + 1][op_order]);
   }
