@@ -422,6 +422,7 @@ void DMRGMPIMasterExecutor<TenElemT, QNT>::DMRGInit_() {
     std::cout << "=====> Generating the block operators =====>" << std::endl;
     InitBlockOps_();
   } else {
+    MasterBroadcastOrder(init_grow_env_finish, world_);
     std::cout << "The block operators exist." << std::endl;
   }
   UpdateBoundaryBlockOpsMaster(mps_, mat_repr_mpo_,

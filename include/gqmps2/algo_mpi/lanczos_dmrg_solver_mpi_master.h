@@ -183,7 +183,6 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::DynamicHamiltonia
   size_t num_terms = hamiltonian_terms_.size();
   mpi::broadcast(world_, num_terms, kMasterRank);
   SendBroadCastGQTensor(world_, state, kMasterRank);
-  std::cout << "num_terms = " << num_terms << std::endl;
   if (num_terms <= slave_num_) {
     for (size_t i = 0; i < num_terms; i++) {
       auto &block_site_terms = hamiltonian_terms_[i].first;
@@ -252,20 +251,22 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonian
     DMRGMPIMasterExecutor::Tensor &state,
     GQTEN_Double &overlap) {
   SendBroadCastGQTensor(world_, state, kMasterRank);
-  auto multiplication_res = std::vector<Tensor>(slave_num_);
-  auto pmultiplication_res = std::vector<Tensor *>(slave_num_);
-  const std::vector<TenElemT> &coefs = std::vector<TenElemT>(slave_num_, TenElemT(1.0));
-  for (size_t i = 0; i < slave_num_; i++) {
+  const size_t num_terms = hamiltonian_terms_.size();
+  const size_t gather_terms = std::min(num_terms, slave_num_);
+  auto multiplication_res = std::vector<Tensor>(gather_terms);
+  auto pmultiplication_res = std::vector<Tensor *>(gather_terms);
+  const std::vector<TenElemT> &coefs = std::vector<TenElemT>(gather_terms, TenElemT(1.0));
+  for (size_t i = 0; i < gather_terms; i++) {
     pmultiplication_res[i] = &multiplication_res[i];
   }
-  for (size_t i = 0; i < slave_num_; i++) {
+  for (size_t i = 0; i < gather_terms; i++) {
     recv_gqten(world_, mpi::any_source, mpi::any_tag, multiplication_res[i]);
   }
   auto res = new Tensor();
   LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), res);
 
   MPI_Barrier(MPI_Comm(world_));
-  for (size_t i = 1; i <= slave_num_; i++) {
+  for (size_t i = 1; i <= gather_terms; i++) {
     GQTEN_Double sub_overlap;
     world_.recv(i, i, sub_overlap);
     overlap += sub_overlap;

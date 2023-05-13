@@ -160,7 +160,7 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::UpdateRightBlockOpsSlave_() {
       Tensor temp, res;
       Contract(&mps, &site_block_op, {{1, 2}, {0, 1}}, &temp);
       Contract(&temp, &mps_dag, {{1, 2}, {1, 2}}, &res);
-      world_.send(kMasterRank, id_, res);
+      send_gqten(world_, kMasterRank, id_ - 1, res);
       //delete site_block_hamiltonian_term_group_ data
       for (size_t i = 0; i < terms_num; i++) {
         delete site_block_hamiltonian_term_group_[i][0];
@@ -386,19 +386,21 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
 
   const size_t num_terms = block_site_ops_.size();
   assert(num_terms == site_block_ops_.size());
-  auto multiplication_res = std::vector<Tensor>(num_terms);
-  auto pmultiplication_res = std::vector<Tensor *>(num_terms);
-  const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
-  for (size_t i = 0; i < num_terms; i++) {
-    Tensor temp1;
-    Contract(&block_site_ops_[i], &state, {{2, 3}, {0, 1}}, &temp1);
-    Contract(&temp1, &site_block_ops_[i], {{2, 3}, {0, 1}}, &multiplication_res[i]);
-    pmultiplication_res[i] = &multiplication_res[i];
-  }
   Tensor sub_sum;
-  //TODO: optimize the summation
-  LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), &sub_sum);
-  send_gqten(world_, kMasterRank, id_, sub_sum);
+  if (num_terms > 0) {
+    auto multiplication_res = std::vector<Tensor>(num_terms);
+    auto pmultiplication_res = std::vector<Tensor *>(num_terms);
+    const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
+    for (size_t i = 0; i < num_terms; i++) {
+      Tensor temp1;
+      Contract(&block_site_ops_[i], &state, {{2, 3}, {0, 1}}, &temp1);
+      Contract(&temp1, &site_block_ops_[i], {{2, 3}, {0, 1}}, &multiplication_res[i]);
+      pmultiplication_res[i] = &multiplication_res[i];
+    }
+    //TODO: optimize the summation
+    LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), &sub_sum);
+    send_gqten(world_, kMasterRank, id_, sub_sum);
+  }
 
   Tensor temp_scalar_ten;
   GQTEN_Double sub_overlap = 0.0;
@@ -415,7 +417,6 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
     world_.send(kMasterRank, id_, sub_overlap);
   } else {
     MPI_Barrier(MPI_Comm(world_));
-    world_.send(kMasterRank, id_, sub_overlap);
   }
 }
 template<typename TenElemT, typename QNT>
