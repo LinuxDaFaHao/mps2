@@ -38,8 +38,8 @@ class DMRGMPISlaveExecutor : public Executor {
   void WorkForGrowLeftBlockOps_();
   void WorkForGrowRightBlockOps_();
 
-  void RecvBlockSiteHamiltonianTermGroup_();
-  void RecvSiteBlockHamiltonianTermGroup_();
+  mpi::status RecvBlockSiteHamiltonianTermGroup_();
+  mpi::status RecvSiteBlockHamiltonianTermGroup_();
 
   size_t N_; //number of site
   const MatReprMPO<Tensor> mat_repr_mpo_;
@@ -204,23 +204,26 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::UpdateRightBlockOpsSlave_() {
 }
 
 template<typename TenElemT, typename QNT>
-void DMRGMPISlaveExecutor<TenElemT, QNT>::RecvBlockSiteHamiltonianTermGroup_() {
+mpi::status DMRGMPISlaveExecutor<TenElemT, QNT>::RecvBlockSiteHamiltonianTermGroup_() {
   size_t num_terms;
   world_.recv(kMasterRank, 2 * id_, num_terms);
   block_site_hamiltonian_term_group_.resize(num_terms);
+  mpi::status recv_status;
   for (size_t i = 0; i < num_terms; i++) {
     block_site_hamiltonian_term_group_[i][0] = new Tensor();
     recv_gqten(world_, kMasterRank, i * id_, *block_site_hamiltonian_term_group_[i][0]);
     block_site_hamiltonian_term_group_[i][1] = new Tensor();
-    recv_gqten(world_, kMasterRank, i * id_, *block_site_hamiltonian_term_group_[i][1]);
+    recv_status = recv_gqten(world_, kMasterRank, i * id_, *block_site_hamiltonian_term_group_[i][1]);
   }
+  return recv_status;
 }
 
 template<typename TenElemT, typename QNT>
-void DMRGMPISlaveExecutor<TenElemT, QNT>::RecvSiteBlockHamiltonianTermGroup_() {
+mpi::status DMRGMPISlaveExecutor<TenElemT, QNT>::RecvSiteBlockHamiltonianTermGroup_() {
   size_t num_terms;
-  world_.recv(kMasterRank, 2 * id_, num_terms);
+  mpi::status recv_status = world_.recv(kMasterRank, 2 * id_, num_terms);
   site_block_hamiltonian_term_group_.resize(num_terms);
+
   for (size_t i = 0; i < num_terms; i++) {
     site_block_hamiltonian_term_group_[i][0] = new Tensor();
     Tensor &h_site = *site_block_hamiltonian_term_group_[i][0];
@@ -228,9 +231,9 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::RecvSiteBlockHamiltonianTermGroup_() {
 
     site_block_hamiltonian_term_group_[i][1] = new Tensor();
     Tensor &h_env = *site_block_hamiltonian_term_group_[i][1];
-    recv_gqten(world_, kMasterRank, i * id_, h_env);
-
+    recv_status = recv_gqten(world_, kMasterRank, i * id_, h_env);
   }
+  return recv_status;
 }
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::SlaveLanczosSolver_() {
@@ -246,6 +249,11 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::SlaveLanczosSolver_() {
 }
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState_() {
+#ifdef GQMPS2_MPI_TIMING_MODE
+  Timer slave_hamil_multiply_state_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_total_time");
+  Timer slave_hamil_multiply_state_computation_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_computation_time");
+  slave_hamil_multiply_state_computation_timer.Suspend();
+#endif
   size_t total_num_terms;
   mpi::broadcast(world_, total_num_terms, kMasterRank);
   Tensor state;
@@ -253,73 +261,24 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState
   block_site_ops_.clear();
   site_block_ops_.clear();
   ops_num_table_.clear();
-  if (total_num_terms <= world_.size() - 1) {
-    if (id_ <= total_num_terms) {
-      RecvBlockSiteHamiltonianTermGroup_();
-      RecvSiteBlockHamiltonianTermGroup_();
 
-      //block site
-      const size_t block_site_terms = block_site_hamiltonian_term_group_.size();
-      auto pblock_site_ops_res_s = std::vector<Tensor *>(block_site_terms);
-      for (size_t j = 0; j < block_site_terms; j++) {
-        pblock_site_ops_res_s[j] = new Tensor();
-        Contract(block_site_hamiltonian_term_group_[j][0],
-                 block_site_hamiltonian_term_group_[j][1],
-                 {{}, {}},
-                 pblock_site_ops_res_s[j]);
-      }
-      std::vector<TenElemT> coefs = std::vector<TenElemT>(block_site_terms, TenElemT(1.0));
-      Tensor sum_op;
-      LinearCombine(coefs, pblock_site_ops_res_s, TenElemT(0.0), &sum_op);
-      for (size_t j = 0; j < block_site_terms; j++) {
-        delete pblock_site_ops_res_s[j];
-      }
-      sum_op.Transpose({1, 3, 0, 2});
-      block_site_ops_.emplace_back(sum_op);
+  Tensor multiplication_res;
+  send_gqten(world_, kMasterRank, total_num_terms + 10086, multiplication_res);
+  //tag > total_num_terms means invalid data
+  bool terminated = false;
 
-      //site block
-      const size_t site_block_terms = site_block_hamiltonian_term_group_.size();
-      auto psite_block_ops_res_s = std::vector<Tensor *>(site_block_terms);
-      for (size_t j = 0; j < site_block_terms; j++) {
-        psite_block_ops_res_s[j] = new Tensor();
-        Contract(site_block_hamiltonian_term_group_[j][0],
-                 site_block_hamiltonian_term_group_[j][1],
-                 {{}, {}},
-                 psite_block_ops_res_s[j]);
-      }
-      coefs = std::vector<TenElemT>(site_block_terms, TenElemT(1.0));
-      sum_op = Tensor();
-      LinearCombine(coefs, psite_block_ops_res_s, TenElemT(0.0), &sum_op);
-      for (size_t j = 0; j < site_block_terms; j++) {
-        delete psite_block_ops_res_s[j];
-      }
-      sum_op.Transpose({0, 2, 1, 3});
-      site_block_ops_.emplace_back(sum_op);
-
-      //Hamiltonian * state
-      Tensor temp1, multiplication_res;
-      Contract(&block_site_ops_[0], &state, {{2, 3}, {0, 1}}, &temp1);
-      Contract(&temp1, &site_block_ops_[0], {{2, 3}, {0, 1}}, &multiplication_res);
-      send_gqten(world_, kMasterRank, id_ - 1, multiplication_res);
-      ops_num_table_.push_back(id_ - 1);
-
-      for (size_t i = 0; i < block_site_terms; i++) {
-        delete block_site_hamiltonian_term_group_[i][0];
-        delete block_site_hamiltonian_term_group_[i][1];
-      }
-      for (size_t i = 0; i < site_block_terms; i++) {
-        delete site_block_hamiltonian_term_group_[i][0];
-        delete site_block_hamiltonian_term_group_[i][1];
-      }
-    }
-  } else {
-    size_t task_id;
+  size_t task_id;
+  do {
     world_.recv(kMasterRank, id_, task_id);
-    const size_t task_num = total_num_terms;
-    while (task_id < task_num) {
+    if (task_id > total_num_terms) {
+      terminated = true;
+    } else {
       RecvBlockSiteHamiltonianTermGroup_();
       RecvSiteBlockHamiltonianTermGroup_();
       //block site
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_computation_timer.Restart();
+#endif
       const size_t block_site_terms = block_site_hamiltonian_term_group_.size();
       auto pblock_site_ops_res_s = std::vector<Tensor *>(block_site_terms);
       for (size_t j = 0; j < block_site_terms; j++) {
@@ -374,13 +333,25 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState
         delete site_block_hamiltonian_term_group_[i][0];
         delete site_block_hamiltonian_term_group_[i][1];
       }
-      send_gqten(world_, kMasterRank, id_ - 1, multiplication_res);
-      world_.recv(kMasterRank, id_, task_id);
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_computation_timer.Suspend();
+#endif
+      send_gqten(world_, kMasterRank, task_id, multiplication_res);
     }
-  }
+  } while (!terminated);
+#ifdef GQMPS2_MPI_TIMING_MODE
+  slave_hamil_multiply_state_computation_timer.PrintElapsed();
+  slave_hamil_multiply_state_timer.PrintElapsed();
+#endif
 }
+
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_() {
+#ifdef GQMPS2_MPI_TIMING_MODE
+  Timer slave_hamil_multiply_state_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_total_time");
+  Timer slave_hamil_multiply_state_computation_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_computation_time");
+  slave_hamil_multiply_state_computation_timer.Suspend();
+#endif
   Tensor state;
   RecvBroadCastGQTensor(world_, state, kMasterRank);
 
@@ -388,6 +359,9 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
   assert(num_terms == site_block_ops_.size());
   Tensor sub_sum;
   if (num_terms > 0) {
+#ifdef GQMPS2_MPI_TIMING_MODE
+    slave_hamil_multiply_state_computation_timer.Restart();
+#endif
     auto multiplication_res = std::vector<Tensor>(num_terms);
     auto pmultiplication_res = std::vector<Tensor *>(num_terms);
     const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
@@ -399,12 +373,18 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
     }
     //TODO: optimize the summation
     LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), &sub_sum);
+#ifdef GQMPS2_MPI_TIMING_MODE
+    slave_hamil_multiply_state_computation_timer.Suspend();
+#endif
     send_gqten(world_, kMasterRank, id_, sub_sum);
   }
 
   Tensor temp_scalar_ten;
   GQTEN_Double sub_overlap = 0.0;
   if (num_terms > 0) {
+#ifdef GQMPS2_MPI_TIMING_MODE
+    slave_hamil_multiply_state_computation_timer.Restart();
+#endif
     auto state_dag = Dag(state);
     Contract(
         &sub_sum,
@@ -413,10 +393,17 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
         &temp_scalar_ten
     );
     sub_overlap = Real(temp_scalar_ten());
+#ifdef GQMPS2_MPI_TIMING_MODE
+    slave_hamil_multiply_state_computation_timer.Suspend();
+#endif
     MPI_Barrier(MPI_Comm(world_));
     world_.send(kMasterRank, id_, sub_overlap);
   } else {
     MPI_Barrier(MPI_Comm(world_));
+#ifdef GQMPS2_MPI_TIMING_MODE
+    slave_hamil_multiply_state_computation_timer.PrintElapsed();
+    slave_hamil_multiply_state_timer.PrintElapsed();
+#endif
   }
 }
 template<typename TenElemT, typename QNT>

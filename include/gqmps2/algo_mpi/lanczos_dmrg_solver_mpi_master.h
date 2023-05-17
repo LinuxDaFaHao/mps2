@@ -182,97 +182,74 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::DynamicHamiltonia
     DMRGMPIMasterExecutor::Tensor &state) {
   size_t num_terms = hamiltonian_terms_.size();
 #ifdef GQMPS2_MPI_TIMING_MODE
-  Timer broadcast_state_timer(" broadcast_state_send");
+  Timer broadcast_state_timer("broadcast_state_send");
 #endif
   mpi::broadcast(world_, num_terms, kMasterRank);
   SendBroadCastGQTensor(world_, state, kMasterRank);
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
-  if (num_terms <= slave_num_) {
-#ifdef GQMPS2_TIMING_MODE
-    Timer dispatch_ham_timer("dispatch_ham_send");
-#endif
-    for (size_t i = 0; i < num_terms; i++) {
-      auto &block_site_terms = hamiltonian_terms_[i].first;
-      auto &site_block_terms = hamiltonian_terms_[i].second;
-      SendBlockSiteHamiltonianTermGroup_(block_site_terms, i + 1);
-      SendSiteBlockHamiltonianTermGroup_(site_block_terms, i + 1);
-    }
-#ifdef GQMPS2_TIMING_MODE
-    dispatch_ham_timer.PrintElapsed();
-#endif
-    auto multiplication_res = std::vector<Tensor>(num_terms);
-    auto pmultiplication_res = std::vector<Tensor *>(num_terms);
-    const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
-    for (size_t i = 0; i < num_terms; i++) {
-      pmultiplication_res[i] = &multiplication_res[i];
-    }
 
-    for (size_t i = 0; i < num_terms; i++) {
-      recv_gqten(world_, mpi::any_source, mpi::any_tag, multiplication_res[i]);
-    }
-#ifdef GQMPS2_MPI_TIMING_MODE
-    Timer sum_state_timer(" parallel_summation_reduce");
-#endif
-    auto res = new Tensor();
-    //TODO: optimize the summation
-    LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), res);
-#ifdef GQMPS2_MPI_TIMING_MODE
-    sum_state_timer.PrintElapsed();
-#endif
-    return res;
-  } else {
-    const size_t task_num = num_terms;
-#ifdef GQMPS2_TIMING_MODE
-    Timer dispatch_ham_timer("first_round_dispatch_ham_send");
-#endif
-    for (size_t task_id = 0; task_id < slave_num_; task_id++) {
-      const size_t slave_id = task_id + 1;
-      world_.send(slave_id, slave_id, task_id);
-      auto &block_site_terms = hamiltonian_terms_[task_id].first;
-      auto &site_block_terms = hamiltonian_terms_[task_id].second;
-      SendBlockSiteHamiltonianTermGroup_(block_site_terms, slave_id);
-      SendSiteBlockHamiltonianTermGroup_(site_block_terms, slave_id);
-    }
-#ifdef GQMPS2_TIMING_MODE
-    dispatch_ham_timer.PrintElapsed();
-#endif
+  const size_t task_num = num_terms;
 
-    auto multiplication_res = std::vector<Tensor>(num_terms);
-    auto pmultiplication_res = std::vector<Tensor *>(num_terms);
-    const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
 
-    for (size_t i = 0; i < num_terms; i++) {
-      pmultiplication_res[i] = &multiplication_res[i];
-    }
 
-    for (size_t task_id = slave_num_; task_id < task_num; task_id++) {
-      auto recv_status = recv_gqten(world_, mpi::any_source, mpi::any_tag, multiplication_res[task_id - slave_num_]);
-      size_t slave_id = recv_status.source();
-      world_.send(slave_id, slave_id, task_id);
-      auto &block_site_terms = hamiltonian_terms_[task_id].first;
-      auto &site_block_terms = hamiltonian_terms_[task_id].second;
-      SendBlockSiteHamiltonianTermGroup_(block_site_terms, slave_id);
-      SendSiteBlockHamiltonianTermGroup_(site_block_terms, slave_id);
-    }
 
-    for (size_t i = task_num - slave_num_; i < task_num; i++) {
-      auto recv_status = recv_gqten(world_, mpi::any_source, mpi::any_tag, multiplication_res[i]);
-      size_t slave_id = recv_status.source();
-      world_.send(slave_id, slave_id, task_num + 10086);//10086 is chosen to make a mock.
-    }
-#ifdef GQMPS2_MPI_TIMING_MODE
-    Timer sum_state_timer(" parallel_summation_reduce");
-#endif
-    auto res = new Tensor();
-    //TODO: optimize the summation
-    LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), res);
-#ifdef GQMPS2_MPI_TIMING_MODE
-    sum_state_timer.PrintElapsed();
-#endif
-    return res;
+  auto multiplication_res = std::vector<Tensor>(num_terms);
+  auto pmultiplication_res = std::vector<Tensor *>(num_terms);
+  const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
+
+  for (size_t i = 0; i < num_terms; i++) {
+    pmultiplication_res[i] = &multiplication_res[i];
   }
+#ifdef GQMPS2_TIMING_MODE
+  Timer dispatch_ham_timer("first_round_dispatch_ham_send");
+  dispatch_ham_timer.Suspend();
+#endif
+
+  for (size_t task_id = 0; task_id < task_num; task_id++) {
+    Tensor recv_res;
+    auto recv_status = recv_gqten(world_, mpi::any_source, mpi::any_tag, recv_res);
+    if (recv_status.tag() < task_num) {
+      multiplication_res[recv_status.tag()] = std::move(recv_res);
+    }
+    size_t slave_id = recv_status.source();
+    world_.send(slave_id, slave_id, task_id);
+    auto &block_site_terms = hamiltonian_terms_[task_id].first;
+    auto &site_block_terms = hamiltonian_terms_[task_id].second;
+#ifdef GQMPS2_TIMING_MODE
+    dispatch_ham_timer.Restart();
+#endif
+    SendBlockSiteHamiltonianTermGroup_(block_site_terms, slave_id);
+    SendSiteBlockHamiltonianTermGroup_(site_block_terms, slave_id);
+#ifdef GQMPS2_TIMING_MODE
+    dispatch_ham_timer.Suspend();
+#endif
+  }
+#ifdef GQMPS2_TIMING_MODE
+  dispatch_ham_timer.PrintElapsed();
+#endif
+
+  const size_t termination_signal = task_num + 10086;//10086 is chosen to make a mock.
+  for (size_t i = 1; i <= slave_num_; i++) {
+    Tensor recv_res;
+    auto recv_status = recv_gqten(world_, mpi::any_source, mpi::any_tag, recv_res);
+    if (recv_status.tag() < task_num ) {
+      multiplication_res[recv_status.tag()] = std::move(recv_res);
+    }
+    size_t slave_id = recv_status.source();
+    world_.send(slave_id, slave_id, termination_signal);
+  }
+#ifdef GQMPS2_MPI_TIMING_MODE
+  Timer sum_state_timer("parallel_summation_reduce");
+#endif
+  auto res = new Tensor();
+  //TODO: optimize the summation
+  LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), res);
+#ifdef GQMPS2_MPI_TIMING_MODE
+  sum_state_timer.PrintElapsed();
+#endif
+  return res;
 }
 
 template<typename TenElemT, typename QNT>
@@ -297,13 +274,11 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonian
   MPI_Barrier(MPI_Comm(world_));
   for (size_t i = 1; i <= gather_terms; i++) {
     GQTEN_Double sub_overlap;
-    world_.recv(i, i, sub_overlap);
+    world_.recv(mpi::any_source, mpi::any_tag, sub_overlap);
     overlap += sub_overlap;
   }
   return res;
 }
-
-
 
 } /* gqmps2 */
 
