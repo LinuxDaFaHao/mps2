@@ -23,7 +23,12 @@
 #include <vector>     // vector
 #include <cstring>
 
-#include "mkl.h"
+#if defined(USE_OPENBLAS)
+#include <cblas.h> // Include CBLAS header when OpenBLAS is used
+#include <lapacke.h>
+#else
+#include "mkl.h"   // Include MKL header when MKL is used
+#endif
 
 namespace gqmps2 {
 

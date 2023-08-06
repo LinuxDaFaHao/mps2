@@ -10,15 +10,25 @@
 @file lanczos_solver_impl.h
 @brief Implementation details for Lanczos solver.
 */
+
+#ifndef GQMPS2_ALGORITHM_LANCZOS_SOLVER_IMPL_H
+#define GQMPS2_ALGORITHM_LANCZOS_SOLVER_IMPL_H
+
 #include "gqmps2/algorithm/lanczos_solver.h"    // LanczosParams
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"                // Timer
+#include "gqmps2/utilities.h"                   // Real
 
 #include <iostream>
 #include <vector>     // vector
 #include <cstring>
 
-#include "mkl.h"
+#if defined(USE_OPENBLAS)
+#include <cblas.h> // Include CBLAS header when OpenBLAS is used
+#include <lapacke.h>
+#else
+#include "mkl.h"   // Include MKL header when MKL is used
+#endif
 
 namespace gqmps2 {
 
@@ -79,10 +89,6 @@ inline void LanczosFree(
 
   delete last_mat_mul_vec_res;
 }
-
-inline double Real(const GQTEN_Double d) { return d; }
-
-inline double Real(const GQTEN_Complex z) { return z.real(); }
 
 // Lanczos solver.
 template<typename TenT>
@@ -333,4 +339,5 @@ inline void TridiagGsSolver(
   delete[] z;
 
 }
-} /* gqmps2 */ 
+} /* gqmps2 */
+#endif //GQMPS2_ALGORITHM_LANCZOS_SOLVER_IMPL_H

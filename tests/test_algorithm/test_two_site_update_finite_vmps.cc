@@ -86,11 +86,11 @@ void RunTestTwoSiteAlgorithmCase(
     const double benmrk_e0, const double precision
 ) {
 
-  size_t start_flops = flops;
+  size_t start_flops = flop;
   Timer contract_timer("vmps");
   auto e0 = TwoSiteFiniteVMPS(mps, mpo, sweep_params);
   double elapsed_time = contract_timer.Elapsed();
-  size_t end_flops = flops;
+  size_t end_flops = flop;
   double Gflops_s = (end_flops - start_flops) * 1.e-9 / elapsed_time;
   std::cout << "flops = " << end_flops - start_flops << std::endl;
 

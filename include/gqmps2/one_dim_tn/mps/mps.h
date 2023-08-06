@@ -79,7 +79,7 @@ public:
   Dump MPS to HDD.
 
   @param mps_path Path to the MPS directory.
-  @param release_mem Wheter release memory after dump.
+  @param release_mem Whether release memory after dump.
   */
   void Dump(
       const std::string &mps_path = kMpsPath,

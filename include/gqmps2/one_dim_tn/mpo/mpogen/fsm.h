@@ -8,7 +8,6 @@
 #ifndef GQMPS2_ONE_DIM_TN_MPO_MPOGEN_FSM
 #define GQMPS2_ONE_DIM_TN_MPO_MPOGEN_FSM
 
-
 #include "gqmps2/one_dim_tn/mpo/mpogen/symb_alg/coef_op_alg.h"
 
 #include <vector>
@@ -16,9 +15,8 @@
 #include <assert.h>
 
 #ifdef Release
-  #define NDEBUG
+#define NDEBUG
 #endif
-
 
 struct FSMNode {
   size_t fsm_site_idx;
@@ -27,22 +25,19 @@ struct FSMNode {
 
 using FSMNodeVec = std::vector<FSMNode>;
 
-
 inline bool operator==(const FSMNode &lhs, const FSMNode &rhs) {
   return (lhs.fsm_site_idx == rhs.fsm_site_idx) &&
-         (lhs.fsm_stat_idx == rhs.fsm_stat_idx);
+      (lhs.fsm_stat_idx == rhs.fsm_stat_idx);
 }
-
 
 inline bool operator!=(const FSMNode &lhs, const FSMNode &rhs) {
   return !(lhs == rhs);
 }
 
-
 struct FSMPath {
   FSMPath(const size_t phys_site_num, const size_t fsm_site_num) :
       fsm_nodes(fsm_site_num), op_reprs(phys_site_num) {
-    assert(fsm_nodes.size() == op_reprs.size() + 1); 
+    assert(fsm_nodes.size() == op_reprs.size() + 1);
   }
   FSMNodeVec fsm_nodes;
   OpReprVec op_reprs;
@@ -50,19 +45,18 @@ struct FSMPath {
 
 using FSMPathVec = std::vector<FSMPath>;
 
-
 class FSM {
-public:
+ public:
   FSM(const size_t phys_site_num) :
       phys_site_num_(phys_site_num),
-      fsm_site_num_(phys_site_num+1),
-      mid_stat_nums_(phys_site_num+1, 0),
-      has_readys_(phys_site_num+1, false),
-      has_finals_(phys_site_num+1, false),
+      fsm_site_num_(phys_site_num + 1),
+      mid_stat_nums_(phys_site_num + 1, 0),
+      has_readys_(phys_site_num + 1, false),
+      has_finals_(phys_site_num + 1, false),
       id_op_labels_(phys_site_num, kIdOpLabel) {
-    assert(fsm_site_num_ == phys_site_num_ + 1); 
+    assert(fsm_site_num_ == phys_site_num_ + 1);
   }
-  
+
   FSM(void) : FSM(0) {}
 
   size_t phys_size(void) const { return phys_site_num_; }
@@ -79,8 +73,7 @@ public:
 
   void ReplaceIdOpLabels(std::vector<OpLabel> &);
 
-
-private:
+ private:
   std::vector<size_t> CalcFSMSiteDims_(void) const;
 
   std::vector<long> CalcFinalStatDimIdxs_(const std::vector<size_t> &) const;
@@ -100,18 +93,16 @@ private:
   std::vector<OpLabel> id_op_labels_;
 };
 
-
 const long kFSMReadyStatIdx = 0;
 
 const long kFSMFinalStatIdx = -1;
 
-
 inline void FSM::AddPath(
-      const size_t head_ntrvl_site_idx, const size_t tail_ntrvl_site_idx,
-      const OpReprVec &ntrvl_ops) {
+    const size_t head_ntrvl_site_idx, const size_t tail_ntrvl_site_idx,
+    const OpReprVec &ntrvl_ops) {
   assert(
       head_ntrvl_site_idx + ntrvl_ops.size() +
-      (phys_site_num_ - tail_ntrvl_site_idx - 1) == phys_site_num_);
+          (phys_site_num_ - tail_ntrvl_site_idx - 1) == phys_site_num_);
   FSMPath fsm_path(phys_site_num_, fsm_site_num_);
   // Set operator representations.
   for (size_t i = 0; i < phys_site_num_; ++i) {
@@ -120,7 +111,7 @@ inline void FSM::AddPath(
     } else if (i > tail_ntrvl_site_idx) {
       fsm_path.op_reprs[i] = OpRepr(id_op_labels_[i]);
     } else {
-      fsm_path.op_reprs[i] = ntrvl_ops[i-head_ntrvl_site_idx];
+      fsm_path.op_reprs[i] = ntrvl_ops[i - head_ntrvl_site_idx];
     }
   }
   // Set FSM nodes.
@@ -140,13 +131,12 @@ inline void FSM::AddPath(
     } else {
       fsm_path.fsm_nodes[tgt_fsm_site_idx].fsm_site_idx = tgt_fsm_site_idx;
       mid_stat_nums_[tgt_fsm_site_idx]++;
-      fsm_path.fsm_nodes[tgt_fsm_site_idx].fsm_stat_idx = 
+      fsm_path.fsm_nodes[tgt_fsm_site_idx].fsm_stat_idx =
           mid_stat_nums_[tgt_fsm_site_idx];
     }
   }
   fsm_paths_.push_back(fsm_path);
 }
-
 
 inline SparOpReprMatVec FSM::GenMatRepr(void) const {
   auto fsm_site_dims = CalcFSMSiteDims_();
@@ -154,15 +144,14 @@ inline SparOpReprMatVec FSM::GenMatRepr(void) const {
   SparOpReprMatVec fsm_mat_repr;
   for (size_t i = 0; i < phys_site_num_; ++i) {
     auto mat_rows = fsm_site_dims[i];
-    auto mat_cols = fsm_site_dims[i+1];
+    auto mat_cols = fsm_site_dims[i + 1];
     fsm_mat_repr.push_back(SparOpReprMat(mat_rows, mat_cols));
   }
-  for (auto &fsm_path : fsm_paths_) {
+  for (auto &fsm_path: fsm_paths_) {
     CastFSMPathToMatRepr_(fsm_path, final_stat_dim_idxs, fsm_mat_repr);
   }
   return fsm_mat_repr;
 }
-
 
 inline std::vector<size_t> FSM::CalcFSMSiteDims_(void) const {
   std::vector<size_t> fsm_site_dims(fsm_site_num_, 0);
@@ -174,7 +163,6 @@ inline std::vector<size_t> FSM::CalcFSMSiteDims_(void) const {
   }
   return fsm_site_dims;
 }
-
 
 inline std::vector<long> FSM::CalcFinalStatDimIdxs_(
     const std::vector<size_t> &fsm_site_dims) const {
@@ -191,14 +179,13 @@ inline std::vector<long> FSM::CalcFinalStatDimIdxs_(
   return final_stat_dim_idxs;
 }
 
-
 inline void FSM::CastFSMPathToMatRepr_(
     const FSMPath &fsm_path,
     const std::vector<long> &final_stat_dim_idxs,
     SparOpReprMatVec &fsm_mat_repr) const {
   for (size_t i = 0; i < phys_site_num_; ++i) {
     auto tgt_row_fsm_node = fsm_path.fsm_nodes[i];
-    auto tgt_col_fsm_node = fsm_path.fsm_nodes[i+1];
+    auto tgt_col_fsm_node = fsm_path.fsm_nodes[i + 1];
     auto tgt_op = fsm_path.op_reprs[i];
 
     size_t tgt_row_idx, tgt_col_idx;
@@ -210,8 +197,8 @@ inline void FSM::CastFSMPathToMatRepr_(
       tgt_row_idx = tgt_row_fsm_node.fsm_stat_idx;
     }
     if (tgt_col_fsm_node.fsm_stat_idx == kFSMFinalStatIdx) {
-      tgt_col_idx = final_stat_dim_idxs[i+1];
-    } else if ((!has_readys_[i+1]) && (!has_finals_[i+1])) {
+      tgt_col_idx = final_stat_dim_idxs[i + 1];
+    } else if ((!has_readys_[i + 1]) && (!has_finals_[i + 1])) {
       tgt_col_idx = tgt_col_fsm_node.fsm_stat_idx - 1;
     } else {
       tgt_col_idx = tgt_col_fsm_node.fsm_stat_idx;
@@ -228,28 +215,39 @@ inline void FSM::CastFSMPathToMatRepr_(
   }
 }
 
-
 inline SparOpReprMatVec FSM::GenCompressedMatRepr(void) const {
   auto comp_mat_repr = GenMatRepr();
-  for (size_t i = 0; i < phys_site_num_-1; ++i) {
-    SparOpReprMatColCompresser(comp_mat_repr[i], comp_mat_repr[i+1]);
+  //  for (size_t i = phys_site_num_-1; i >= phys_site_num_/2; --i) {
+//    SparOpReprMatRowCompresser(comp_mat_repr[i], comp_mat_repr[i-1]);
+//  }
+//  for (size_t i = 0; i <= phys_site_num_/2; ++i) {
+//    SparOpReprMatColCompresser(comp_mat_repr[i], comp_mat_repr[i+1]);
+//  }
+//  for (size_t i = phys_site_num_-1; i > 0; --i) {
+//    SparOpReprMatRowCompresser(comp_mat_repr[i], comp_mat_repr[i-1]);
+//  }
+  for (size_t i = 0; i < phys_site_num_ - 1; ++i) {
+    SparOpReprMatColCompresser(comp_mat_repr[i], comp_mat_repr[i + 1]);
   }
-  for (size_t i = phys_site_num_-1; i > 0; --i) {
-    SparOpReprMatRowCompresser(comp_mat_repr[i], comp_mat_repr[i-1]);
+  for (size_t i = phys_site_num_ - 1; i > 0; --i) {
+    SparOpReprMatRowCompresser(comp_mat_repr[i], comp_mat_repr[i - 1]);
   }
+
+  for (size_t i = 0; i < phys_site_num_; ++i) {
+    comp_mat_repr[i].Print();
+  }
+
   return comp_mat_repr;
 }
-
 
 inline void FSM::ReplaceIdOpLabels(std::vector<OpLabel> &new_id_op_labels) {
   assert(new_id_op_labels.size() == id_op_labels_.size());
   id_op_labels_ = new_id_op_labels;
 }
 
-
-template <typename ConvObjT>
+template<typename ConvObjT>
 class LabelConvertor {
-public:
+ public:
   LabelConvertor(void) = default;
 
   LabelConvertor(const ConvObjT &id) : conv_obj_hub_({id}) {}
@@ -263,10 +261,17 @@ public:
 
   size_t Convert(const ConvObjT &conv_obj) {
     auto poss_it = std::find(
-                       conv_obj_hub_.cbegin(), conv_obj_hub_.cend(), conv_obj);
+        conv_obj_hub_.cbegin(), conv_obj_hub_.cend(), conv_obj);
     if (poss_it == conv_obj_hub_.cend()) {
       conv_obj_hub_.push_back(conv_obj);
       size_t label = conv_obj_hub_.size() - 1;
+#ifndef NDEBUG
+      auto poss_it_minus = std::find(
+          conv_obj_hub_.cbegin(), conv_obj_hub_.cend(), -conv_obj);
+      if (poss_it_minus != conv_obj_hub_.cend()) {
+        std::cout << "warning: label linear relative to previous: " << conv_obj << std::endl;
+      }
+#endif
       return label;
     } else {
       size_t label = poss_it - conv_obj_hub_.cbegin();
@@ -275,7 +280,7 @@ public:
   }
 
   ConvObjVec GetLabelObjMapping(void) { return conv_obj_hub_; }
-private:
+ private:
   ConvObjVec conv_obj_hub_;
 };
 #endif /* ifndef GQMPS2_ONE_DIM_TN_MPO_MPOGEN_FSM */

@@ -6,7 +6,7 @@
 *
 * Description: GraceQ/MPS2 project. Unittests for MPO .
 */
-#include "gqmps2/one_dim_tn/mpo/mpo.h"
+#include "gqmps2/gqmps2.h"
 #include "gqten/gqten.h"
 
 #include "gtest/gtest.h"

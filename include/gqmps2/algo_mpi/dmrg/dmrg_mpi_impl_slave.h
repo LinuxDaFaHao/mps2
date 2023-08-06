@@ -235,6 +235,7 @@ mpi::status DMRGMPISlaveExecutor<TenElemT, QNT>::RecvSiteBlockHamiltonianTermGro
   }
   return recv_status;
 }
+
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::SlaveLanczosSolver_() {
   auto order = SlaveGetBroadcastOrder(world_);
@@ -247,20 +248,36 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::SlaveLanczosSolver_() {
     order = SlaveGetBroadcastOrder(world_);
   }
 }
+
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState_() {
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer slave_hamil_multiply_state_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_total_time");
-  Timer slave_hamil_multiply_state_computation_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_computation_time");
+  Timer slave_hamil_multiply_state_computation_timer
+      ("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_computation");
   slave_hamil_multiply_state_computation_timer.Suspend();
+  Timer slave_hamil_multiply_state_delete_timer
+      ("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_delete");
+  slave_hamil_multiply_state_delete_timer.Suspend();
+  Timer slave_hamil_multiply_state_contract_timer
+      ("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_contraction");
+  slave_hamil_multiply_state_contract_timer.Suspend();
+  Timer slave_hamil_multiply_state_sum_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_summation");
+  slave_hamil_multiply_state_sum_timer.Suspend();
+  Timer slave_hamil_multiply_state_transpose_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_transpose");
+  slave_hamil_multiply_state_transpose_timer.Suspend();
 #endif
+
   size_t total_num_terms;
   mpi::broadcast(world_, total_num_terms, kMasterRank);
   Tensor state;
   RecvBroadCastGQTensor(world_, state, kMasterRank);
   block_site_ops_.clear();
+  block_site_ops_.reserve(total_num_terms);
   site_block_ops_.clear();
+  site_block_ops_.reserve(total_num_terms);
   ops_num_table_.clear();
+  ops_num_table_.reserve(total_num_terms);
 
   Tensor multiplication_res;
   send_gqten(world_, kMasterRank, total_num_terms + 10086, multiplication_res);
@@ -278,9 +295,11 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState
       //block site
 #ifdef GQMPS2_MPI_TIMING_MODE
       slave_hamil_multiply_state_computation_timer.Restart();
+      slave_hamil_multiply_state_contract_timer.Restart();
 #endif
       const size_t block_site_terms = block_site_hamiltonian_term_group_.size();
       auto pblock_site_ops_res_s = std::vector<Tensor *>(block_site_terms);
+
       for (size_t j = 0; j < block_site_terms; j++) {
         pblock_site_ops_res_s[j] = new Tensor();
         Contract(block_site_hamiltonian_term_group_[j][0],
@@ -288,20 +307,33 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState
                  {{}, {}},
                  pblock_site_ops_res_s[j]);
       }
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_contract_timer.Suspend();
+      slave_hamil_multiply_state_sum_timer.Restart();
+#endif
       std::vector<TenElemT> coefs = std::vector<TenElemT>(block_site_terms, TenElemT(1.0));
       Tensor sum_op;
+
       LinearCombine(coefs, pblock_site_ops_res_s, TenElemT(0.0), &sum_op);
       for (size_t j = 0; j < block_site_terms; j++) {
         delete pblock_site_ops_res_s[j];
       }
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_sum_timer.Suspend();
+      slave_hamil_multiply_state_transpose_timer.Restart();
+#endif
       sum_op.Transpose({1, 3, 0, 2});
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_transpose_timer.Suspend();
+#endif
       block_site_ops_.emplace_back(sum_op);
 
       //site block
       const size_t site_block_terms = site_block_hamiltonian_term_group_.size();
       auto psite_block_ops_res_s = std::vector<Tensor *>(site_block_terms);
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_contract_timer.Restart();
+#endif
       for (size_t j = 0; j < site_block_terms; j++) {
         psite_block_ops_res_s[j] = new Tensor();
         Contract(site_block_hamiltonian_term_group_[j][0],
@@ -309,22 +341,40 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState
                  {{}, {}},
                  psite_block_ops_res_s[j]);
       }
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_contract_timer.Suspend();
+      slave_hamil_multiply_state_sum_timer.Restart();
+#endif
       coefs = std::vector<TenElemT>(site_block_terms, TenElemT(1.0));
       sum_op = Tensor();
       LinearCombine(coefs, psite_block_ops_res_s, TenElemT(0.0), &sum_op);
       for (size_t j = 0; j < site_block_terms; j++) {
         delete psite_block_ops_res_s[j];
       }
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_sum_timer.Suspend();
+      slave_hamil_multiply_state_transpose_timer.Restart();
+#endif
       sum_op.Transpose({0, 2, 1, 3});
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_transpose_timer.Suspend();
+#endif
       site_block_ops_.emplace_back(sum_op);
 
+#ifdef GQMPS2_MPI_TIMING_MODE
       //Hamiltonian * state
+      slave_hamil_multiply_state_contract_timer.Restart();
+#endif
       Tensor temp1, multiplication_res;
       Contract(&block_site_ops_.back(), &state, {{2, 3}, {0, 1}}, &temp1);
       Contract(&temp1, &site_block_ops_.back(), {{2, 3}, {0, 1}}, &multiplication_res);
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_contract_timer.Suspend();
+#endif
       ops_num_table_.push_back(task_id);
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_delete_timer.Restart();
+#endif
       for (size_t i = 0; i < block_site_terms; i++) {
         delete block_site_hamiltonian_term_group_[i][0];
         delete block_site_hamiltonian_term_group_[i][1];
@@ -334,28 +384,35 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForDynamicHamiltonianMultiplyState
         delete site_block_hamiltonian_term_group_[i][1];
       }
 #ifdef GQMPS2_MPI_TIMING_MODE
+      slave_hamil_multiply_state_delete_timer.Suspend();
       slave_hamil_multiply_state_computation_timer.Suspend();
 #endif
       send_gqten(world_, kMasterRank, task_id, multiplication_res);
     }
   } while (!terminated);
 #ifdef GQMPS2_MPI_TIMING_MODE
+  slave_hamil_multiply_state_contract_timer.PrintElapsed();
   slave_hamil_multiply_state_computation_timer.PrintElapsed();
   slave_hamil_multiply_state_timer.PrintElapsed();
+  slave_hamil_multiply_state_delete_timer.PrintElapsed();
+  slave_hamil_multiply_state_sum_timer.PrintElapsed();
+  slave_hamil_multiply_state_transpose_timer.PrintElapsed();
 #endif
 }
 
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_() {
+  const size_t num_terms = block_site_ops_.size();
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer slave_hamil_multiply_state_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_total_time");
-  Timer slave_hamil_multiply_state_computation_timer("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_computation_time");
+  Timer slave_hamil_multiply_state_computation_timer
+      ("node-" + std::to_string(id_) + "_hamiltonian_multiply_state_computation_time_task_num="
+           + std::to_string(num_terms));
   slave_hamil_multiply_state_computation_timer.Suspend();
 #endif
   Tensor state;
   RecvBroadCastGQTensor(world_, state, kMasterRank);
 
-  const size_t num_terms = block_site_ops_.size();
   assert(num_terms == site_block_ops_.size());
   Tensor sub_sum;
   if (num_terms > 0) {
@@ -400,12 +457,13 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
     world_.send(kMasterRank, id_, sub_overlap);
   } else {
     MPI_Barrier(MPI_Comm(world_));
-#ifdef GQMPS2_MPI_TIMING_MODE
-    slave_hamil_multiply_state_computation_timer.PrintElapsed();
-    slave_hamil_multiply_state_timer.PrintElapsed();
-#endif
   }
+#ifdef GQMPS2_MPI_TIMING_MODE
+  slave_hamil_multiply_state_computation_timer.PrintElapsed();
+  slave_hamil_multiply_state_timer.PrintElapsed();
+#endif
 }
+
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForGrowLeftBlockOps_() {
   Tensor mps;
@@ -420,6 +478,7 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForGrowLeftBlockOps_() {
     send_gqten(world_, kMasterRank, id_, lop);
   }
 }
+
 template<typename TenElemT, typename QNT>
 void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForGrowRightBlockOps_() {
   Tensor mps;

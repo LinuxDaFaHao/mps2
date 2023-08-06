@@ -9,6 +9,7 @@
 #include "gqmps2/one_dim_tn/mpo/mpogen/mpogen.h"
 #include "gqmps2/one_dim_tn/mpo/mpogen/symb_alg/coef_op_alg.h"
 #include "gqten/gqten.h"
+#include "gqmps2/utilities.h"           // Real
 
 #include <iostream>
 #include <iomanip>
@@ -34,6 +35,8 @@ void AddOpToTailMpoTen(TenT *, const TenT &, const size_t);
 template<typename TenT>
 void AddOpToCentMpoTen(TenT *, const TenT &, const size_t, const size_t);
 
+
+//helper
 /**
 Create a MPO generator. Create a MPO generator using the sites of the system
 which is described by a SiteVec.
@@ -86,6 +89,13 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
     std::vector<size_t> local_ops_idxs
 ) {
   assert(local_ops.size() == local_ops_idxs.size());
+  if (coef == TenElemT(0)) { return; }
+  if (std::abs(coef) < kDoubleEpsilon) {
+    std::cout << "warning: too small hamiltonian coefficient " << coef << std::endl;
+    return;
+  }   // If coef is zero, do nothing.
+
+  // sort the site idxs
   std::vector<size_t> order_indices(local_ops.size());
   std::iota(order_indices.begin(), order_indices.end(), 0);
   if (!std::is_sorted(local_ops_idxs.cbegin(), local_ops_idxs.cend())) {
@@ -98,9 +108,22 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
     std::sort(local_ops_idxs.begin(), local_ops_idxs.end());
   }
   assert(local_ops_idxs.back() < N_);
-  if (coef == TenElemT(0)) { return; }   // If coef is zero, do nothing.
 
-  auto coef_label = coef_label_convertor_.Convert(coef);
+  size_t reverse_sign_num = 0;
+  std::vector<TenElemT> sign_of_ops(local_ops.size(), 1.0);
+  size_t i = 0;
+  for (auto &op: local_ops) {
+    const TenElemT first_data = (*op.GetBlkSparDataTen().GetActualRawDataPtr());
+    if (Real(first_data) < 0.0) {
+      sign_of_ops[i] = -1.0;
+      reverse_sign_num++;
+    }
+    i++;
+  }
+
+  TenElemT coef_sign = 1.0 - (double) (reverse_sign_num % 2) * 2.0;
+
+  auto coef_label = coef_label_convertor_.Convert(coef_sign * coef);
   auto ntrvl_ops_idxs_head = local_ops_idxs.front();
   auto ntrvl_ops_idxs_tail = local_ops_idxs.back();
   OpReprVec ntrvl_ops_reprs;
@@ -109,7 +132,8 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
     if (poss_it != local_ops_idxs.cend()) {     // Nontrivial operator
       auto local_op_loc =
           poss_it - local_ops_idxs.cbegin();    // Location of the local operator in the local operators list.
-      auto op_label = op_label_convertor_.Convert(local_ops[order_indices[local_op_loc]]);
+      auto op_label = op_label_convertor_.Convert(
+          sign_of_ops[order_indices[local_op_loc]] * local_ops[order_indices[local_op_loc]]);
       if (local_op_loc == 0) {
         ntrvl_ops_reprs.push_back(OpRepr(coef_label, op_label));
       } else {
@@ -255,9 +279,11 @@ MPOGenerator<TenElemT, QNT>::Gen(void) {
   auto label_op_mapping = op_label_convertor_.GetLabelObjMapping();
 
   // Print MPO tensors virtual bond dimension.
+  std::cout << "[";
   for (auto &mpo_ten_repr: fsm_comp_mat_repr) {
-    std::cout << std::setw(3) << mpo_ten_repr.cols << std::endl;
+    std::cout << std::setw(3) << mpo_ten_repr.cols;
   }
+  std::cout << "]" << std::endl;
 
   MPO<GQTensorT> mpo(N_);
   IndexT trans_vb({QNSctT(zero_div_, 1)}, OUT);

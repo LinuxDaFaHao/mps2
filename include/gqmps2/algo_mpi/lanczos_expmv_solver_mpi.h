@@ -65,7 +65,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
 #ifdef GQMPS2_TIMING_MODE
   Timer normalize_timer("lancz_normlize");
 #endif
-  GQTEN_Double initial_norm = pinit_state->Normalize();
+  pinit_state->Normalize();
   bases[0] = pinit_state;
 #ifdef GQMPS2_TIMING_MODE
   normalize_timer.PrintElapsed();
@@ -119,7 +119,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
       if (m == 1) { //initial state is just an eigenstate
         expmv_res.expmv = new TenT();
         std::complex<double> evolution_phase_factor{0.0, -step_length * a[0]};
-        (*expmv_res.expmv) = (initial_norm * std::exp(evolution_phase_factor)) * (*bases[0]);
+        (*expmv_res.expmv) = (  std::exp(evolution_phase_factor)) * (*bases[0]);
       } else {
 #ifdef GQMPS2_TIMING_MODE
         trigssolver.Restart();
@@ -130,7 +130,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
         Timer final_linear_combine_timer("lancz_finial_linear_combine");
 #endif
         expmv_res.expmv = new TenT(bases[0]->GetIndexes());
-        hp_numeric::VectorScale(combination_factor, m, initial_norm);
+//        hp_numeric::VectorScale(combination_factor, m, initial_norm);
         LinearCombine(m, combination_factor, bases, GQTEN_Complex(0.0), expmv_res.expmv);
 #ifdef GQMPS2_TIMING_MODE
         final_linear_combine_timer.PrintElapsed();
@@ -182,7 +182,7 @@ ExpmvRes<TenT> MasterLanczosExpmvSolver(
 #endif
       expmv_res.iters = m + 1;
       expmv_res.expmv = new TenT(bases[0]->GetIndexes());
-      hp_numeric::VectorScale(combination_factor, m + 1, initial_norm);
+//      hp_numeric::VectorScale(combination_factor, m + 1, initial_norm);
       LinearCombine(m + 1, combination_factor, bases, GQTEN_Complex(0.0), expmv_res.expmv);
 #ifdef GQMPS2_TIMING_MODE
       final_linear_combine_timer.PrintElapsed();

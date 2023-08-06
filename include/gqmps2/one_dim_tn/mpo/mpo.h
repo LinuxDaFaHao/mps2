@@ -23,5 +23,10 @@ using namespace gqten;
 
 template <typename LocalTenT>
 using MPO = TenVec<LocalTenT>;
+
 } /* gqmps2 */
+
+#include "gqmps2/one_dim_tn/mpo/finite_mpo/finite_mpo.h"
+#include "gqmps2/one_dim_tn/mpo/finite_mpo/finite_mpo_utility.h"
+
 #endif /* ifndef GQMPS2_ONE_DIM_TN_MPO_MPO_H */

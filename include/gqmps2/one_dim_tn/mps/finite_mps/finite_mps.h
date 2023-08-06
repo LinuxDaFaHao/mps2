@@ -41,6 +41,12 @@ The finite matrix product state class.
 
 @tparam TenElemT Element type of the local tensors.
 @tparam QNT Quantum number type of the system.
+
+        1
+        |
+        |
+ 0 ---mps_ten[i]--- 2
+ for i = 0 to this->size() - 1
 */
 template<typename TenElemT, typename QNT>
 class FiniteMPS : public MPS<TenElemT, QNT> {
@@ -100,7 +106,7 @@ class FiniteMPS : public MPS<TenElemT, QNT> {
     return DuoVector<LocalTenT>::operator()(idx);
   }
 
-  // MPS global operations, that means all of the tensors should in memory when calling these functions.
+  // MPS global operations, that means all the tensors should in memory when calling these functions.
   void Centralize(const int);
 
   // MPS partial global operations.
@@ -279,6 +285,16 @@ void FiniteMPS<TenElemT, QNT>::Reverse() {
   }
   for (size_t i = 0; i < N; i++) {
     (*this)(i)->Transpose({2, 1, 0});
+  }
+  if(center_ != kUncentralizedCenterIdx) {
+    center_ = N - 1 - center_;
+    for(size_t i = 0; i < N; i++) {
+      if(tens_cano_type_[i] == MPSTenCanoType::RIGHT) {
+        tens_cano_type_[i] = MPSTenCanoType::LEFT;
+      } else if(tens_cano_type_[i] == MPSTenCanoType::LEFT) {
+        tens_cano_type_[i] = MPSTenCanoType::RIGHT;
+      }
+    }
   }
   //note the indices directions will be changed.
 }

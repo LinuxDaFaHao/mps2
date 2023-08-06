@@ -84,7 +84,6 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
     const std::string measure_file_base_name,
     mpi::communicator &world
 ) {
-  //Not important todo: parallel initialization parts
   assert(world.rank() == kMasterRank);
   assert(mps.size() == mpo.size());
 
@@ -117,6 +116,7 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
     mps.RightCanonicalizeTen(i);
     mps.DumpTen(i, GenMPSTenName(sweep_params.mps_path, i), true);
   }
+  double mps_norm = mps(0)->Normalize();
   mps.DumpTen(0, GenMPSTenName(sweep_params.mps_path, 0), true);
 
   if (!IsPathExist(sweep_params.temp_path)) {
@@ -137,7 +137,7 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
   for (size_t i = 0; i < N; i++) {
     measure_res[i].times = {0.0, time};
     measure_res[i].sites = {site_0, i};
-    measure_res[i].avg = correlation[i];
+    measure_res[i].avg = mps_norm * correlation[i];
   }
   for (size_t step = 0; step < sweep_params.step; step++) {
     std::cout << "step = " << step << "\n";
@@ -154,7 +154,7 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
     for (size_t i = 0; i < N; i++) {
       measure_res[(step + 1) * N + i].times = {0.0, time};
       measure_res[(step + 1) * N + i].sites = {site_0, i};
-      measure_res[(step + 1) * N + i].avg = correlation[i] * std::exp(GQTEN_Complex(0.0, sweep_params.e0) * time);
+      measure_res[(step + 1) * N + i].avg = mps_norm * correlation[i] * std::exp(GQTEN_Complex(0.0, sweep_params.e0) * time);
     }
     measure_timer.PrintElapsed();
     std::cout << "\n";

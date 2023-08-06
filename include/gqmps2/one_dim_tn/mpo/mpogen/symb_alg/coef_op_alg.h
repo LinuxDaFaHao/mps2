@@ -17,15 +17,14 @@
 #include <assert.h>
 
 #ifdef Release
-  #define NDEBUG
+#define NDEBUG
 #endif
 
-
 // Forward declarations.
-template <typename T>
+template<typename T>
 bool ElemInVec(const T &, const std::vector<T> &, long &pos);
 
-template <typename VecT>
+template<typename VecT>
 VecT ConcatenateTwoVec(const VecT &, const VecT &);
 
 
@@ -38,10 +37,10 @@ const CoefLabel kIdCoefLabel = 0;     // Coefficient label for identity 1.
 // Representation of coefficient.
 class CoefRepr {
 
-public:
+ public:
   CoefRepr(void) : coef_label_list_() {}
 
-  CoefRepr(const CoefLabel& coef_label) :
+  CoefRepr(const CoefLabel &coef_label) :
       coef_label_list_{coef_label} {}
 
   CoefRepr(const std::vector<CoefLabel> &coef_label_list) :
@@ -50,21 +49,21 @@ public:
   CoefRepr(const CoefRepr &coef_repr) :
       coef_label_list_(coef_repr.coef_label_list_) {}
 
-  CoefRepr(CoefRepr&& coef_repr ) :
-      coef_label_list_(std::move( coef_repr.coef_label_list_ )) {}
+  CoefRepr(CoefRepr &&coef_repr) :
+      coef_label_list_(std::move(coef_repr.coef_label_list_)) {}
 
   CoefRepr &operator=(const CoefRepr &rhs) {
     coef_label_list_ = rhs.coef_label_list_;
     return *this;
   }
 
-  CoefRepr& operator=(CoefRepr&& rhs) {
-    coef_label_list_ = std::move( rhs.coef_label_list_ );
+  CoefRepr &operator=(CoefRepr &&rhs) {
+    coef_label_list_ = std::move(rhs.coef_label_list_);
     return *this;
   }
 
   std::vector<CoefLabel> GetCoefLabelList(void) const {
-    return coef_label_list_; 
+    return coef_label_list_;
   }
 
   bool operator==(const CoefRepr &rhs) const {
@@ -85,36 +84,36 @@ public:
     if (!rhs_coef_label_list.empty()) { return false; }
     return true;
     */
-   return std::is_permutation(coef_label_list_.begin(), coef_label_list_.end(),
-   rhs.coef_label_list_.begin(), rhs.coef_label_list_.end() );
+    return std::is_permutation(coef_label_list_.begin(), coef_label_list_.end(),
+                               rhs.coef_label_list_.begin(), rhs.coef_label_list_.end());
   }
 
   bool operator!=(const CoefRepr &rhs) const {
-    return !(*this == rhs); 
+    return !(*this == rhs);
   }
 
-  bool operator<(const CoefRepr& rhs) const{
+  bool operator<(const CoefRepr &rhs) const {
     return coef_label_list_ < rhs.coef_label_list_;
   }
 
-  bool operator<=(const CoefRepr& rhs) const{
+  bool operator<=(const CoefRepr &rhs) const {
     return coef_label_list_ <= rhs.coef_label_list_;
   }
 
-  bool operator>(const CoefRepr& rhs) const{
+  bool operator>(const CoefRepr &rhs) const {
     return coef_label_list_ > rhs.coef_label_list_;
   }
 
-  bool operator>=(const CoefRepr& rhs) const{
+  bool operator>=(const CoefRepr &rhs) const {
     return coef_label_list_ >= rhs.coef_label_list_;
   }
 
-  CoefRepr& operator+=(const CoefRepr& rhs) {
+  CoefRepr &operator+=(const CoefRepr &rhs) {
     coef_label_list_.insert(
-                    coef_label_list_.end(), 
-                    rhs.coef_label_list_.begin(),
-                    rhs.coef_label_list_.end() 
-                    );
+        coef_label_list_.end(),
+        rhs.coef_label_list_.begin(),
+        rhs.coef_label_list_.end()
+    );
     return *this;
   }
 
@@ -122,19 +121,55 @@ public:
     return CoefRepr(ConcatenateTwoVec(coef_label_list_, rhs.coef_label_list_));
   }
 
-  template <typename CoefT>
-  CoefT Realize(const std::vector<CoefT> &label_coef_mapping) {
+  template<typename CoefT>
+  CoefT Realize(const std::vector<CoefT> &label_coef_mapping) const {
     CoefT coef = 0;
-    for (auto coef_label : coef_label_list_) {
+    for (auto coef_label: coef_label_list_) {
       coef += label_coef_mapping[coef_label];
     }
     return coef;
   }
 
-private:
+  template<typename CoefT>
+  std::string ToString(const std::vector<CoefT> &label_coef_mapping) const {
+    CoefT coef = Realize(label_coef_mapping);
+    return std::to_string(coef);
+  }
+
+  std::string ToString() const {
+    if (coef_label_list_.size() == 0) {
+      return "0";
+    } else if (coef_label_list_.size() == 1) {
+      CoefLabel coef_label = coef_label_list_[0];
+      if (coef_label == kIdCoefLabel) {
+        return "1";
+      } else {
+        char coef_symbol = 'a' + coef_label - 1;
+        return std::string(1, coef_symbol);
+      }
+    } else {
+      std::string symbol_string = "(";
+      for (size_t i = 0; i < coef_label_list_.size(); i++) {
+        const CoefLabel coef_label = coef_label_list_[1];
+        if (coef_label == kIdCoefLabel) {
+          symbol_string += "1";
+        } else {
+          char coef_symbol = 'a' + coef_label - 1;
+          symbol_string.push_back(coef_symbol);
+        }
+        if (i < coef_label_list_.size() - 1) {
+          symbol_string += "+";
+        } else {
+          symbol_string += ")";
+        }
+      }
+      return symbol_string;
+    }
+  }
+
+ private:
   std::vector<CoefLabel> coef_label_list_;
 };
-
 
 const CoefRepr kNullCoefRepr = CoefRepr();            // Coefficient representation for null coefficient.
 const CoefRepr kIdCoefRepr = CoefRepr(kIdCoefLabel);  // Coefficient representation for identity coefficient 1.
@@ -152,39 +187,39 @@ const OpLabel kIdOpLabel = 0;         // Coefficient label for identity id.
 class SparOpReprMat;    // Forward declaration.
 
 class OpRepr {
-friend std::pair<CoefRepr, OpRepr> SeparateCoefAndBase(const OpRepr &);
-friend OpRepr CoefReprOpReprIncompleteMulti(const CoefRepr &, const OpRepr &);
-friend std::vector<OpRepr> CalcSparOpReprMatRowLinCmb(
-    const SparOpReprMat &, const CoefReprVec &);
-friend std::vector<OpRepr> CalcSparOpReprMatColLinCmb(
-    const SparOpReprMat &, const CoefReprVec &);
+  friend std::pair<CoefRepr, OpRepr> SeparateCoefAndBase(const OpRepr &);
+  friend OpRepr CoefReprOpReprIncompleteMulti(const CoefRepr &, const OpRepr &);
+  friend std::vector<OpRepr> CalcSparOpReprMatRowLinCmb(
+      const SparOpReprMat &, const CoefReprVec &);
+  friend std::vector<OpRepr> CalcSparOpReprMatColLinCmb(
+      const SparOpReprMat &, const CoefReprVec &);
 
-public:
+ public:
   OpRepr(void) : op_label_coef_repr_map_() {}
 
   OpRepr(const OpLabel op_label) {
-    op_label_coef_repr_map_.insert( std::make_pair(op_label, kIdCoefRepr) );
+    op_label_coef_repr_map_.insert(std::make_pair(op_label, kIdCoefRepr));
   }
 
   OpRepr(const CoefRepr &coef_repr, const OpLabel op_label) {
-    op_label_coef_repr_map_.insert( std::make_pair(op_label, coef_repr) );
+    op_label_coef_repr_map_.insert(std::make_pair(op_label, coef_repr));
   }
 
   OpRepr(
       const std::vector<CoefRepr> &coef_reprs,
       const std::vector<OpLabel> &op_labels) {
     for (size_t i = 0; i < op_labels.size(); ++i) {
-      auto poss_it = op_label_coef_repr_map_.find( op_labels[i] );
-      if( poss_it == op_label_coef_repr_map_.end() ){
-        op_label_coef_repr_map_.insert( std::make_pair(op_labels[i], coef_reprs[i] ));
-      }else{
-        CoefRepr& that_coef_repr =  op_label_coef_repr_map_.at(op_labels[i]);
+      auto poss_it = op_label_coef_repr_map_.find(op_labels[i]);
+      if (poss_it == op_label_coef_repr_map_.end()) {
+        op_label_coef_repr_map_.insert(std::make_pair(op_labels[i], coef_reprs[i]));
+      } else {
+        CoefRepr &that_coef_repr = op_label_coef_repr_map_.at(op_labels[i]);
         that_coef_repr += coef_reprs[i];
       }
     }
   }
 
-  OpRepr(const OpRepr& rhs ){
+  OpRepr(const OpRepr &rhs) {
     op_label_coef_repr_map_ = rhs.op_label_coef_repr_map_;
   }
 
@@ -192,21 +227,21 @@ public:
       OpRepr(CoefReprVec(op_labels.size(), kIdCoefRepr), op_labels) {}
 
   std::vector<CoefRepr> GetCoefReprList(void) const {
-    std::vector<CoefRepr> coef_repr_list; 
-    coef_repr_list.reserve( op_label_coef_repr_map_.size() );
-    for(auto iter = op_label_coef_repr_map_.cbegin(); iter != op_label_coef_repr_map_.cend(); iter++){
+    std::vector<CoefRepr> coef_repr_list;
+    coef_repr_list.reserve(op_label_coef_repr_map_.size());
+    for (auto iter = op_label_coef_repr_map_.cbegin(); iter != op_label_coef_repr_map_.cend(); iter++) {
       coef_repr_list.push_back(iter->second);
     }
-    return coef_repr_list; 
+    return coef_repr_list;
   }
 
   std::vector<OpLabel> GetOpLabelList(void) const {
     std::vector<OpLabel> op_label_list;
-    op_label_list.reserve( op_label_coef_repr_map_.size() );
-    for(auto iter = op_label_coef_repr_map_.cbegin(); iter != op_label_coef_repr_map_.cend(); iter++){
+    op_label_list.reserve(op_label_coef_repr_map_.size());
+    for (auto iter = op_label_coef_repr_map_.cbegin(); iter != op_label_coef_repr_map_.cend(); iter++) {
       op_label_list.push_back(iter->first);
     }
-    return op_label_list; 
+    return op_label_list;
   }
 
   bool operator==(const OpRepr &rhs) const {
@@ -217,16 +252,16 @@ public:
     return !(*this == rhs);
   }
 
-  OpRepr& operator+=(const OpRepr &rhs) {
-    const std::map<OpLabel, CoefRepr>& rhs_op_lable_coef_repr_map = rhs.GetOpLabelCoefReprMap_();
-    for(auto iter = rhs_op_lable_coef_repr_map.cbegin();
-          iter != rhs_op_lable_coef_repr_map.cend();
-          iter++){
-      auto poss_it = op_label_coef_repr_map_.find( iter->first );
-      if( poss_it == op_label_coef_repr_map_.end() ){
-        op_label_coef_repr_map_.insert( std::make_pair(iter->first, iter->second ));
-      }else{
-        CoefRepr& that_coef_repr =  op_label_coef_repr_map_.at(iter->first);
+  OpRepr &operator+=(const OpRepr &rhs) {
+    const std::map<OpLabel, CoefRepr> &rhs_op_lable_coef_repr_map = rhs.GetOpLabelCoefReprMap_();
+    for (auto iter = rhs_op_lable_coef_repr_map.cbegin();
+         iter != rhs_op_lable_coef_repr_map.cend();
+         iter++) {
+      auto poss_it = op_label_coef_repr_map_.find(iter->first);
+      if (poss_it == op_label_coef_repr_map_.end()) {
+        op_label_coef_repr_map_.insert(std::make_pair(iter->first, iter->second));
+      } else {
+        CoefRepr &that_coef_repr = op_label_coef_repr_map_.at(iter->first);
         that_coef_repr += iter->second;
       }
     }
@@ -248,33 +283,99 @@ public:
     if (base_op_num == 0) {
       return OpT();
     } else if (base_op_num == 1) {
-      return  op_label_coef_repr_map_.begin()->second.Realize(label_coef_mapping) *
-              label_op_mapping[op_label_coef_repr_map_.begin()->first];
+      return op_label_coef_repr_map_.begin()->second.Realize(label_coef_mapping) *
+          label_op_mapping[op_label_coef_repr_map_.begin()->first];
     } else {
       op = op_label_coef_repr_map_.begin()->second.Realize(label_coef_mapping) *
-           label_op_mapping[op_label_coef_repr_map_.begin()->first];
-      auto iter = op_label_coef_repr_map_.begin(); iter++;
-      for ( ; iter != op_label_coef_repr_map_.end(); iter++ ) {
+          label_op_mapping[op_label_coef_repr_map_.begin()->first];
+      auto iter = op_label_coef_repr_map_.begin();
+      iter++;
+      for (; iter != op_label_coef_repr_map_.end(); iter++) {
         op += iter->second.Realize(label_coef_mapping) *
-              label_op_mapping[iter->first];
+            label_op_mapping[iter->first];
       }
     }
     return op;
   }
 
-private:
-  const std::map<OpLabel, CoefRepr>& GetOpLabelCoefReprMap_(void) const {
+  template<typename CoefT>
+  std::string ToString(const std::vector<CoefT> &label_coef_mapping
+  ) const {
+    auto base_op_num = op_label_coef_repr_map_.size();
+    if (base_op_num == 0) {
+      return "0";
+    } else if (base_op_num == 1) {
+      std::string op_symbol = op_label_coef_repr_map_.begin()->second.ToString(label_coef_mapping);
+      op_symbol += OpLabelToString_(op_label_coef_repr_map_.begin()->first);
+      return op_symbol;
+    } else {
+      std::string op_symbol = op_label_coef_repr_map_.begin()->second.ToString(label_coef_mapping);
+      op_symbol += OpLabelToString_(op_label_coef_repr_map_.begin()->first);
+
+      auto iter = op_label_coef_repr_map_.begin();
+      iter++;
+      for (; iter != op_label_coef_repr_map_.end(); iter++) {
+        op_symbol += "+";
+        op_symbol += iter->second.ToString(label_coef_mapping);
+        op_symbol += OpLabelToString_(iter->first);
+      }
+      return op_symbol;
+    }
+  }
+
+  std::string ToString() const {
+    auto base_op_num = op_label_coef_repr_map_.size();
+    if (base_op_num == 0) {
+      return "0";
+    } else if (base_op_num == 1) {
+      std::string op_symbol = op_label_coef_repr_map_.begin()->second.ToString();
+      op_symbol += OpLabelToString_(op_label_coef_repr_map_.begin()->first);
+      return op_symbol;
+    } else {
+      std::string op_symbol = op_label_coef_repr_map_.begin()->second.ToString();
+      op_symbol += OpLabelToString_(op_label_coef_repr_map_.begin()->first);
+
+      auto iter = op_label_coef_repr_map_.begin();
+      iter++;
+      for (; iter != op_label_coef_repr_map_.end(); iter++) {
+        op_symbol += "+";
+        op_symbol += iter->second.ToString();
+        op_symbol += OpLabelToString_(iter->first);
+      }
+      return op_symbol;
+    }
+  }
+
+ private:
+  const std::map<OpLabel, CoefRepr> &GetOpLabelCoefReprMap_(void) const {
     return op_label_coef_repr_map_;
+  }
+
+  std::string OpLabelToString_(OpLabel label) const {
+    if (label == kIdCoefLabel) {
+      return "Id";
+    } else {
+      if (label <= 26) {
+        return std::string(1, 'A' + label - 1);
+      } else {
+        return std::string(1, 'A' + (label - 1) % 26) + std::to_string((label - 1) / 26);
+      }
+
+    }
   }
 
   std::map<OpLabel, CoefRepr> op_label_coef_repr_map_;
 };
 
+inline std::ostream &operator<<(std::ostream &os, const OpRepr &op_repr) {
+  os << op_repr.ToString();
+  return os;
+}
+
 const OpRepr kNullOpRepr = OpRepr();          // Operator representation for null operator.
 const OpRepr kIdOpRepr = OpRepr(kIdOpLabel);  // Operator representation for identity operator.
 
 using OpReprVec = std::vector<OpRepr>;
-
 
 inline std::pair<CoefRepr, OpRepr> SeparateCoefAndBase(const OpRepr &op_repr) {
   auto term_num = op_repr.op_label_coef_repr_map_.size();
@@ -285,7 +386,7 @@ inline std::pair<CoefRepr, OpRepr> SeparateCoefAndBase(const OpRepr &op_repr) {
                           OpRepr(op_repr.op_label_coef_repr_map_.begin()->first));
   } else {
     auto iter = op_repr.op_label_coef_repr_map_.begin();
-    auto coef =  iter->second;
+    auto coef = iter->second;
     iter++;
     for (; iter != op_repr.op_label_coef_repr_map_.end(); iter++) {
       auto coef1 = iter->second;
@@ -294,15 +395,14 @@ inline std::pair<CoefRepr, OpRepr> SeparateCoefAndBase(const OpRepr &op_repr) {
       }
     }
     auto res_op_repr = op_repr;
-    for(std::map<OpLabel, CoefRepr>::iterator iter = res_op_repr.op_label_coef_repr_map_.begin();
-        iter != res_op_repr.op_label_coef_repr_map_.end();
-        iter++){
+    for (std::map<OpLabel, CoefRepr>::iterator iter = res_op_repr.op_label_coef_repr_map_.begin();
+         iter != res_op_repr.op_label_coef_repr_map_.end();
+         iter++) {
       iter->second = kIdCoefRepr;
     }
     return std::make_pair(coef, res_op_repr);
   }
 }
-
 
 inline CoefRepr GetOpReprCoef(const OpRepr &op_repr) {
   return SeparateCoefAndBase(op_repr).first;
@@ -317,7 +417,7 @@ using SparCoefReprMat = SparMat<CoefRepr>;
 using SparOpReprMatBase = SparMat<OpRepr>;
 
 class SparOpReprMat : public SparOpReprMatBase {
-public:
+ public:
   SparOpReprMat(void) : SparOpReprMatBase() {}
 
   SparOpReprMat(const size_t row_num, const size_t col_num) :
@@ -334,6 +434,7 @@ public:
     return *this;
   }
 
+  ///< sort row according # of non null element, return the order of sorting
   std::vector<size_t> SortRows(void) {
     auto mapping = GenSortRowsMapping_();
     std::sort(mapping.begin(), mapping.end());
@@ -356,6 +457,7 @@ public:
     return sorted_col_idxs;
   }
 
+  ///< Find some overall factor
   CoefRepr CalcRowCoef(const size_t row_idx) {
     size_t nonull_op_repr_coefs_num = 0;
     CoefRepr res_coef, res_coef_last;
@@ -363,12 +465,12 @@ public:
     for (size_t y = 0; y < cols; ++y) {
       if (indexes[CalcOffset(row_idx, y)] != -1) {
         nonull_op_repr_coefs_num++;
-        if(nonull_op_repr_coefs_num == 1 ){
+        if (nonull_op_repr_coefs_num == 1) {
           res_coef = GetOpReprCoef((*this)(row_idx, y));
-        }else{
+        } else {
           res_coef_last = res_coef;
           res_coef = GetOpReprCoef((*this)(row_idx, y));
-          if( res_coef_last != res_coef){
+          if (res_coef_last != res_coef) {
             return kIdCoefRepr;
           }
         }
@@ -384,12 +486,12 @@ public:
     for (size_t x = 0; x < rows; ++x) {
       if (indexes[CalcOffset(x, col_idx)] != -1) {
         nonull_op_repr_coefs_num++;
-        if(nonull_op_repr_coefs_num == 1 ){
+        if (nonull_op_repr_coefs_num == 1) {
           res_coef = GetOpReprCoef((*this)(x, col_idx));
-        }else{
+        } else {
           res_coef_last = res_coef;
           res_coef = GetOpReprCoef((*this)(x, col_idx));
-          if( res_coef_last != res_coef){
+          if (res_coef_last != res_coef) {
             return kIdCoefRepr;
           }
         }
@@ -419,7 +521,14 @@ public:
   CoefReprVec CalcRowLinCmb(const size_t row_idx) const {
     auto row = GetRow(row_idx);
     CoefReprVec cmb_coefs;
-    cmb_coefs.reserve( row_idx );
+    for (size_t x = 0; x < row_idx; ++x) {
+      if (row == GetRow(x)) {
+        cmb_coefs = CoefReprVec(row_idx, kNullCoefRepr);
+        cmb_coefs[x] = kIdCoefRepr;
+        return cmb_coefs;
+      }
+    }
+    cmb_coefs.reserve(row_idx);
     for (size_t x = 0; x < row_idx; ++x) {
       cmb_coefs.emplace_back(CalcRowOverlap_(row, x));
     }
@@ -436,12 +545,12 @@ public:
     return cmb_coefs;
   }
 
-private:
+ private:
   using SortMapping = std::vector<std::pair<size_t, size_t>>;   // # of no null : row_idx
 
   SortMapping GenSortRowsMapping_(void) const {
     SortMapping mapping;
-    mapping.reserve( rows );
+    mapping.reserve(rows);
     for (size_t x = 0; x < rows; ++x) {
       size_t nonull_elem_num = 0;
       for (size_t y = 0; y < cols; ++y) {
@@ -454,7 +563,7 @@ private:
 
   SortMapping GenSortColsMapping_(void) const {
     SortMapping mapping;
-    mapping.reserve( cols );
+    mapping.reserve(cols);
     for (size_t y = 0; y < cols; ++y) {
       size_t nonull_elem_num = 0;
       for (size_t x = 0; x < rows; ++x) {
@@ -471,7 +580,7 @@ private:
   CoefRepr CalcRowOverlap_(
       const std::vector<OpRepr> &row, const size_t tgt_row_idx) const {
     CoefReprVec poss_overlaps;
-    poss_overlaps.reserve( cols ); //local variable so we can reserve more.
+    poss_overlaps.reserve(cols); //local variable so we can reserve more.
     for (size_t y = 0; y < cols; ++y) {
       if (indexes[CalcOffset(tgt_row_idx, y)] != -1) {
         auto tgt_op = row[y];
@@ -486,10 +595,8 @@ private:
             return kNullCoefRepr;
           }
         }
-        if ( poss_overlaps.size() > 1 ) {
-          if( poss_overlaps.back() != poss_overlaps[0] ) {
-            return kNullCoefRepr;
-          }
+        if (poss_overlaps.size() > 1 && poss_overlaps.back() != poss_overlaps[0]) {
+          return kNullCoefRepr;
         }
       }
     }
@@ -500,7 +607,7 @@ private:
   CoefRepr CalcColOverlap_(
       const std::vector<OpRepr> &col, const size_t tgt_col_idx) const {
     CoefReprVec poss_overlaps;
-    poss_overlaps.reserve( rows );
+    poss_overlaps.reserve(rows);
     for (size_t x = 0; x < rows; ++x) {
       if (indexes[CalcOffset(x, tgt_col_idx)] != -1) {
         auto tgt_op = col[x];
@@ -515,8 +622,8 @@ private:
             return kNullCoefRepr;
           }
         }
-        if ( poss_overlaps.size() > 1 ) {
-          if( poss_overlaps.back() != poss_overlaps[0] ) {
+        if (poss_overlaps.size() > 1) {
+          if (poss_overlaps.back() != poss_overlaps[0]) {
             return kNullCoefRepr;
           }
         }
@@ -529,15 +636,14 @@ private:
 
 using SparOpReprMatVec = std::vector<SparOpReprMat>;
 
-
 /** Incomplete multiplication for SparMat.
  * `op` must be `kNullOpRepr` or its coefficients must all be identity, or `coef` is identity.
- */  
+ */
 inline OpRepr CoefReprOpReprIncompleteMulti(const CoefRepr &coef, const OpRepr &op) {
   if (op == kNullOpRepr) { return kNullOpRepr; }
   if (coef == kIdCoefRepr) { return op; }
 #ifndef NDEBUG
-  for (auto& [sub_op, c]  : op.op_label_coef_repr_map_) {
+  for (auto &[sub_op, c]: op.op_label_coef_repr_map_) {
     if (c != kIdCoefRepr) {
       std::cout << "CoefReprOpReprIncompleteMulti fail!" << std::endl;
       exit(1);
@@ -545,12 +651,11 @@ inline OpRepr CoefReprOpReprIncompleteMulti(const CoefRepr &coef, const OpRepr &
   }
 #endif
   OpRepr res_op_repr(op);
-  for (auto& [sub_op, c] : res_op_repr.op_label_coef_repr_map_){
+  for (auto &[sub_op, c]: res_op_repr.op_label_coef_repr_map_) {
     c = coef;
   }
   return res_op_repr;
 }
-
 
 inline void SparCoefReprMatSparOpReprMatIncompleteMultiKernel(
     const SparCoefReprMat &coef_mat, const SparOpReprMat &op_mat,
@@ -561,15 +666,14 @@ inline void SparCoefReprMatSparOpReprMatIncompleteMultiKernel(
     if (coef_mat.indexes[coef_mat.CalcOffset(coef_mat_row_idx, i)] != -1 &&
         op_mat.indexes[op_mat.CalcOffset(i, op_mat_col_idx)] != -1) {
       res_elem += CoefReprOpReprIncompleteMulti(
-                                coef_mat(coef_mat_row_idx, i),
-                                op_mat(i, op_mat_col_idx));
+          coef_mat(coef_mat_row_idx, i),
+          op_mat(i, op_mat_col_idx));
     }
   }
   if (res_elem != kNullOpRepr) {
     res.SetElem(coef_mat_row_idx, op_mat_col_idx, res_elem);
   }
 }
-
 
 inline void SparOpReprMatSparCoefReprMatIncompleteMultiKernel(
     const SparOpReprMat &op_mat, const SparCoefReprMat &coef_mat,
@@ -580,15 +684,14 @@ inline void SparOpReprMatSparCoefReprMatIncompleteMultiKernel(
     if (op_mat.indexes[op_mat.CalcOffset(op_mat_row_idx, i)] != -1 &&
         coef_mat.indexes[coef_mat.CalcOffset(i, coef_mat_col_idx)] != -1) {
       res_elem += CoefReprOpReprIncompleteMulti(
-                                coef_mat(i, coef_mat_col_idx),
-                                op_mat(op_mat_row_idx, i));
+          coef_mat(i, coef_mat_col_idx),
+          op_mat(op_mat_row_idx, i));
     }
   }
   if (res_elem != kNullOpRepr) {
     res.SetElem(op_mat_row_idx, coef_mat_col_idx, res_elem);
   }
 }
-
 
 inline SparOpReprMat SparCoefReprMatSparOpReprMatIncompleteMulti(
     const SparCoefReprMat &coef_mat, const SparOpReprMat &op_mat) {
@@ -652,8 +755,8 @@ inline OpReprVec CalcSparOpReprMatRowLinCmb(
     } else {
       for (size_t j = 0; j < m.cols; ++j) {
         auto elem = row[j];
-        for (auto& [sub_op, coef_repr] : elem.op_label_coef_repr_map_) {
-          assert( coef_repr == kIdCoefRepr ); //To Do other case
+        for (auto &[sub_op, coef_repr]: elem.op_label_coef_repr_map_) {
+          assert(coef_repr == kIdCoefRepr); //To Do other case
           coef_repr = cmb_coef;
         }
         res[j] += elem;
@@ -680,8 +783,8 @@ inline OpReprVec CalcSparOpReprMatColLinCmb(
     } else {
       for (size_t j = 0; j < m.rows; ++j) {
         auto elem = m(j, i);
-        for (auto& [sub_op, coef_repr] : elem.op_label_coef_repr_map_) {
-          assert( coef_repr == kIdCoefRepr); //todo : support other case
+        for (auto &[sub_op, coef_repr]: elem.op_label_coef_repr_map_) {
+          assert(coef_repr == kIdCoefRepr); //todo : support other case
           coef_repr = cmb_coef;
         }
         res[j] += elem;
@@ -691,12 +794,11 @@ inline OpReprVec CalcSparOpReprMatColLinCmb(
   return res;
 }
 
-
 inline void SparOpReprMatRowDelinearize(
     SparOpReprMat &target, SparOpReprMat &follower) {
   auto row_num = target.rows;
   SparCoefReprMat trans_mat(row_num, row_num);
-  trans_mat.Reserve( row_num * row_num );
+  trans_mat.Reserve(row_num * row_num);
   size_t deleted_row_size = 0;
   trans_mat.SetElem(0, 0, kIdCoefRepr);
 
@@ -706,20 +808,20 @@ inline void SparOpReprMatRowDelinearize(
     if (CalcSparOpReprMatRowLinCmb(target, cmb) == target.GetRow(i)) {
       target.RemoveRow(i);
       row_num = row_num - 1;
-      trans_mat.RemoveCol( trans_mat.cols - 1 );//remove the last cols
+      trans_mat.RemoveCol(trans_mat.cols - 1);//remove the last cols
       for (size_t j = 0; j < i; ++j) {
         trans_mat.SetElem(i + deleted_row_size, j, cmb[j]);
       }
       i--;
       deleted_row_size++;
-    }else{
+    } else {
       trans_mat.SetElem(i + deleted_row_size, i, kIdCoefRepr);
     }
   }
   // Calculate new follower.
   if (trans_mat.cols < trans_mat.rows) {
     follower = SparOpReprMatSparCoefReprMatIncompleteMulti(
-                follower, trans_mat);
+        follower, trans_mat);
   }
 }
 
@@ -740,23 +842,22 @@ inline void SparOpReprMatColDelinearize(
       // Remove the col.
       target.RemoveCol(i);
       col_num = col_num - 1;
-      trans_mat.RemoveRow( trans_mat.rows - 1 );//remove the last row
+      trans_mat.RemoveRow(trans_mat.rows - 1);//remove the last row
       for (size_t j = 0; j < i; ++j) {
         trans_mat.SetElem(j, i + deleted_col_size, cmb[j]);
       }
       i--;
       deleted_col_size++;
-    }else{
+    } else {
       trans_mat.SetElem(i, i + deleted_col_size, kIdCoefRepr);
     }
   }
   // Calculate new follower.
-  if( trans_mat.rows < trans_mat.cols ){
+  if (trans_mat.rows < trans_mat.cols) {
     follower = SparCoefReprMatSparOpReprMatIncompleteMulti(
-            trans_mat, follower);
+        trans_mat, follower);
   }
 }
-
 
 // Row and column compresser.
 inline void SparOpReprMatRowCompresser(
@@ -784,12 +885,11 @@ inline void SparOpReprMatRowCompresser(
   }
   if (need_separate_row_coef) {
     follower = SparOpReprMatSparCoefReprMatIncompleteMulti(
-                   follower, row_coef_trans_mat);
+        follower, row_coef_trans_mat);
   }
   // Delinearize rows of target.
   SparOpReprMatRowDelinearize(target, follower);
 }
-
 
 inline void SparOpReprMatColCompresser(
     SparOpReprMat &target, SparOpReprMat &follower) {
@@ -816,15 +916,14 @@ inline void SparOpReprMatColCompresser(
   }
   if (need_separate_col_coef) {
     follower = SparCoefReprMatSparOpReprMatIncompleteMulti(
-                   col_coef_trans_mat, follower);
+        col_coef_trans_mat, follower);
   }
   // Delinearize cols of target.
   SparOpReprMatColDelinearize(target, follower);
 }
 
-
 // Helpers.
-template <typename T>
+template<typename T>
 bool ElemInVec(const T &e, const std::vector<T> &v, long &pos) {
   for (size_t i = 0; i < v.size(); ++i) {
     if (e == v[i]) {
@@ -836,8 +935,7 @@ bool ElemInVec(const T &e, const std::vector<T> &v, long &pos) {
   return false;
 }
 
-
-template <typename VecT>
+template<typename VecT>
 VecT ConcatenateTwoVec(const VecT &va, const VecT &vb) {
   VecT res;
   res.reserve(va.size() + vb.size());

@@ -12,7 +12,6 @@
 
 #include "gtest/gtest.h"
 
-
 using namespace gqmps2;
 using namespace gqten;
 
@@ -30,13 +29,12 @@ using ZSiteVec = SiteVec<GQTEN_Complex, QNT>;
 using DMPOGenerator = MPOGenerator<GQTEN_Double, QNT>;
 using ZMPOGenerator = MPOGenerator<GQTEN_Complex, QNT>;
 
-
 struct TestMpoGenerator : public testing::Test {
   IndexT phys_idx_out = IndexT({
-                            QNSctT(QNT({QNCard("Sz", U1QNVal(-1))}), 1),
-                            QNSctT(QNT({QNCard("Sz", U1QNVal( 1))}), 1)},
-                            GQTenIndexDirType::OUT
-                        );
+                                   QNSctT(QNT({QNCard("Sz", U1QNVal(-1))}), 1),
+                                   QNSctT(QNT({QNCard("Sz", U1QNVal(1))}), 1)},
+                               GQTenIndexDirType::OUT
+  );
   IndexT phys_idx_in = InverseIndex(phys_idx_out);
   DSiteVec dsite_vec_2 = DSiteVec(2, phys_idx_out);
   DSiteVec dsite_vec_3 = DSiteVec(3, phys_idx_out);
@@ -56,9 +54,9 @@ struct TestMpoGenerator : public testing::Test {
 
   void SetUp(void) {
     dsz({0, 0}) = -0.5;
-    dsz({1, 1}) =  0.5;
+    dsz({1, 1}) = 0.5;
     zsz({0, 0}) = -0.5;
-    zsz({1, 1}) =  0.5;
+    zsz({1, 1}) = 0.5;
     did({0, 0}) = 1;
     did({1, 1}) = 1;
     zid({0, 0}) = 1;
@@ -66,15 +64,13 @@ struct TestMpoGenerator : public testing::Test {
     zsx({0, 1}) = 1;
     zsx({1, 0}) = 1;
     zsy({0, 1}) = GQTEN_Complex(0, -1);
-    zsy({1, 0}) = GQTEN_Complex(0,  1);
+    zsy({1, 0}) = GQTEN_Complex(0, 1);
   }
 };
-
 
 TEST_F(TestMpoGenerator, TestInitialization) {
   DMPOGenerator mpo_generator(dsite_vec_2, qn0);
 }
-
 
 TEST_F(TestMpoGenerator, TestAddTermCase1) {
   SparOpReprMat bchmk_m0(1, 1), bchmk_m1(1, 1);
@@ -97,12 +93,11 @@ TEST_F(TestMpoGenerator, TestAddTermCase1) {
   EXPECT_EQ(fsm_comp_mat_repr3[1], bchmk_m1);
 }
 
-
 TEST_F(TestMpoGenerator, TestAddTermCase2) {
   auto s = OpRepr(1);
   SparOpReprMat bchmk_m0(1, 1), bchmk_m1(1, 1);
   bchmk_m0.SetElem(0, 0, s);
-  bchmk_m1.SetElem(0, 0, s+s);
+  bchmk_m1.SetElem(0, 0, s + s);
 
   DMPOGenerator mpo_generator1(dsite_vec_2, qn0);
   mpo_generator1.AddTerm(1., {dsz, dsz}, {0, 1});
@@ -112,7 +107,6 @@ TEST_F(TestMpoGenerator, TestAddTermCase2) {
   EXPECT_EQ(fsm_comp_mat_repr1[0], bchmk_m0);
   EXPECT_EQ(fsm_comp_mat_repr1[1], bchmk_m1);
 }
-
 
 TEST_F(TestMpoGenerator, TestAddTermCase3) {
   auto s = OpRepr(1);
@@ -140,11 +134,10 @@ TEST_F(TestMpoGenerator, TestAddTermCase3) {
   EXPECT_EQ(fsm_comp_mat_repr1[3], bchmk_m3);
 }
 
-
 TEST_F(TestMpoGenerator, TestAddTermCase4) {
   auto s = OpRepr(1);
   SparOpReprMat bchmk_m0(1, 2), bchmk_m1(2, 2), bchmk_m2(2, 2), bchmk_m3(2, 2),
-                bchmk_m4(2, 1);
+      bchmk_m4(2, 1);
   bchmk_m0.SetElem(0, 0, kIdOpRepr);
   bchmk_m0.SetElem(0, 1, s);
   bchmk_m1.SetElem(0, 1, s);
@@ -169,7 +162,6 @@ TEST_F(TestMpoGenerator, TestAddTermCase4) {
   EXPECT_EQ(fsm_comp_mat_repr1[3], bchmk_m3);
   EXPECT_EQ(fsm_comp_mat_repr1[4], bchmk_m4);
 }
-
 
 TEST_F(TestMpoGenerator, TestAddTermCase5) {
   CoefLabel j1 = 1, j2 = 2;
@@ -207,7 +199,6 @@ TEST_F(TestMpoGenerator, TestAddTermCase5) {
   EXPECT_EQ(fsm_comp_mat_repr1[2], bchmk_m2);
   EXPECT_EQ(fsm_comp_mat_repr1[3], bchmk_m3);
 }
-
 
 TEST_F(TestMpoGenerator, TestAddTermCase6) {
   ZMPOGenerator mpo_generator(zsite_vec_3, qn0);

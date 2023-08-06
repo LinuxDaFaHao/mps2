@@ -12,14 +12,11 @@
 #ifndef GQMPS2_ONE_DIM_TN_MPS_FINITE_MPS_FINITE_MPS_OPS_H
 #define GQMPS2_ONE_DIM_TN_MPS_FINITE_MPS_FINITE_MPS_OPS_H
 
-
 #include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"    // FiniteMPS
 #include "gqten/gqten.h"
 
-
 namespace gqmps2 {
 using namespace gqten;
-
 
 /**
 Add two finite MPSs A and B.
@@ -31,7 +28,7 @@ Add two finite MPSs A and B.
 @note Two MPSs must have the same quantum number divergence and same local
       Hilbert spaces.
 */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void FiniteMPSAdd(
     const FiniteMPS<TenElemT, QNT> &mps_a,
     const FiniteMPS<TenElemT, QNT> &mps_b,
@@ -51,6 +48,33 @@ void FiniteMPSAdd(
       Expand(mps_a(i), mps_b(i), {0, 2}, mps_c(i));
     }
   }
+}
+
+/**
+ * Inner product of two finite MPSs A and B.
+ *
+ * @param mps_a The finite MPS A (ket |A\rangle )
+ * @param mps_b The finite MPS B (ket |B\rangle )
+ * @return The finite MPS which equals to \langle B | A \rangle.
+ */
+template<typename TenElemT, typename QNT>
+TenElemT FiniteMPSInnerProd(
+    const FiniteMPS<TenElemT, QNT> &mps_a,
+    const FiniteMPS<TenElemT, QNT> &mps_b
+) {
+  using Tensor = GQTensor<TenElemT, QNT>;
+  Index<QNT> left_trivial_index = mps_a[0].GetIndex(0);
+  Index<QNT> left_trivial_index_inv = InverseIndex(left_trivial_index);
+  Tensor tmp = Tensor({left_trivial_index_inv, left_trivial_index});
+  tmp({0, 0}) = TenElemT(1.0);
+  for (size_t i = 0; i < mps_a.size(); i++) {
+    Tensor tmp2;
+    Contract(&tmp, {0}, mps_a(i), {0}, &tmp2);
+    Tensor bdag = Dag(mps_b[i]);
+    tmp = Tensor();
+    Contract(&tmp2, {0, 1}, &bdag, {0, 1}, &tmp);
+  }
+  return tmp({0, 0});
 }
 } /* gqmps2 */
 #endif /* ifndef GQMPS2_ONE_DIM_TN_MPS_FINITE_MPS_FINITE_MPS_OPS_H */

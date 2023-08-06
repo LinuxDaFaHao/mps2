@@ -23,8 +23,6 @@
 #include <vector>     // vector
 #include <cstring>
 
-#include "mkl.h"
-
 namespace gqmps2 {
 
 using namespace gqten;

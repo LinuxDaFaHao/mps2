@@ -29,9 +29,9 @@ TEST(TestTenVec, TestIO) {
   QNT qn1 = QNT({QNCard("N",  U1QNVal( 1))});
   QNT qnm1 = QNT({QNCard("N", U1QNVal(-1))});
   IndexT idx_out = IndexT(
-                       {QNSctT(qn0, 2), QNSctT(qn1, 2)},
-                       GQTenIndexDirType::OUT
-                   );
+      {QNSctT(qn0, 2), QNSctT(qn1, 2)},
+      GQTenIndexDirType::OUT
+  );
   auto idx_in = InverseIndex(idx_out);
   Tensor ten0({idx_in, idx_out});
   Tensor ten1({idx_in, idx_out});

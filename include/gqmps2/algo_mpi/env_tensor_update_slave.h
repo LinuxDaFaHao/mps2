@@ -53,20 +53,20 @@ inline void SlaveGrowLeftEnvironment(
   const size_t task_size = splited_index.GetQNSctNum();
   TenT mps_dag = Dag(mps);
   size_t task_count = 0;
-  const size_t slave_identifier = world.rank();//number from 1
-  if (slave_identifier > task_size) {
+  const size_t slave_id = world.rank();//number from 1
+  if (slave_id > task_size) {
 #ifdef GQMPS2_MPI_TIMING_MODE
     std::cout << "Slave has done task_count = " << task_count << std::endl;
 #endif
     return;
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
-  Timer salve_communication_timer(" slave "+std::to_string(slave_identifier) +"'s communication");
+  Timer salve_communication_timer(" slave " + std::to_string(slave_id) + "'s communication");
   salve_communication_timer.Suspend();
-  Timer slave_work_timer(" slave "+ std::to_string(slave_identifier) +"'s work");
+  Timer slave_work_timer(" slave " + std::to_string(slave_id) + "'s work");
 #endif
   //first task
-  size_t task = slave_identifier - 1;
+  size_t task = slave_id - 1;
   TenT env_times_mps;
   TenT temp, res;
   //First contract
@@ -90,7 +90,7 @@ inline void SlaveGrowLeftEnvironment(
   salve_communication_timer.Restart();
 #endif
   bsdt.MPISend(world, kMasterRank, task);//tag = task
-  world.recv(kMasterRank, 2 * slave_identifier, task);//tag = 2*slave_identifier
+  world.recv(kMasterRank, 2 * slave_id, task);//tag = 2*slave_id
 #ifdef GQMPS2_MPI_TIMING_MODE
   salve_communication_timer.Suspend();
 #endif
@@ -107,7 +107,7 @@ inline void SlaveGrowLeftEnvironment(
     salve_communication_timer.Restart();
 #endif
     bsdt.MPISend(world, kMasterRank, task);//tag = task
-    world.recv(kMasterRank, 2 * slave_identifier, task);
+    world.recv(kMasterRank, 2 * slave_id, task);
 #ifdef GQMPS2_MPI_TIMING_MODE
     salve_communication_timer.Suspend();
 #endif
@@ -115,7 +115,7 @@ inline void SlaveGrowLeftEnvironment(
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
-  std::cout << "Slave " << slave_identifier<< " has done task_count = " << task_count << std::endl;
+  std::cout << "Slave " << slave_id << " has done task_count = " << task_count << std::endl;
 #endif
 }
 
@@ -149,9 +149,9 @@ inline void SlaveGrowRightEnvironment(
     return;
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
-  Timer salve_communication_timer(" slave "+std::to_string(slave_id) +"'s communication");
+  Timer salve_communication_timer(" slave " + std::to_string(slave_id) + "'s communication");
   salve_communication_timer.Suspend();
-  Timer slave_work_timer(" slave "+ std::to_string(slave_id) +"'s work");
+  Timer slave_work_timer(" slave " + std::to_string(slave_id) + "'s work");
 #endif
   //first task
   size_t task = slave_id - 1;
@@ -202,7 +202,7 @@ inline void SlaveGrowRightEnvironment(
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_work_timer.PrintElapsed();
   salve_communication_timer.PrintElapsed();
-  std::cout << "Slave " << slave_id<< " has done task_count = " << task_count << std::endl;
+  std::cout << "Slave " << slave_id << " has done task_count = " << task_count << std::endl;
 #endif
 }
 

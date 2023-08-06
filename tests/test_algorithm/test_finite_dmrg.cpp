@@ -76,11 +76,11 @@ void RunTestDMRGCase(
     const SweepParams &sweep_params,
     const double benmrk_e0, const double precision
 ) {
-  size_t start_flops = flops;
+  size_t start_flops = flop;
   Timer contract_timer("dmrg");
   auto e0 = FiniteDMRG(mps, mat_repr_mpo, sweep_params);
   double elapsed_time = contract_timer.Elapsed();
-  size_t end_flops = flops;
+  size_t end_flops = flop;
   double Gflops_s = (end_flops - start_flops) * 1.e-9 / elapsed_time;
   std::cout << "flops = " << end_flops - start_flops << std::endl;
   EXPECT_NEAR(e0, benmrk_e0, precision);

@@ -8,7 +8,6 @@
 #ifndef GQMPS2_ONE_DIM_TN_MPO_MPOGEN_SPARSE_MAT_H
 #define GQMPS2_ONE_DIM_TN_MPO_MPOGEN_SPARSE_MAT_H
 
-
 #include <iostream>
 #include <vector>
 #include "assert.h"
@@ -17,14 +16,14 @@
  * Raw-major sparse matrix
  * @tparam ElemType
  */
-template <typename ElemType>
+template<typename ElemType>
 class SparMat {
-public:
+ public:
   SparMat(void) : rows(0), cols(0), data(), indexes() {}
 
   SparMat(const size_t row_num, const size_t col_num) :
       rows(row_num), cols(col_num),
-      data(), indexes(row_num*col_num, -1) {}
+      data(), indexes(row_num * col_num, -1) {}
 
   SparMat(const SparMat<ElemType> &spar_mat) :
       rows(spar_mat.rows), cols(spar_mat.cols),
@@ -34,7 +33,7 @@ public:
     rows = spar_mat.rows;
     cols = spar_mat.cols;
     data = spar_mat.data;
-    indexes = spar_mat.indexes; 
+    indexes = spar_mat.indexes;
     return *this;
   }
 
@@ -48,13 +47,13 @@ public:
   const ElemType &operator()(const size_t x, const size_t y) const {
     auto offset = CalcOffset(x, y);
     if (indexes[offset] == -1) {
-      return nullelem; 
+      return nullelem;
     } else {
       return data[indexes[offset]];
     }
   }
 
-  void Reserve(const size_t size){
+  void Reserve(const size_t size) {
     data.reserve(size);
   }
 
@@ -81,7 +80,7 @@ public:
 
   // Get row and column.
   std::vector<ElemType> GetRow(const size_t row_idx) const {
-    assert(row_idx < rows); 
+    assert(row_idx < rows);
     std::vector<ElemType> row;
     row.reserve(cols);
     for (size_t y = 0; y < cols; ++y) {
@@ -89,9 +88,9 @@ public:
     }
     return row;
   }
-  
+
   std::vector<ElemType> GetCol(const size_t col_idx) const {
-    assert(col_idx < cols); 
+    assert(col_idx < cols);
     std::vector<ElemType> col;
     col.reserve(rows);
     for (size_t x = 0; x < rows; ++x) {
@@ -123,14 +122,14 @@ public:
 
   // Remove row and column.
   void RemoveRow(const size_t row_idx) {
-    assert(row_idx < rows); 
+    assert(row_idx < rows);
     if (rows == 1) {
       *this = SparMat<ElemType>();
       return;
     }
     indexes.erase(indexes.cbegin() + CalcOffset(row_idx, 0),
-                  indexes.cbegin() + CalcOffset(row_idx+1, 0)
-                  );
+                  indexes.cbegin() + CalcOffset(row_idx + 1, 0)
+    );
     rows = rows - 1;
   }
 
@@ -142,17 +141,17 @@ public:
     }
     cols = cols - 1;
     const size_t moving_piece_size = cols;
-    for(size_t x = 0; x < rows -1; ++x){
+    for (size_t x = 0; x < rows - 1; ++x) {
       size_t delete_elem_number = x + 1;
       size_t fulling_piece_start = CalcOffset(x, col_idx);
-      for(size_t i = 0; i < moving_piece_size; i++){
+      for (size_t i = 0; i < moving_piece_size; i++) {
         indexes[fulling_piece_start + i] = indexes[fulling_piece_start + i + delete_elem_number];
       }
     }
     size_t x = rows - 1;
     size_t delete_elem_number = x + 1;
     size_t fulling_piece_start = CalcOffset(x, col_idx);
-    for(size_t i = 0; i < cols * rows - fulling_piece_start; i++){
+    for (size_t i = 0; i < cols * rows - fulling_piece_start; i++) {
       indexes[fulling_piece_start + i] = indexes[fulling_piece_start + i + delete_elem_number];
     }
     indexes.erase(indexes.begin() + cols * rows, indexes.cend());
@@ -175,7 +174,7 @@ public:
     for (size_t x = 0; x < rows; ++x) {
       auto offset1 = CalcOffset(x, col_idx1);
       auto offset2 = CalcOffset(x, col_idx2);
-      std::swap(indexes[offset1], indexes[offset2] );
+      std::swap(indexes[offset1], indexes[offset2]);
     }
   }
 
@@ -205,9 +204,20 @@ public:
     }
     indexes = new_indexes;
   }
-  
+
   size_t CalcOffset(const size_t x, const size_t y) const {
-    return x*cols + y;
+    return x * cols + y;
+  }
+
+  void Print() const {
+    for (size_t row = 0; row < rows; row++) {
+      std::vector<ElemType> row_data = GetRow(row);
+      for (size_t col = 0; col < row_data.size(); col++) {
+        std::cout << row_data[col] << "\t";
+      }
+      std::cout << "\n";
+    }
+    std::cout << std::endl;
   }
 
   size_t rows;
@@ -215,15 +225,14 @@ public:
   std::vector<ElemType> data;
   std::vector<long> indexes;
 
-private:
+ private:
   size_t CalcOffset_(
       const size_t x, const size_t y, const size_t new_cols) const {
-    return x*new_cols + y; 
+    return x * new_cols + y;
   }
 
   static ElemType nullelem;
 };
-
 
 template<typename ElemType>
 ElemType SparMat<ElemType>::nullelem = ElemType();

@@ -25,7 +25,6 @@
 #include <vector>     // vector
 #include <cstring>
 
-#include "mkl.h"
 #include "gqmps2/algo_mpi/dmrg/dmrg_mpi_impl_master.h"
 
 namespace gqmps2 {
@@ -192,9 +191,6 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::DynamicHamiltonia
 
   const size_t task_num = num_terms;
 
-
-
-
   auto multiplication_res = std::vector<Tensor>(num_terms);
   auto pmultiplication_res = std::vector<Tensor *>(num_terms);
   const std::vector<TenElemT> &coefs = std::vector<TenElemT>(num_terms, TenElemT(1.0));
@@ -234,7 +230,7 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::DynamicHamiltonia
   for (size_t i = 1; i <= slave_num_; i++) {
     Tensor recv_res;
     auto recv_status = recv_gqten(world_, mpi::any_source, mpi::any_tag, recv_res);
-    if (recv_status.tag() < task_num ) {
+    if (recv_status.tag() < task_num) {
       multiplication_res[recv_status.tag()] = std::move(recv_res);
     }
     size_t slave_id = recv_status.source();
@@ -256,7 +252,13 @@ template<typename TenElemT, typename QNT>
 GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonianMultiplyState_(
     DMRGMPIMasterExecutor::Tensor &state,
     GQTEN_Double &overlap) {
+#ifdef GQMPS2_MPI_TIMING_MODE
+  Timer broadcast_state_timer("broadcast_state_send");
+#endif
   SendBroadCastGQTensor(world_, state, kMasterRank);
+#ifdef GQMPS2_MPI_TIMING_MODE
+  broadcast_state_timer.PrintElapsed();
+#endif
   const size_t num_terms = hamiltonian_terms_.size();
   const size_t gather_terms = std::min(num_terms, slave_num_);
   auto multiplication_res = std::vector<Tensor>(gather_terms);
@@ -268,9 +270,14 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonian
   for (size_t i = 0; i < gather_terms; i++) {
     recv_gqten(world_, mpi::any_source, mpi::any_tag, multiplication_res[i]);
   }
+#ifdef GQMPS2_MPI_TIMING_MODE
+  Timer sum_state_timer("parallel_summation_reduce");
+#endif
   auto res = new Tensor();
   LinearCombine(coefs, pmultiplication_res, TenElemT(0.0), res);
-
+#ifdef GQMPS2_MPI_TIMING_MODE
+  sum_state_timer.PrintElapsed();
+#endif
   MPI_Barrier(MPI_Comm(world_));
   for (size_t i = 1; i <= gather_terms; i++) {
     GQTEN_Double sub_overlap;

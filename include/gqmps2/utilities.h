@@ -21,6 +21,9 @@
 namespace gqmps2 {
 using namespace gqten;
 
+inline double Real(const GQTEN_Double d) { return d; }
+
+inline double Real(const GQTEN_Complex z) { return z.real(); }
 
 /// The features in this namespace will be natively supported by GraceQ/tensor.
 namespace mock_gqten {

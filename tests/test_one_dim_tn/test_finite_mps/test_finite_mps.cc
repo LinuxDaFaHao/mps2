@@ -6,8 +6,11 @@
 *
 * Description: GraceQ/MPS2 project. Unittests for MPS .
 */
-#include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"
+
 #include "gqten/gqten.h"
+#include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"
+#include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps_ops.h"
+
 #include "gtest/gtest.h"
 
 #include <utility>    // move
@@ -15,7 +18,7 @@
 using namespace gqmps2;
 using namespace gqten;
 
-using U1QN = QN<U1QNVal>;
+using U1QN = special_qn::U1QN;
 using QNT = U1QN;
 using IndexT = Index<U1QN>;
 using QNSctT = QNSector<U1QN>;
@@ -27,7 +30,6 @@ using Tensor = DGQTensor;
 using SiteVecT = SiteVec<GQTEN_Double, U1QN>;
 using MPST = FiniteMPS<GQTEN_Double, U1QN>;
 
-
 struct TestMPS : public testing::Test {
   QNT qn0 = QNT({QNCard("N", U1QNVal(0))});
   QNT qn1 = QNT({QNCard("N", U1QNVal(1))});
@@ -37,9 +39,9 @@ struct TestMPS : public testing::Test {
   IndexT vb01_out = IndexT({QNSctT(qn0, 1), QNSctT(qn1, 1)}, OUT);
   IndexT vb01_in = InverseIndex(vb01_out);
   IndexT vb012_out = IndexT(
-                        {QNSctT(qn0, 1), QNSctT(qn1, 2), QNSctT(qn2, 1)},
-                        OUT
-                    );
+      {QNSctT(qn0, 1), QNSctT(qn1, 2), QNSctT(qn2, 1)},
+      OUT
+  );
   IndexT vb012_in = InverseIndex(vb012_out);
   IndexT vb0_out = InverseIndex(vb0_in);
   Tensor t0 = Tensor({vb0_in, pb_out, vb01_out});
@@ -66,9 +68,8 @@ struct TestMPS : public testing::Test {
   }
 };
 
-
 // Helpers for testing MPS centralization.
-template <typename TenT>
+template<typename TenT>
 void CheckIsIdTen(const TenT &t) {
   auto shape = t.GetShape();
   EXPECT_EQ(shape.size(), 2);
@@ -83,7 +84,6 @@ void CheckIsIdTen(const TenT &t) {
     }
   }
 }
-
 
 void CheckMPSTenCanonical(
     const MPST &mps,
@@ -104,10 +104,9 @@ void CheckMPSTenCanonical(
   CheckIsIdTen(res);
 }
 
-
 void CheckMPSCenter(const MPST &mps, const int center) {
   EXPECT_EQ(mps.GetCenter(), center);
-  
+
   auto mps_size = mps.size();
   auto tens_cano_type = mps.GetTensCanoType();
   for (size_t i = 0; i < mps_size; ++i) {
@@ -125,20 +124,17 @@ void CheckMPSCenter(const MPST &mps, const int center) {
   }
 }
 
-
 void RunTestMPSCentralizeCase(MPST &mps, const int center) {
   mps.Centralize(center);
   CheckMPSCenter(mps, center);
   mkl_free_buffers();
 }
 
-
 void RunTestMPSCentralizeCase(MPST &mps) {
   for (size_t i = 0; i < mps.size(); ++i) {
     RunTestMPSCentralizeCase(mps, i);
   }
 }
-
 
 TEST_F(TestMPS, TestCentralize) {
   RunTestMPSCentralizeCase(mps, 0);
@@ -160,7 +156,6 @@ TEST_F(TestMPS, TestCentralize) {
   RunTestMPSCentralizeCase(mps, 4);
   RunTestMPSCentralizeCase(mps);
 }
-
 
 TEST_F(TestMPS, TestCopyAndMove) {
   mps.Centralize(2);
@@ -207,7 +202,6 @@ TEST_F(TestMPS, TestCopyAndMove) {
   }
 }
 
-
 TEST_F(TestMPS, TestElemAccess) {
   mps.Centralize(2);
 
@@ -227,7 +221,6 @@ TEST_F(TestMPS, TestElemAccess) {
   EXPECT_EQ(crmps.GetTenCanoType(3), MPSTenCanoType::NONE);
 }
 
-
 TEST_F(TestMPS, TestIO) {
   MPST mps2(SiteVecT(5, pb_out));
   mps.Dump();
@@ -246,11 +239,15 @@ TEST_F(TestMPS, TestIO) {
   EXPECT_TRUE(mps.empty());
 }
 
-
 TEST_F(TestMPS, TestTruncate) {
   TruncateMPS(mps, 0, 1, 3);
 
   TruncateMPS(mps, 0, 2, 2);
 
-  mkl_free_buffers();
+}
+
+TEST_F(TestMPS, TestOperation) {
+  mps.Centralize(0);
+  mps(0)->Normalize();
+  EXPECT_NEAR(FiniteMPSInnerProd(mps, mps), 1.0, 1e-14);
 }

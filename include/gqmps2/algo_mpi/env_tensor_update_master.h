@@ -119,14 +119,11 @@ inline GQTensor<TenElemT, QNT> *MasterGrowLeftEnvironment(
       world.send(slave_identifier, 2 * slave_identifier, 2 * task_size);//finish signal
     }
   } else {//slave_size >= task_size
-#pragma omp parallel default(shared)\
-                        num_threads(task_size)
-    {
-      size_t controlling_slave = omp_get_thread_num() + 1;
-      size_t task = controlling_slave - 1;
-      auto &bsdt = res_list[task].GetBlkSparDataTen();
-      mpi::status recv_status = bsdt.MPIRecv(world, controlling_slave, task);
-      world.send(controlling_slave, 2 * controlling_slave, 2 * task_size);//finish signal
+    for (size_t i = 0; i < task_size; i++) {
+      auto &bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2 * slave_identifier, 2 * task_size);
     }
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
@@ -240,14 +237,11 @@ inline GQTensor<TenElemT, QNT> *MasterGrowRightEnvironment(
       world.send(slave_identifier, 2 * slave_identifier, 2 * task_size);//finish signal
     }
   } else {//slave_size >= task_size
-#pragma omp parallel default(shared)\
-                        num_threads(task_size)
-    {
-      size_t controlling_slave = omp_get_thread_num() + 1;
-      size_t task = controlling_slave - 1;
-      auto &bsdt = res_list[task].GetBlkSparDataTen();
-      mpi::status recv_status = bsdt.MPIRecv(world, controlling_slave, task);
-      world.send(controlling_slave, 2 * controlling_slave, 2 * task_size);//finish signal
+    for (size_t i = 0; i < task_size; i++) {
+      auto &bsdt = res_list[i].GetBlkSparDataTen();
+      mpi::status recv_status = bsdt.MPIRecv(world, mpi::any_source, mpi::any_tag);
+      int slave_identifier = recv_status.source();
+      world.send(slave_identifier, 2 * slave_identifier, 2 * task_size);
     }
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
