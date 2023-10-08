@@ -67,23 +67,6 @@ class CoefRepr {
   }
 
   bool operator==(const CoefRepr &rhs) const {
-    /*
-    const std::vector<CoefLabel> &rc_lhs_coef_label_list = coef_label_list_;
-    std::vector<CoefLabel> rhs_coef_label_list = rhs.coef_label_list_;
-    if (rc_lhs_coef_label_list.size() != rhs_coef_label_list.size()) {
-      return false;
-    }
-    for (auto &l_elem : rc_lhs_coef_label_list) {
-      long pos_in_rhs = -1;
-      if (!ElemInVec(l_elem, rhs_coef_label_list, pos_in_rhs)) {
-        return false;
-      } else {
-        rhs_coef_label_list.erase(rhs_coef_label_list.begin() + pos_in_rhs);
-      }
-    }
-    if (!rhs_coef_label_list.empty()) { return false; }
-    return true;
-    */
     return std::is_permutation(coef_label_list_.begin(), coef_label_list_.end(),
                                rhs.coef_label_list_.begin(), rhs.coef_label_list_.end());
   }
@@ -188,9 +171,12 @@ class SparOpReprMat;    // Forward declaration.
 
 class OpRepr {
   friend std::pair<CoefRepr, OpRepr> SeparateCoefAndBase(const OpRepr &);
+
   friend OpRepr CoefReprOpReprIncompleteMulti(const CoefRepr &, const OpRepr &);
+
   friend std::vector<OpRepr> CalcSparOpReprMatRowLinCmb(
       const SparOpReprMat &, const CoefReprVec &);
+
   friend std::vector<OpRepr> CalcSparOpReprMatColLinCmb(
       const SparOpReprMat &, const CoefReprVec &);
 
@@ -284,15 +270,15 @@ class OpRepr {
       return OpT();
     } else if (base_op_num == 1) {
       return op_label_coef_repr_map_.begin()->second.Realize(label_coef_mapping) *
-          label_op_mapping[op_label_coef_repr_map_.begin()->first];
+             label_op_mapping[op_label_coef_repr_map_.begin()->first];
     } else {
       op = op_label_coef_repr_map_.begin()->second.Realize(label_coef_mapping) *
-          label_op_mapping[op_label_coef_repr_map_.begin()->first];
+           label_op_mapping[op_label_coef_repr_map_.begin()->first];
       auto iter = op_label_coef_repr_map_.begin();
       iter++;
       for (; iter != op_label_coef_repr_map_.end(); iter++) {
         op += iter->second.Realize(label_coef_mapping) *
-            label_op_mapping[iter->first];
+              label_op_mapping[iter->first];
       }
     }
     return op;
@@ -518,6 +504,7 @@ class SparOpReprMat : public SparOpReprMatBase {
     }
   }
 
+  ///< linear combination coefficients for expanding row_idx-th row as summation of previous rows.
   CoefReprVec CalcRowLinCmb(const size_t row_idx) const {
     auto row = GetRow(row_idx);
     CoefReprVec cmb_coefs;
@@ -943,4 +930,5 @@ VecT ConcatenateTwoVec(const VecT &va, const VecT &vb) {
   res.insert(res.end(), vb.begin(), vb.end());
   return res;
 }
+
 #endif /* ifndef GQMPS2_ONE_DIM_TN_MPO_MPOGEN_COEF_OP_ALG_H */

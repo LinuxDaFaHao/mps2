@@ -45,11 +45,13 @@ class MPOGenerator {
   using GQTensorVec = std::vector<GQTensorT>;
   using PGQTensorVec = std::vector<GQTensorT *>;
 
+  MPOGenerator(const SiteVec<TenElemT, QNT> &);
+
   MPOGenerator(const SiteVec<TenElemT, QNT> &, const QNT &);
 
   void AddTerm(
-      const TenElemT,
-      const GQTensorVec &,
+      TenElemT,
+      GQTensorVec,
       std::vector<size_t>
   );
 

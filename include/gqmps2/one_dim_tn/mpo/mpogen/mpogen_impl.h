@@ -36,7 +36,10 @@ template<typename TenT>
 void AddOpToCentMpoTen(TenT *, const TenT &, const size_t, const size_t);
 
 
-//helper
+template<typename TenElemT, typename QNT>
+MPOGenerator<TenElemT, QNT>::MPOGenerator(const SiteVec<TenElemT, QNT> &site_vec)
+    :MPOGenerator(site_vec, site_vec.sites[0].GetQNSct(0).GetQn()) {}
+
 /**
 Create a MPO generator. Create a MPO generator using the sites of the system
 which is described by a SiteVec.
@@ -84,46 +87,45 @@ that the indexes of the operators have to be ascending sorted.
 */
 template<typename TenElemT, typename QNT>
 void MPOGenerator<TenElemT, QNT>::AddTerm(
-    const TenElemT coef,
-    const GQTensorVec &local_ops,
+    TenElemT coef,
+    GQTensorVec local_ops,
     std::vector<size_t> local_ops_idxs
 ) {
   assert(local_ops.size() == local_ops_idxs.size());
   if (coef == TenElemT(0)) { return; }
   if (std::abs(coef) < kDoubleEpsilon) {
-    std::cout << "warning: too small hamiltonian coefficient " << coef << std::endl;
+    std::cout << "warning: too small hamiltonian coefficient. Neglect the term." << coef << std::endl;
     return;
   }   // If coef is zero, do nothing.
 
   // sort the site idxs
-  std::vector<size_t> order_indices(local_ops.size());
-  std::iota(order_indices.begin(), order_indices.end(), 0);
   if (!std::is_sorted(local_ops_idxs.cbegin(), local_ops_idxs.cend())) {
     std::cout << "sort operators and sites according the site order. " << std::endl;
+    std::vector<size_t> order_indices(local_ops.size());
+    std::iota(order_indices.begin(), order_indices.end(), 0);
     std::sort(order_indices.begin(), order_indices.end(),
               [&](size_t i, size_t j) -> bool {
                 return local_ops_idxs[i] < local_ops_idxs[j];
               });
-    GQTensorVec local_ops_cp(local_ops.size());
+    GQTensorVec sorted_local_ops(local_ops.size());
+    std::transform(order_indices.begin(), order_indices.end(), sorted_local_ops.begin(),
+                   [&](std::size_t i) { return local_ops[i]; });
+    local_ops = sorted_local_ops;
     std::sort(local_ops_idxs.begin(), local_ops_idxs.end());
   }
   assert(local_ops_idxs.back() < N_);
 
-  size_t reverse_sign_num = 0;
-  std::vector<TenElemT> sign_of_ops(local_ops.size(), 1.0);
-  size_t i = 0;
-  for (auto &op: local_ops) {
+  //< Input Operator should remove some linear relationship. Here we remove the sign.
+  for (size_t i = 0; i < local_ops.size(); i++) {
+    auto &op = local_ops[i];
     const TenElemT first_data = (*op.GetBlkSparDataTen().GetActualRawDataPtr());
     if (Real(first_data) < 0.0) {
-      sign_of_ops[i] = -1.0;
-      reverse_sign_num++;
+      coef *= (-1);
+      op *= (-1);
     }
-    i++;
   }
 
-  TenElemT coef_sign = 1.0 - (double) (reverse_sign_num % 2) * 2.0;
-
-  auto coef_label = coef_label_convertor_.Convert(coef_sign * coef);
+  auto coef_label = coef_label_convertor_.Convert(coef);
   auto ntrvl_ops_idxs_head = local_ops_idxs.front();
   auto ntrvl_ops_idxs_tail = local_ops_idxs.back();
   OpReprVec ntrvl_ops_reprs;
@@ -132,8 +134,7 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
     if (poss_it != local_ops_idxs.cend()) {     // Nontrivial operator
       auto local_op_loc =
           poss_it - local_ops_idxs.cbegin();    // Location of the local operator in the local operators list.
-      auto op_label = op_label_convertor_.Convert(
-          sign_of_ops[order_indices[local_op_loc]] * local_ops[order_indices[local_op_loc]]);
+      auto op_label = op_label_convertor_.Convert(local_ops[local_op_loc]);
       if (local_op_loc == 0) {
         ntrvl_ops_reprs.push_back(OpRepr(coef_label, op_label));
       } else {
@@ -182,7 +183,7 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
   assert(phys_ops.size() == phys_ops_idxs.size());
   assert(
       (inst_ops.size() == phys_ops.size() - 1) ||
-          (inst_ops.size() == phys_ops.size())
+      (inst_ops.size() == phys_ops.size())
   );
   if (inst_ops_idxs_set != kNullUintVecVec) {
     assert(inst_ops_idxs_set.size() == inst_ops.size());

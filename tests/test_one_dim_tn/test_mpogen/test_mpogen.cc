@@ -69,7 +69,8 @@ struct TestMpoGenerator : public testing::Test {
 };
 
 TEST_F(TestMpoGenerator, TestInitialization) {
-  DMPOGenerator mpo_generator(dsite_vec_2, qn0);
+  DMPOGenerator mpo_generator1(dsite_vec_2);
+  DMPOGenerator mpo_generator2(dsite_vec_2, qn0);
 }
 
 TEST_F(TestMpoGenerator, TestAddTermCase1) {
@@ -78,15 +79,15 @@ TEST_F(TestMpoGenerator, TestAddTermCase1) {
   bchmk_m1.SetElem(0, 0, kIdOpRepr);
 
   DMPOGenerator mpo_generator1(dsite_vec_2, qn0);
-  mpo_generator1.AddTerm(1., {dsz}, {0});
-  auto fsm1 = mpo_generator1.GetFSM();
-  auto fsm_comp_mat_repr1 = fsm1.GenCompressedMatRepr();
+  mpo_generator1.AddTerm(1., {-dsz}, {0});
+  FSM fsm1 = mpo_generator1.GetFSM();
+  SparOpReprMatVec fsm_comp_mat_repr1 = fsm1.GenCompressedMatRepr();
   EXPECT_EQ(fsm_comp_mat_repr1[0], bchmk_m0);
   EXPECT_EQ(fsm_comp_mat_repr1[1], bchmk_m1);
 
   DMPOGenerator mpo_generator3(dsite_vec_2, qn0);
-  mpo_generator3.AddTerm(1., {dsz}, {0});
-  mpo_generator3.AddTerm(0.0, {dsz}, {0});
+  mpo_generator3.AddTerm(1., {-dsz}, {0});
+  mpo_generator3.AddTerm(0.0, {-dsz}, {0});
   auto fsm3 = mpo_generator3.GetFSM();
   auto fsm_comp_mat_repr3 = fsm3.GenCompressedMatRepr();
   EXPECT_EQ(fsm_comp_mat_repr3[0], bchmk_m0);
@@ -152,8 +153,8 @@ TEST_F(TestMpoGenerator, TestAddTermCase4) {
 
   DMPOGenerator mpo_generator1(dsite_vec_5, qn0);
   mpo_generator1.AddTerm(1., {dsz, dsz}, {0, 4});
-  mpo_generator1.AddTerm(1., {dsz, dsz, dsz}, {1, 2, 4});
-  mpo_generator1.AddTerm(1., {dsz, dsz, dsz}, {1, 2, 3});
+  mpo_generator1.AddTerm(1., {-dsz, -dsz, -dsz}, {1, 2, 4});
+  mpo_generator1.AddTerm(1., {-dsz, -dsz, -dsz}, {1, 2, 3});
   auto fsm1 = mpo_generator1.GetFSM();
   auto fsm_comp_mat_repr1 = fsm1.GenCompressedMatRepr();
   EXPECT_EQ(fsm_comp_mat_repr1[0], bchmk_m0);
