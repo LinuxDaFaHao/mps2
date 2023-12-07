@@ -10,7 +10,6 @@
 #define GQMPS2_ONE_DIM_TN_MPO_FINITE_MPO_FINITE_MPO_UTILITY_H
 
 
-
 #include "gqten/gqten.h"
 
 namespace gqmps2 {
@@ -32,6 +31,7 @@ using namespace gqten;
 inline std::string GenEnvTenName(
     const std::string &dir, const long blk_len, const std::string temp_path
 );
+
 inline void RemoveFile(const std::string &file);
 
 template<typename TenElemT, typename QNT>
@@ -41,6 +41,7 @@ void Generate3MPOEnvs(
     const FiniteMPO<TenElemT, QNT> &mpo2,
     const std::string temp_path
 );
+
 template<typename TenElemT, typename QNT, char dir>
 void MPOProductVariationalSingleStep(
     const GQTensor<TenElemT, QNT> &lenv,
@@ -165,11 +166,18 @@ void MpoProduct(
 
   for (size_t i = 0; i < N; i++) {
     Tensor temp;
-    Contract(mpo1(i), mpo2(i), {{1}, {2}}, &temp);
+    Contract(mpo1(i), mpo2(i), {{1},
+                                {2}}, &temp);
     temp.FuseIndex(0, 3);
     temp.FuseIndex(2, 4);
     temp.Transpose({1, 3, 2, 0});
     output_mpo[i] = std::move(temp);
+#ifndef NDEBUG
+    const QNT qn1 = mpo1[i].Div();
+    const QNT qn2 = mpo2[i].Div();
+    const QNT qn_sum = output_mpo[i].Div();
+    assert(qn1 + qn2 == qn_sum);
+#endif
   }
   return;
 }
@@ -312,7 +320,8 @@ double MpoProduct(
     //future: write Norm() function for GQTensor
     Tensor mpo1_dag = Dag(output_mpo[1]);
     Tensor scalar_ten;
-    Contract(output_mpo(1), &mpo1_dag, {{0, 1, 2, 3}, {0, 1, 2, 3}}, &scalar_ten);
+    Contract(output_mpo(1), &mpo1_dag, {{0, 1, 2, 3},
+                                        {0, 1, 2, 3}}, &scalar_ten);
 
     double new_norm2 = std::sqrt(scalar_ten());
     std::cout << IndentPrinter(indent_level) << "norm2 = " << new_norm2 << std::endl;
@@ -370,15 +379,20 @@ void MPOProductVariationalSingleStep(
   Tensor *ptemp0 = new Tensor();
   Tensor *ptemp1 = new Tensor();
   Tensor *ptemp2 = new Tensor();
-  Contract(&lenv, &mpo2l, {{2}, {0}}, ptemp0);
-  Contract(ptemp0, &mpo1l, {{1, 3}, {0, 1}}, ptemp1);
+  Contract(&lenv, &mpo2l, {{2},
+                           {0}}, ptemp0);
+  Contract(ptemp0, &mpo1l, {{1, 3},
+                            {0, 1}}, ptemp1);
 
   (*ptemp0) = Tensor();
-  Contract(&mpo2r, &renv, {{3}, {2}}, ptemp0);
-  Contract(ptemp0, &mpo1r, {{2, 4}, {1, 3}}, ptemp2);
+  Contract(&mpo2r, &renv, {{3},
+                           {2}}, ptemp0);
+  Contract(ptemp0, &mpo1r, {{2, 4},
+                            {1, 3}}, ptemp2);
 
   (*ptemp0) = Tensor();
-  Contract(ptemp1, ptemp2, {{2, 4}, {0, 3}}, ptemp0);
+  Contract(ptemp1, ptemp2, {{2, 4},
+                            {0, 3}}, ptemp0);
   delete ptemp1;
   delete ptemp2;
   ptemp0->Transpose({0, 1, 2, 3, 5, 4});
@@ -393,13 +407,15 @@ void MPOProductVariationalSingleStep(
     mpo_out_l = Tensor();
     mpo_out_r = Tensor();
     SVD(ptemp0, 3, Div(mpo1l), trunc_err, Dmin, Dmax, &mpo_out_l, &s, &vt, &actual_trunc_err, &D);
-    Contract(&s, &vt, {{1}, {0}}, &mpo_out_r);
+    Contract(&s, &vt, {{1},
+                       {0}}, &mpo_out_r);
   } else if (dir == 'l') {
     Tensor u;
     mpo_out_l = Tensor();
     mpo_out_r = Tensor();
     SVD(ptemp0, 3, Div(mpo1l), trunc_err, Dmin, Dmax, &u, &s, &mpo_out_r, &actual_trunc_err, &D);
-    Contract(&u, &s, {{3}, {0}}, &mpo_out_l);
+    Contract(&u, &s, {{3},
+                      {0}}, &mpo_out_l);
   } else {
     assert(false);
   }
@@ -480,10 +496,13 @@ GQTensor<TenElemT, QNT> UpdateRenv(
   mpo_ten_o_dag.Transpose({0, 2, 1, 3});
 //  mpo_ten_o.Show();
 //  renv.Show();
-  Contract(&mpo_ten_o_dag, &renv, {{3}, {0}}, &temp0);
+  Contract(&mpo_ten_o_dag, &renv, {{3},
+                                   {0}}, &temp0);
 
-  Contract(&temp0, &mpo_ten1, {{1, 3}, {2, 3}}, &temp1);
-  Contract(&temp1, &mpo_ten2, {{1, 4, 2}, {1, 2, 3}}, &renv_next);
+  Contract(&temp0, &mpo_ten1, {{1, 3},
+                               {2, 3}}, &temp1);
+  Contract(&temp1, &mpo_ten2, {{1, 4, 2},
+                               {1, 2, 3}}, &renv_next);
   return renv_next;
 }
 
@@ -514,9 +533,12 @@ GQTensor<TenElemT, QNT> UpdateLenv(
   TenT lenv_next, temp0, temp1;
   TenT mpo_ten_o_dag = Dag(mpo_ten_o);
   mpo_ten_o_dag.Transpose({0, 2, 1, 3});
-  Contract(&mpo_ten_o_dag, &lenv, {{0}, {0}}, &temp0);
-  Contract(&temp0, &mpo_ten1, {{0, 3}, {2, 0}}, &temp1);
-  Contract(&temp1, &mpo_ten2, {{2, 0, 3}, {0, 1, 2}}, &lenv_next);
+  Contract(&mpo_ten_o_dag, &lenv, {{0},
+                                   {0}}, &temp0);
+  Contract(&temp0, &mpo_ten1, {{0, 3},
+                               {2, 0}}, &temp1);
+  Contract(&temp1, &mpo_ten2, {{2, 0, 3},
+                               {0, 1, 2}}, &lenv_next);
   return lenv_next;
 }
 

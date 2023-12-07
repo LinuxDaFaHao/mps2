@@ -73,7 +73,7 @@ double MpoProduct(
 
 inline std::string GenMPOTenName(const std::string &mpo_path, const size_t idx) {
   return mpo_path + "/" +
-      kMpoTenBaseName + std::to_string(idx) + "." + kGQTenFileSuffix;
+         kMpoTenBaseName + std::to_string(idx) + "." + kGQTenFileSuffix;
 }
 
 using MPOTenCanoType = MPSTenCanoType;
@@ -99,6 +99,14 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
 //    center_ = rhs.center_;
 //    tens_cano_type_ = rhs.tens_cano_type_;
 //  }
+
+  FiniteMPO(const MPO<LocalTenT> &mpo) : TenVec<LocalTenT>(mpo), center_(kUncentralizedCenterIdx),
+                                         tens_cano_type_(mpo.size()) {}
+
+
+  operator MPO<LocalTenT>() {
+    return MPO<LocalTenT>(*this);
+  }
 
   /**
    * Access to local tensor
@@ -169,6 +177,18 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
     return (*this);
   }
 
+  FiniteMPO operator+(const FiniteMPO &rhs) const {
+    auto res = *this;
+    res += rhs;
+    return res;
+  }
+
+  ///<  *this * rhs,  *this is at below, represent the front matrix
+  FiniteMPO SimpleProduct(const FiniteMPO &rhs) const {
+    
+  }
+
+
   /**
    * square the MPO without normalization
    *
@@ -207,9 +227,11 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
   void Centralize(const int);
 
   void LeftCanonicalize(const size_t);
+
   void RightCanonicalize(const size_t);
 
   void LeftCanonicalizeTen(const size_t);
+
   void RightCanonicalizeTen(const size_t);
 
   double Truncate(const GQTEN_Double, const size_t, const size_t);
@@ -278,10 +300,13 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
     }
     return D;
   }
+
   int GetCenter(void) const { return center_; }
+
   std::vector<MPSTenCanoType> GetTensCanoType(void) const {
     return tens_cano_type_;
   }
+
   MPSTenCanoType GetTenCanoType(const size_t idx) const {
     return tens_cano_type_[idx];
   }
@@ -307,6 +332,7 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
       }
     }
   }
+
   template<typename TenElemT2, typename QNT2>
   friend double MpoProduct(
       const FiniteMPO<TenElemT2, QNT2> &mpo1,
@@ -354,7 +380,8 @@ void FiniteMPO<TenElemT, QNT>::LeftCanonicalizeTen(const size_t site_idx) {
   (*this)(site_idx) = pq;
 
   auto pnext_ten = new LocalTenT;
-  Contract(&r, (*this)(site_idx + 1), {{1}, {0}}, pnext_ten);
+  Contract(&r, (*this)(site_idx + 1), {{1},
+                                       {0}}, pnext_ten);
   delete (*this)(site_idx + 1);
   (*this)(site_idx + 1) = pnext_ten;
 
@@ -388,8 +415,10 @@ void FiniteMPO<TenElemT, QNT>::RightCanonicalizeTen(const size_t site_idx) {
   (*this)(site_idx) = pvt;
 
   LocalTenT temp_ten;
-  Contract(&u, &s, {{1}, {0}}, &temp_ten);
-  std::vector<std::vector<size_t>> ctrct_axes = {{3}, {0}};
+  Contract(&u, &s, {{1},
+                    {0}}, &temp_ten);
+  std::vector<std::vector<size_t>> ctrct_axes = {{3},
+                                                 {0}};
   auto pprev_ten = new LocalTenT;
   Contract((*this)(site_idx - 1), &temp_ten, ctrct_axes, pprev_ten);
   delete (*this)(site_idx - 1);
@@ -440,9 +469,11 @@ TenElemT FiniteMPO<TenElemT, QNT>::Trace() {
     LocalTenT temp_ten;
     const Index<QNT> &idx_out = (*this)[i].GetIndexes()[2];
     LocalTenT id = GenIdOp<TenElemT, QNT>(idx_out);//assume non-uniform lattice site
-    Contract(&left_vector_ten, (*this)(i), {{0}, {0}}, &temp_ten);
+    Contract(&left_vector_ten, (*this)(i), {{0},
+                                            {0}}, &temp_ten);
     left_vector_ten = LocalTenT();
-    Contract(&temp_ten, &id, {{0, 1}, {1, 0}}, &left_vector_ten);
+    Contract(&temp_ten, &id, {{0, 1},
+                              {1, 0}}, &left_vector_ten);
   }
   TenElemT t = left_vector_ten({0});
   return t;
@@ -478,8 +509,10 @@ void FiniteMPO<TenElemT, QNT>::RightCanonicalizeTen_(const size_t site_idx,
   (*this)(site_idx) = pvt;
 
   LocalTenT temp_ten;
-  Contract(&u, &s, {{1}, {0}}, &temp_ten);
-  std::vector<std::vector<size_t>> ctrct_axes = {{3}, {0}};
+  Contract(&u, &s, {{1},
+                    {0}}, &temp_ten);
+  std::vector<std::vector<size_t>> ctrct_axes = {{3},
+                                                 {0}};
   auto pprev_ten = new LocalTenT;
   Contract((*this)(site_idx - 1), &temp_ten, ctrct_axes, pprev_ten);
   delete (*this)(site_idx - 1);

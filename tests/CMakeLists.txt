@@ -42,7 +42,7 @@ endif ()
 
 
 find_package(Boost
-        1.76.0
+        1.74.0
         REQUIRED
         COMPONENTS serialization mpi)
 

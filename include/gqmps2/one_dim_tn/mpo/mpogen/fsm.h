@@ -69,7 +69,7 @@ class FSM {
 
   SparOpReprMatVec GenMatRepr(void) const;
 
-  SparOpReprMatVec GenCompressedMatRepr(void) const;
+  SparOpReprMatVec GenCompressedMatRepr(const bool show_matrix = false) const;
 
   void ReplaceIdOpLabels(std::vector<OpLabel> &);
 
@@ -215,7 +215,7 @@ inline void FSM::CastFSMPathToMatRepr_(
   }
 }
 
-inline SparOpReprMatVec FSM::GenCompressedMatRepr(void) const {
+inline SparOpReprMatVec FSM::GenCompressedMatRepr(const bool show_matrix) const {
   auto comp_mat_repr = GenMatRepr();
   //  for (size_t i = phys_site_num_-1; i >= phys_site_num_/2; --i) {
 //    SparOpReprMatRowCompresser(comp_mat_repr[i], comp_mat_repr[i-1]);
@@ -233,8 +233,10 @@ inline SparOpReprMatVec FSM::GenCompressedMatRepr(void) const {
     SparOpReprMatRowCompresser(comp_mat_repr[i], comp_mat_repr[i - 1]);
   }
 
-  for (size_t i = 0; i < phys_site_num_; ++i) {
-    comp_mat_repr[i].Print();
+  if (show_matrix) {
+    for (size_t i = 0; i < phys_site_num_; ++i) {
+      comp_mat_repr[i].Print();
+    }
   }
 
   return comp_mat_repr;

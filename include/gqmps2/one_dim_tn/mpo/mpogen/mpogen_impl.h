@@ -274,8 +274,8 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
 
 template<typename TenElemT, typename QNT>
 MPO<typename MPOGenerator<TenElemT, QNT>::GQTensorT>
-MPOGenerator<TenElemT, QNT>::Gen(void) {
-  auto fsm_comp_mat_repr = fsm_.GenCompressedMatRepr();
+MPOGenerator<TenElemT, QNT>::Gen(const bool show_matrix) {
+  auto fsm_comp_mat_repr = fsm_.GenCompressedMatRepr(show_matrix);
   auto label_coef_mapping = coef_label_convertor_.GetLabelObjMapping();
   auto label_op_mapping = op_label_convertor_.GetLabelObjMapping();
 
@@ -317,9 +317,9 @@ MPOGenerator<TenElemT, QNT>::Gen(void) {
 
 template<typename TenElemT, typename QNT>
 MatReprMPO<typename MPOGenerator<TenElemT, QNT>::GQTensorT>
-MPOGenerator<TenElemT, QNT>::GenMatReprMPO(void) {
+MPOGenerator<TenElemT, QNT>::GenMatReprMPO(const bool show_matrix) {
   using GQTensorT = typename MPOGenerator<TenElemT, QNT>::GQTensorT;
-  auto fsm_comp_mat_repr = fsm_.GenCompressedMatRepr();
+  auto fsm_comp_mat_repr = fsm_.GenCompressedMatRepr(show_matrix);
   auto label_coef_mapping = coef_label_convertor_.GetLabelObjMapping();
   auto label_op_mapping = op_label_convertor_.GetLabelObjMapping();
   // Print MPO tensors virtual bond dimension.
@@ -342,6 +342,16 @@ MPOGenerator<TenElemT, QNT>::GenMatReprMPO(void) {
   return mat_repr_mpo;
 }
 
+/**
+ * Calculate target right virtual bond quantum number
+ *
+ * @param x         coordinate of row of the operator in the sparse matrix representation of operators
+ * @param y         useless in this function
+ * @param op_repr   operator representation
+ * @param label_op_mapping  to get the operator in GQTensor form from operator representation
+ * @param trans_vb  the right virtual bond of last mpo tensor
+ * @return          the quantum number on the right virtual bond to embedding the operator
+ */
 template<typename TenElemT, typename QNT>
 QNT MPOGenerator<TenElemT, QNT>::CalcTgtRvbQN_(
     const size_t x, const size_t y, const OpRepr &op_repr,
@@ -350,9 +360,17 @@ QNT MPOGenerator<TenElemT, QNT>::CalcTgtRvbQN_(
   auto lvb = InverseIndex(trans_vb);
   auto lvb_qn = lvb.GetQNSctFromActualCoor(x).GetQn();
   auto op0_in_op_repr = label_op_mapping[op_repr.GetOpLabelList()[0]];
-  return zero_div_ - Div(op0_in_op_repr) + lvb_qn;
+  return lvb_qn - Div(op0_in_op_repr);
 }
 
+/**
+ * Sort Sparse Operator Representation Matrix Columns by Quantum Number
+ *
+ * @param op_repr_mat
+ * @param trans_vb  input: left virtual bond of the mpo tensor; output: right virtual bond of the mpo tensor.
+ * @param label_op_mapping
+ * @return  How the sparse matrix of operator should be transpose, and the matrix has been transposed in the subroutine.
+ */
 template<typename TenElemT, typename QNT>
 std::vector<size_t> MPOGenerator<TenElemT, QNT>::SortSparOpReprMatColsByQN_(
     SparOpReprMat &op_repr_mat, IndexT &trans_vb,
@@ -361,7 +379,7 @@ std::vector<size_t> MPOGenerator<TenElemT, QNT>::SortSparOpReprMatColsByQN_(
   std::vector<size_t> transposed_idxs;
   for (size_t y = 0; y < op_repr_mat.cols; ++y) {
     bool has_ntrvl_op = false;
-    QNT col_rvb_qn;
+    QNT col_rvb_qn(zero_div_);
     for (size_t x = 0; x < op_repr_mat.rows; ++x) {
       auto elem = op_repr_mat(x, y);
       if (elem != kNullOpRepr) {
@@ -397,6 +415,7 @@ std::vector<size_t> MPOGenerator<TenElemT, QNT>::SortSparOpReprMatColsByQN_(
   }
   op_repr_mat.TransposeCols(transposed_idxs);
   std::vector<QNSctT> rvb_qnscts;
+  rvb_qnscts.reserve(rvb_qn_dim_pairs.size());
   for (auto &qn_dim: rvb_qn_dim_pairs) {
     rvb_qnscts.push_back(QNSctT(qn_dim.first, qn_dim.second));
   }
