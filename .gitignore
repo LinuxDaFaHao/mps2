@@ -1,5 +1,6 @@
 # Dir
 build/
+debug/
 release/
 test/
 build_doc/

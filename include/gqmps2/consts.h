@@ -26,14 +26,16 @@ namespace gqmps2 {
 const std::string kCaseParamsJsonObjName = "CaseParams";
 
 const std::string kMpsPath = "mps";
+const std::string kMpoPath = "mpo";
 const std::string kRuntimeTempPath = ".temp";
 const std::string kEnvFileBaseName = "env";
 const std::string kMpsTenBaseName = "mps_ten";
+const std::string kMpoTenBaseName = "mpo";
 const std::string kOpFileBaseName = "op";
 
 const int kLanczEnergyOutputPrecision = 16;
 
 const std::vector<size_t> kNullUintVec;
 const std::vector<std::vector<size_t>> kNullUintVecVec;
-} /* gqmps2 */ 
+} /* gqmps2 */
 #endif /* ifndef GQMPS2_CONSTS_H */

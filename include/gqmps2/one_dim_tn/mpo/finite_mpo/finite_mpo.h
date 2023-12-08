@@ -21,8 +21,6 @@
 namespace gqmps2 {
 using namespace gqten;
 
-const std::string kMpoTenBaseName = "mpo";
-
 const size_t kMaxVariationSweeps = 10;
 const double kVariationConvergeTolerance = 1e-13;
 
@@ -185,7 +183,7 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
 
   ///<  *this * rhs,  *this is at below, represent the front matrix
   FiniteMPO SimpleProduct(const FiniteMPO &rhs) const {
-    
+
   }
 
 
@@ -236,7 +234,7 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
 
   double Truncate(const GQTEN_Double, const size_t, const size_t);
 
-  void Dump(const std::string &mpo_path) const {
+  void Dump(const std::string &mpo_path = kMpoPath) const {
     if (!IsPathExist(mpo_path)) { CreatPath(mpo_path); }
     std::string file;
     for (size_t i = 0; i < this->size(); ++i) {
@@ -250,7 +248,7 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
     ofs.close();
   }
 
-  bool Load(const std::string &mpo_path) {
+  bool Load(const std::string &mpo_path = kMpoPath) {
     if (!IsPathExist(mpo_path)) {
       return false;
 //      std::cout << "DONOT FIND THE PATH " << mpo_path <<". Please check the mpo data directory" << std::endl;

@@ -38,7 +38,7 @@ void AddOpToCentMpoTen(TenT *, const TenT &, const size_t, const size_t);
 
 template<typename TenElemT, typename QNT>
 MPOGenerator<TenElemT, QNT>::MPOGenerator(const SiteVec<TenElemT, QNT> &site_vec)
-    :MPOGenerator(site_vec, site_vec.sites[0].GetQNSct(0).GetQn()) {}
+    :MPOGenerator(site_vec, site_vec.sites[0].GetQNSct(0).GetQn() - site_vec.sites[0].GetQNSct(0).GetQn()) {}
 
 /**
 Create a MPO generator. Create a MPO generator using the sites of the system
