@@ -17,7 +17,7 @@
 
 #include "gqten/gqten.h"
 #include "gqmps2/one_dim_tn/mps_all.h"                          //FiniteMPS
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"  //SweepParams
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h"  //FiniteVMPSSweepParams
 #include "gqmps2/algorithm/vmps/vmps_init.h"                    //CheckAndUpdateBoundaryMPSTensors
 #include "gqmps2/one_dim_tn/mat_repr_mpo.h"                     //MatReprMPO
 #include "gqmps2/algorithm/dmrg/operator_io.h"                  //Gen

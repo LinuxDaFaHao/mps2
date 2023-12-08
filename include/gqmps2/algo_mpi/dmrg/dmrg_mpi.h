@@ -20,7 +20,7 @@ template<typename TenElemT, typename QNT>
 inline GQTEN_Double FiniteDMRG(
     FiniteMPS<TenElemT, QNT> &mps,
     const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-    const SweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     mpi::communicator &world
 ) {
   GQTEN_Double e0(0.0);

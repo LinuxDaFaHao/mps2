@@ -10,11 +10,11 @@
 #ifndef GQMPS2_ALGORITHM_DMRG_DMRG_IMPL_H
 #define GQMPS2_ALGORITHM_DMRG_DMRG_IMPL_H
 
-#include "gqmps2/consts.h"                      // kMpsPath, kRuntimeTempPath
-#include "gqmps2/algorithm/lanczos_solver.h"    // LanczParams
+#include "gqmps2/consts.h"                                            // kMpsPath, kRuntimeTempPath
+#include "gqmps2/algorithm/lanczos_params.h"                          // LanczParams
 #include <string>
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps_impl.h"   //MeasureEE
-#include "gqmps2/algorithm/lanczos_dmrg_solver_impl.h"                //LanczosSolver_
+#include "gqmps2/algorithm/dmrg/lanczos_dmrg_solver_impl.h"           //LanczosSolver
 #include "gqmps2/algorithm/dmrg/operator_io.h"                        //ReadOperatorGroup
 
 namespace gqmps2 {
@@ -41,7 +41,7 @@ class DMRGExecutor : public Executor {
  public:
   DMRGExecutor(
       const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-      const SweepParams &sweep_params
+      const FiniteVMPSSweepParams &sweep_params
   );
 
   ~DMRGExecutor() = default;
@@ -50,7 +50,7 @@ class DMRGExecutor : public Executor {
     return e0_;
   }
 
-  SweepParams sweep_params;
+  FiniteVMPSSweepParams sweep_params;
  private:
   void DMRGInit_();
   double DMRGSweep_();
@@ -83,7 +83,7 @@ class DMRGExecutor : public Executor {
 template<typename TenElemT, typename QNT>
 DMRGExecutor<TenElemT, QNT>::DMRGExecutor(
     const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-    const SweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 ):
     sweep_params(sweep_params),
     N_(mat_repr_mpo.size()),
@@ -104,7 +104,7 @@ DMRGExecutor<TenElemT, QNT>::DMRGExecutor(
 
 /**
 Function to perform Finite size DMRG.
-Difference between this function with TwoSiteFiniteVMPS is the input is matrix represent of MPO rather MPO.
+Difference between this function with TwoSiteFiniteVMPSWithNoise is the input is matrix represent of MPO rather MPO.
 
 @note The input MPS will be considered an empty one.
 @note The canonical center of input MPS should be set at ???
@@ -368,7 +368,7 @@ void DMRGExecutor<TenElemT, QNT>::LoadRelatedTensSweep_(
 template<typename TenElemT, typename QNT>
 double FiniteDMRG(FiniteMPS<TenElemT, QNT> &mps,
                   const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-                  const SweepParams &sweep_params) {
+                  const FiniteVMPSSweepParams &sweep_params) {
   DMRGExecutor<TenElemT, QNT> dmrg_executor = DMRGExecutor(mat_repr_mpo, sweep_params);
   dmrg_executor.Execute();
   return dmrg_executor.GetEnergy();

@@ -39,13 +39,6 @@ using ZMPS = FiniteMPS<GQTEN_Complex, U1QN>;
 using ZMPS2 = FiniteMPS<GQTEN_Complex, U1U1QN>;
 
 
-
-inline void RemoveFolder(const std::string &folder_path) {
-  std::string command = "rm -rf " + folder_path;
-  system(command.c_str());
-}
-
-
 template<typename TenElemT, typename QNT>
 void RunTestSingleSiteAlgorithmCase(
     FiniteMPS<TenElemT, QNT> &mps,

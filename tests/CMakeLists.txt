@@ -205,24 +205,36 @@ add_unittest(test_mpogen
         )
 
 ## Test algorithms
+## Test simulation case parameters parser.
+add_unittest(test_case_params_parser
+        test_case_params_parser.cc
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
+        "${CMAKE_CURRENT_LIST_DIR}/testdata/test-params.json" "")
 # Lanczos solver
-add_unittest(test_lanczos_solver
+add_unittest(test_vmps_lanczos_solver
         "test_algorithm/test_lanczos_solver.cc"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
         )
+
+# Lanczos solver
+add_unittest(test_expmv_lanczos_solver
+        "test_algorithm/test_lanczos_expmv_solver.cc"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
+)
+
 # Two-site update finite vMPS
-add_unittest(test_two_site_algo
+add_unittest(test_two_site_finite_vmps
         "test_algorithm/test_two_site_update_finite_vmps.cc"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
         )
 # Single-site update finite vMPS
-add_unittest(test_single_site_algo
+add_unittest(test_single_site_finite_vmps
         "test_algorithm/test_single_site_update_finite_vmps.cc"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
         )
 
 # Two-site noised update finite vMPS
-add_unittest(test_two_site_noise_algo
+add_unittest(test_two_site_finite_vmps_with_noise
         "test_algorithm/test_two_site_noise_update_finite_vmps.cc"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
         )
@@ -231,17 +243,11 @@ add_unittest(test_finite_dmrg
         "test_algorithm/test_finite_dmrg.cpp"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
         )
-## Test simulation case parameters parser.
-add_unittest(test_case_params_parser
-        test_case_params_parser.cc
-        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}"
-        "${CMAKE_CURRENT_LIST_DIR}/testdata/test-params.json" "")
-
-# Test mpi two site update
-add_mpi_unittest(test_mpi_finite_dmrg
-        "test_mpi_algorithm/test_mpi_dmrg.cc"
-        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
-        )
+# Test two site TDVP
+add_unittest(test_two_site_finite_tdvp
+        "test_algorithm/test_two_site_finite_tdvp.cpp"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
+)
 
 # Test mpi two site update
 add_mpi_unittest(test_mpi_two_site_update_finite_vmps
@@ -255,21 +261,14 @@ add_mpi_unittest(test_mpi_two_site_update_noised_finite_vmps
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
         )
 
-# Test mpi two site noised update
+# Test mpi two site TDVP
 add_mpi_unittest(test_mpi_two_site_finite_tdvp
         "test_mpi_algorithm/test_mpi_two_site_finite_tdvp.cpp"
         "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
         )
 
-
-# Lanczos solver
-add_unittest(test_lanczos_expmv_solver
-        "test_algorithm/test_lanczos_expmv_solver.cc"
-        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
-        )
-
-# Test two site TDVP
-add_unittest(test_two_site_finite_tdvp
-        "test_algorithm/test_two_site_finite_tdvp.cpp"
-        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" ""
-        )
+# Test mpi two site DMRG
+add_mpi_unittest(test_mpi_finite_dmrg
+        "test_mpi_algorithm/test_mpi_dmrg.cc"
+        "${MATH_LIB_COMPILE_FLAGS}" "" "${MATH_LIB_LINK_FLAGS}" "4"
+)

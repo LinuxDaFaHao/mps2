@@ -22,7 +22,7 @@ class DMRGMPIMasterExecutor : public Executor {
  public:
   DMRGMPIMasterExecutor(
       const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-      const SweepParams &sweep_params,
+      const FiniteVMPSSweepParams &sweep_params,
       mpi::communicator &world
   );
 
@@ -32,7 +32,7 @@ class DMRGMPIMasterExecutor : public Executor {
     return e0_;
   }
 
-  SweepParams sweep_params;
+  FiniteVMPSSweepParams sweep_params;
  private:
   void DMRGInit_();
   void InitBlockOps_();
@@ -91,7 +91,7 @@ class DMRGMPIMasterExecutor : public Executor {
 template<typename TenElemT, typename QNT>
 DMRGMPIMasterExecutor<TenElemT, QNT>::DMRGMPIMasterExecutor(
     const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-    const SweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     mpi::communicator &world
 ):
     sweep_params(sweep_params),
