@@ -13,25 +13,24 @@
 #ifndef GQMPS2_ALGORITHM_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_IMPL_H
 #define GQMPS2_ALGORITHM_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_IMPL_H
 
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"    // SweepParams
+#include <stdio.h>                                                // remove
+#include <iomanip>
+
+#include "gqten/gqten.h"
+#include "gqten/utility/timer.h"                                  // Timer
+
+#include "gqmps2/algorithm/vmps/lanczos_vmps_solver_impl.h"       // LanczosSolver, LanczosParams
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h"            // FiniteVMPSSweepParams
 #include "gqmps2/one_dim_tn/mpo/mpo.h"                            // MPO
 #include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"          // FiniteMPS
 #include "gqmps2/utilities.h"                                     // IsPathExist, CreatPath
 #include "gqmps2/one_dim_tn/framework/ten_vec.h"                  // TenVec
 #include "gqmps2/consts.h"
-#include "gqten/gqten.h"
-#include "gqten/utility/timer.h"                                  // Timer
 
-#include <iostream>
-#include <iomanip>
-#include <vector>
-#include <string>
-
-#include <stdio.h>    // remove
 #ifdef Release
 #define NDEBUG
 #endif
-#include <assert.h>
+
 
 namespace gqmps2 {
 using namespace gqten;
@@ -54,8 +53,8 @@ inline std::string GenEnvTenName(
     const std::string &dir, const long blk_len, const std::string temp_path
 ) {
   return temp_path + "/" +
-      dir + kEnvFileBaseName + std::to_string(blk_len) +
-      "." + kGQTenFileSuffix;
+         dir + kEnvFileBaseName + std::to_string(blk_len) +
+         "." + kGQTenFileSuffix;
 }
 
 inline void RemoveFile(const std::string &file) {
@@ -79,6 +78,14 @@ GQTensor<TenElemT, QNT> UpdateSiteLenvs(
     const GQTensor<TenElemT, QNT> &
 );
 
+//forward declare
+template<typename TenElemT, typename QNT>
+GQTEN_Double TwoSiteFiniteVMPSWithNoise( //same function name, overload by class of FiniteVMPSSweepParams
+    FiniteMPS<TenElemT, QNT> &mps,
+    const MPO<GQTensor<TenElemT, QNT>> &mpo,
+    const FiniteVMPSSweepParams &sweep_params
+);
+
 /**
 Function to perform two-site update finite vMPS algorithm.
 
@@ -90,8 +97,11 @@ template<typename TenElemT, typename QNT>
 GQTEN_Double TwoSiteFiniteVMPS(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const SweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 ) {
+  if (sweep_params.noise_valid) {
+    return TwoSiteFiniteVMPSWithNoise(mps, mpo, sweep_params);
+  }
   assert(mps.size() == mpo.size());
   // If the runtime temporary directory does not exit, create it and initialize
   // the left/right environments
@@ -118,7 +128,7 @@ template<typename TenElemT, typename QNT>
 void InitEnvs(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const SweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const size_t update_site_num = 2
 ) {
   InitEnvs(
@@ -195,7 +205,7 @@ template<typename TenElemT, typename QNT>
 double TwoSiteFiniteVMPSSweep(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const SweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 ) {
   auto N = mps.size();
   using TenT = GQTensor<TenElemT, QNT>;
@@ -232,7 +242,7 @@ double TwoSiteFiniteVMPSUpdate(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const SweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const char dir,
     const size_t target_site
 ) {
@@ -246,20 +256,24 @@ double TwoSiteFiniteVMPSUpdate(
   size_t lsite_idx, rsite_idx;
   size_t lenv_len, renv_len;
   std::string lblock_file, rblock_file;
-  init_state_ctrct_axes = {{2}, {0}};
+  init_state_ctrct_axes = {{2},
+                           {0}};
   svd_ldims = 2;
   switch (dir) {
-    case 'r':lsite_idx = target_site;
+    case 'r':
+      lsite_idx = target_site;
       rsite_idx = target_site + 1;
       lenv_len = target_site;
       renv_len = N - (target_site + 2);
       break;
-    case 'l':lsite_idx = target_site - 1;
+    case 'l':
+      lsite_idx = target_site - 1;
       rsite_idx = target_site;
       lenv_len = target_site - 1;
       renv_len = N - target_site - 1;
       break;
-    default:std::cout << "dir must be 'r' or 'l', but " << dir << std::endl;
+    default:
+      std::cout << "dir must be 'r' or 'l', but " << dir << std::endl;
       exit(1);
   }
 
@@ -315,15 +329,20 @@ double TwoSiteFiniteVMPSUpdate(
 
   TenT the_other_mps_ten;
   switch (dir) {
-    case 'r':mps[lsite_idx] = std::move(u);
-      Contract(&s, &vt, {{1}, {0}}, &the_other_mps_ten);
+    case 'r':
+      mps[lsite_idx] = std::move(u);
+      Contract(&s, &vt, {{1},
+                         {0}}, &the_other_mps_ten);
       mps[rsite_idx] = std::move(the_other_mps_ten);
       break;
-    case 'l':Contract(&u, &s, {{2}, {0}}, &the_other_mps_ten);
+    case 'l':
+      Contract(&u, &s, {{2},
+                        {0}}, &the_other_mps_ten);
       mps[lsite_idx] = std::move(the_other_mps_ten);
       mps[rsite_idx] = std::move(vt);
       break;
-    default:assert(false);
+    default:
+      assert(false);
   }
 
 #ifdef GQMPS2_TIMING_MODE
@@ -344,7 +363,8 @@ double TwoSiteFiniteVMPSUpdate(
       renvs[renv_len + 1] = std::move(UpdateSiteRenvs(renvs[renv_len], mps[target_site], mpo[target_site]));
     }
       break;
-    default:assert(false);
+    default:
+      assert(false);
   }
 
 #ifdef GQMPS2_TIMING_MODE
@@ -372,7 +392,7 @@ void LoadRelatedTensTwoSiteAlg(
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
     const char dir,
-    const SweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
   Timer preprocessing_timer("two_site_fvmps_preprocessing");
@@ -429,7 +449,8 @@ void LoadRelatedTensTwoSiteAlg(
         RemoveFile(lenv_file);
       }
       break;
-    default:assert(false);
+    default:
+      assert(false);
   }
 #ifdef GQMPS2_TIMING_MODE
   preprocessing_timer.PrintElapsed();
@@ -443,7 +464,7 @@ void DumpRelatedTensTwoSiteAlg(
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
     const char dir,
-    const SweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
   Timer postprocessing_timer("two_site_fvmps_postprocessing");
@@ -479,7 +500,8 @@ void DumpRelatedTensTwoSiteAlg(
       );
     }
       break;
-    default:assert(false);
+    default:
+      assert(false);
   }
 #ifdef GQMPS2_TIMING_MODE
   postprocessing_timer.PrintElapsed();

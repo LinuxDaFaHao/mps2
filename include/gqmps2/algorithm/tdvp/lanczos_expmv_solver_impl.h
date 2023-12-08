@@ -13,22 +13,11 @@
 
 #ifndef GQMPS2_ALGORITHM_LANCZOS_SOLVER_EXPMV_IMPL_H
 #define GQMPS2_ALGORITHM_LANCZOS_SOLVER_EXPMV_IMPL_H
-#include "gqmps2/algorithm/lanczos_solver.h"    // LanczosParams, LanczosFree...
+
 #include "gqten/gqten.h"
-#include "gqten/utility/timer.h"                // Timer
-
-#include <complex>                              //exp
-
-#include <iostream>
-#include <vector>     // vector
-#include <cstring>
-
-#if defined(USE_OPENBLAS)
-#include <cblas.h> // Include CBLAS header when OpenBLAS is used
-#include <lapacke.h>
-#else
-#include "mkl.h"   // Include MKL header when MKL is used
-#endif
+#include "gqten/utility/timer.h"                            // Timer
+#include "gqmps2/algorithm/lanczos_params.h"                // LanczosParams, LanczosFree...
+#include "gqmps2/algorithm/vmps/lanczos_vmps_solver_impl.h" // InplaceContract
 
 namespace gqmps2 {
 

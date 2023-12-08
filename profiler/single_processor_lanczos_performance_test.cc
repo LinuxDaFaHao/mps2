@@ -12,7 +12,7 @@
  */
 
 
-#include "gqmps2/algorithm/lanczos_solver.h"
+#include "gqmps2/algorithm/lanczos_params.h"
 #include "../tests/testing_utils.h"
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"

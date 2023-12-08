@@ -29,13 +29,13 @@ inline void RandRealSymMat(double *mat, long dim) {
   srand(0);
   for (long i = 0; i < dim; ++i) {
     for (long j = 0; j < dim; ++j) {
-      mat[(i*dim + j)] = Rand();
+      mat[(i * dim + j)] = Rand();
     }
   }
   srand(0);
   for (long i = 0; i < dim; ++i) {
     for (long j = 0; j < dim; ++j) {
-      mat[(j*dim + i)] += Rand();
+      mat[(j * dim + i)] += Rand();
     }
   }
 }
@@ -45,12 +45,12 @@ inline void RandCplxHerMat(GQTEN_Complex *mat, long dim) {
   for (long i = 0; i < dim; ++i) {
     for (long j = 0; j < i; ++j) {
       GQTEN_Complex elem(Rand(), Rand());
-      mat[(i*dim + j)] = elem;
-      mat[(j*dim + i)] = std::conj(elem);
+      mat[(i * dim + j)] = elem;
+      mat[(j * dim + i)] = std::conj(elem);
     }
   }
   for (long i = 0; i < dim; ++i) {
-    mat[i*dim + i] = Rand();
+    mat[i * dim + i] = Rand();
   }
 }
 
@@ -81,4 +81,32 @@ inline void RemoveFolder(const std::string &folder_path) {
   std::string command = "rm -rf " + folder_path;
   system(command.c_str());
 }
+
+// Helpers
+inline void KeepOrder(size_t &x, size_t &y) {
+  if (x > y) {
+    auto temp = y;
+    y = x;
+    x = temp;
+  }
+}
+
+
+inline size_t coors2idx(
+    const size_t x, const size_t y, const size_t Nx, const size_t Ny) {
+  return x * Ny + y;
+}
+
+
+inline size_t coors2idxSquare(
+    const int x, const int y, const size_t Nx, const size_t Ny) {
+  return x * Ny + y;
+}
+
+
+inline size_t coors2idxHoneycomb(
+    const int x, const int y, const size_t Nx, const size_t Ny) {
+  return Ny * (x % Nx) + y % Ny;
+}
+
 #endif /* ifndef GQMPS2_TESTING_UTILS_H */

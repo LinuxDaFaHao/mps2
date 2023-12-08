@@ -5,23 +5,17 @@
 *
 * Description: GraceQ/mps2 project. Lanczos exponential of matrix times vector algorithm unittests.
 */
-#include "gqmps2/algorithm/lanczos_expmv_solver_impl.h"
-#include "../testing_utils.h"
+
+#include "gtest/gtest.h"
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"
 
-#include "gtest/gtest.h"
-
-#include <vector>
-#include <iostream>
+#include "gqmps2/algorithm/tdvp/lanczos_expmv_solver_impl.h"
+#include "../testing_utils.h"
 
 #ifdef Release
 #define NDEBUG
 #endif
-#include <assert.h>
-
-#include "mkl.h"
-
 
 using namespace gqmps2;
 using namespace gqten;

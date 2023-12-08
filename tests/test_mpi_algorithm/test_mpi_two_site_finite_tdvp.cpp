@@ -116,7 +116,7 @@ int main(){
     zmpo_gen.AddTerm(-1.0, {zc, zcdag}, {i, i+1});
   }
   auto zmpo = zmpo_gen.Gen();
-  SweepParams vmps_sweep_params = SweepParams(
+  FiniteVMPSSweepParams vmps_sweep_params = FiniteVMPSSweepParams(
       4,
       1, 16, 1.0E-10,
       LanczosParams(1.0E-8)
@@ -129,7 +129,7 @@ int main(){
     for (size_t i = 0; i < N; ++i) { stat_labs.push_back(i % 2); }
     DirectStateInitMps(zmps, stat_labs);
     zmps.Dump(vmps_sweep_params.mps_path, true);
-    e0 = TwoSiteFiniteVMPS(zmps, zmpo, vmps_sweep_params);
+    e0 = TwoSiteFiniteVMPSWithNoise(zmps, zmpo, vmps_sweep_params);
     double benchmark_e0=-3.4939592074349334893668128643185;
     EXPECT_NEAR(e0, benchmark_e0, 1e-13);
   }

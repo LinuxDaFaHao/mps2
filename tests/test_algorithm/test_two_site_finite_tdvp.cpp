@@ -109,7 +109,7 @@ TEST_F(TestTwoSiteAlgorithmSpinlessFermion, 1DSpinlessFreeFermion) {
     zmpo_gen.AddTerm(-1.0, {zc, zcdag}, {i, i+1});
   }
   auto zmpo = zmpo_gen.Gen();
-  SweepParams vmps_sweep_params = SweepParams(
+  FiniteVMPSSweepParams vmps_sweep_params = FiniteVMPSSweepParams(
       4,
       1, 16, 1.0E-10,
       LanczosParams(1.0E-8)
@@ -123,11 +123,11 @@ TEST_F(TestTwoSiteAlgorithmSpinlessFermion, 1DSpinlessFreeFermion) {
   DirectStateInitMps(zmps, stat_labs);
   zmps.Dump(vmps_sweep_params.mps_path, true);
 
-  double e0 = TwoSiteFiniteVMPS(zmps, zmpo, vmps_sweep_params);
+  double e0 = TwoSiteFiniteVMPSWithNoise(zmps, zmpo, vmps_sweep_params);
   double benchmark_e0=-3.4939592074349334893668128643185;
   EXPECT_NEAR(e0, benchmark_e0, 1e-13);
 
-  TDVPSweepParams<U1QN> tdvp_sweep_params = TDVPSweepParams<U1QN>(
+  TDVPEvolveParams<U1QN> tdvp_sweep_params = TDVPEvolveParams<U1QN>(
       0.01, 30,
       N/2,
       zcdag, zf, zc, zf, e0,

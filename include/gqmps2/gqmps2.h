@@ -30,17 +30,16 @@
 #include "gqmps2/one_dim_tn/mpo/mpo.h"                              // MPO
 #include "gqmps2/one_dim_tn/mpo/mpogen/mpogen.h"                    // MPOGenerator
 // Algorithms
-#include "gqmps2/algorithm/lanczos_solver.h"                        // LanczosParams
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"      // TwoSiteFiniteVMPS, SweepParams
-#include "gqmps2/algorithm/vmps/single_site_update_finite_vmps.h"   // SingleSiteFiniteVMPS
-#include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"      // TwoSiteFiniteTDVP
+#include "gqmps2/algorithm/vmps/vmps_all.h"                         // TwoSiteFiniteVMPS, SingleSiteFiniteVMPS
+#include "gqmps2/algorithm/tdvp/tdvp_evolve_params.h"               // TwoSiteFiniteTDVP
 #include "gqmps2/algorithm/dmrg/dmrg.h"                             // DMRG
 // MPI Algorithms
-#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteFiniteVMPS
+#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteFiniteVMPSWithNoise
 #include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h"
 #include "gqmps2/algo_mpi/dmrg/dmrg_mpi.h"
 
 // Mock Algorithms
 #include "gqmps2/algorithm/vmps/two_site_update_noise_finite_vmps_impl.h"
-#include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteFiniteVMPS
+#include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteFiniteVMPSWithNoise
+
 #endif /* ifndef GQMPS2_GQMPS2_H */

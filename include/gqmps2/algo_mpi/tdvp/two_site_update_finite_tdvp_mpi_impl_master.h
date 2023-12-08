@@ -12,7 +12,7 @@
 
 #include "gqmps2/algo_mpi/mps_algo_order.h"                            //kMasterRank, Order...
 #include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h" //MPITDVPSweepParams
-#include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"    //DynamicMeasuRes..
+#include "gqmps2/algorithm/tdvp/tdvp_evolve_params.h"    //DynamicMeasuRes..
 #include "gqmps2/algo_mpi/lanczos_expmv_solver_mpi.h"             //MasterLanczosExpmvSolver, SlaveLanczosExpmvSolver
 #include "gqmps2/algo_mpi/env_tensor_update_slave.h"
 
@@ -27,7 +27,7 @@ void MasterTwoSiteFiniteTDVPEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     const MPO<GQTensor<TenElemT, QNT>> &,
-    const TDVPSweepParams<QNT> &,
+    const TDVPEvolveParams<QNT> &,
     const size_t,
     mpi::communicator &
 );
@@ -38,7 +38,7 @@ void MasterSingleSiteFiniteTDVPBackwardEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     const MPO<GQTensor<TenElemT, QNT>> &,
-    const TDVPSweepParams<QNT> &,
+    const TDVPEvolveParams<QNT> &,
     const size_t,
     mpi::communicator &
 );
@@ -122,7 +122,7 @@ DynamicMeasuRes<TenElemT> MasterTwoSiteFiniteTDVP(
   if (!IsPathExist(sweep_params.temp_path)) {
     CreatPath(sweep_params.temp_path);
   }
-  InitEnvs(mps, mpo, SweepParams(sweep_params), 1);
+  InitEnvs(mps, mpo, FiniteVMPSSweepParams(sweep_params), 1);
 
   if (!IsPathExist(sweep_params.measure_temp_path)) {
     CreatPath(sweep_params.measure_temp_path);
@@ -177,7 +177,7 @@ void TwoSiteFiniteTDVPSweep(
   auto N = mps.size();
   TenVec<TenT> lenvs(N - 1);
   TenVec<TenT> renvs(N - 1);
-  SweepParams sweep_params_temp = SweepParams(sweep_params); //used to load and dump data
+  FiniteVMPSSweepParams sweep_params_temp = FiniteVMPSSweepParams(sweep_params); //used to load and dump data
   MPITDVPSweepParams<QNT> sweep_params_full_step = sweep_params;
   sweep_params_full_step.tau = sweep_params.tau * 2; // used in last two site
 
@@ -234,7 +234,7 @@ void MasterTwoSiteFiniteTDVPEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TDVPSweepParams<QNT> &sweep_params,
+    const TDVPEvolveParams<QNT> &sweep_params,
     const size_t target_site,
     mpi::communicator &world
 ) {
@@ -376,7 +376,7 @@ void MasterSingleSiteFiniteTDVPBackwardEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TDVPSweepParams<QNT> &sweep_params,
+    const TDVPEvolveParams<QNT> &sweep_params,
     const size_t target_site,
     mpi::communicator &world
 ) {

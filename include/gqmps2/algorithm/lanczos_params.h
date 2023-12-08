@@ -4,15 +4,15 @@
 * Author: Rongyang Sun <sun-rongyang@outlook.com>
 * Creation Date: 2020-08-08 14:22
 *
-* Description: GraceQ/MPS2 project. Lanczos solver.
+* Description: GraceQ/MPS2 project. Lanczos params.
 */
 
 /**
-@file lanczos_solver.h
-@brief A Lanczos solver for the effective Hamiltonian in MPS-MPO based algorithms.
+@file lanczos_params.h
+@brief lanczos parameters used in VMPS, DMRG and TDVP
 */
-#ifndef GQMPS2_ALGORITHM_LANCZOS_SOLVER_H
-#define GQMPS2_ALGORITHM_LANCZOS_SOLVER_H
+#ifndef GQMPS2_ALGORITHM_LANCZOS_PARAMS_H
+#define GQMPS2_ALGORITHM_LANCZOS_PARAMS_H
 
 
 #include <stdlib.h>     // size_t
@@ -33,8 +33,11 @@ struct LanczosParams {
   */
   LanczosParams(double err, size_t max_iter) :
       error(err), max_iterations(max_iter) {}
+
   LanczosParams(double err) : LanczosParams(err, 200) {}
+
   LanczosParams(void) : LanczosParams(1.0E-7, 200) {}
+
   LanczosParams(const LanczosParams &lancz_params) :
       LanczosParams(lancz_params.error, lancz_params.max_iterations) {}
 
@@ -44,8 +47,4 @@ struct LanczosParams {
 } /* gqmps2 */
 
 
-// Implementation details
-#include "gqmps2/algorithm/lanczos_solver_impl.h"
-
-
-#endif /* ifndef GQMPS2_ALGORITHM_LANCZOS_SOLVER_H */
+#endif // GQMPS2_ALGORITHM_LANCZOS_PARAMS_H

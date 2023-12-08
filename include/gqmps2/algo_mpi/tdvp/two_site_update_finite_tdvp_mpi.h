@@ -10,12 +10,12 @@
 #ifndef GQMPS2_ALGO_MPI_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_MPI_H
 #define GQMPS2_ALGO_MPI_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_MPI_H
 
-#include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"    //TDVPSweepParams
+#include "gqmps2/algorithm/tdvp/tdvp_evolve_params.h"    //TDVPEvolveParams
 
 namespace gqmps2 {
 
 template <typename QNT>
-struct MPITDVPSweepParams : public TDVPSweepParams<QNT> {
+struct MPITDVPSweepParams : public TDVPEvolveParams<QNT> {
   MPITDVPSweepParams() = default;
   MPITDVPSweepParams(
       const double tau, const size_t step,
@@ -31,7 +31,7 @@ struct MPITDVPSweepParams : public TDVPSweepParams<QNT> {
       const std::string initial_mps_path = "initial_" + kMpsPath,
       const std::string temp_path = kRuntimeTempPath,
       const std::string measure_temp_path = ".measure_temp"
-      ) : TDVPSweepParams<QNT>(
+      ) : TDVPEvolveParams<QNT>(
           tau, step, site_0, op0, inst0, op1, inst1, e0,
           dmin, dmax, trunc_err, lancz_params, mps_path, initial_mps_path,
           temp_path, measure_temp_path

@@ -11,8 +11,8 @@
 #define GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_MPI_IMPL_SLAVE_H
 #include <stdlib.h>
 #include "gqten/gqten.h"
-#include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
+#include "gqmps2/algorithm/lanczos_params.h"                        //LanczosParams
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h"
 #include "boost/mpi.hpp"                                            //boost::mpi
 #include "gqmps2/algo_mpi/mps_algo_order.h"                              //VMPSORDER
 #include "gqmps2/algo_mpi/env_tensor_update_slave.h"                //MasterGrowLeftEnvironment, MasterGrowRightEnvironment

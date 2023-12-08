@@ -15,13 +15,11 @@
 #define GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_NOISED_FINITE_VMPS_MPI_H
 
 #include <stdlib.h>
-#include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"      //TwoSiteMPIVMPSSweepParams
+#include "gqmps2/algorithm/lanczos_params.h"                        //LanczosParams
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h"      //TwoSiteMPIVMPSSweepParams
 
 
 namespace gqmps2 {
-
-using TwoSiteMPINoisedVMPSSweepParams = SingleVMPSSweepParams;
 
 //struct TwoSiteMPINoisedVMPSSweepParams : public TwoSiteMPIVMPSSweepParams {
 //  TwoSiteMPINoisedVMPSSweepParams(
@@ -41,4 +39,5 @@ using TwoSiteMPINoisedVMPSSweepParams = SingleVMPSSweepParams;
 }//gqmps2
 
 #include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi_impl.h"
+
 #endif

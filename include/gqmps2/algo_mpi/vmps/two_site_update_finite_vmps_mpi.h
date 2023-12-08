@@ -14,14 +14,12 @@
 #ifndef GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_MPI_H
 #define GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_FINITE_VMPS_MPI_H
 
-#include <stdlib.h>
-#include "gqmps2/algorithm/lanczos_solver.h"
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
-
+#include "gqmps2/algorithm/lanczos_params.h"
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h"
 
 namespace gqmps2 {
 
-//struct TwoSiteMPIVMPSSweepParams : public SweepParams {
+//struct TwoSiteMPIVMPSSweepParams : public FiniteVMPSSweepParams {
 //  TwoSiteMPIVMPSSweepParams(
 //      const size_t sweeps,
 //      const size_t dmin, const size_t dmax, const double trunc_err,
@@ -29,7 +27,7 @@ namespace gqmps2 {
 //      const std::string mps_path = kMpsPath,
 //      const std::string temp_path = kRuntimeTempPath
 //  ) :
-//      SweepParams(sweeps, dmin, dmax, trunc_err,
+//      FiniteVMPSSweepParams(sweeps, dmin, dmax, trunc_err,
 //      lancz_params, mps_path, temp_path) {}
 //};
 
@@ -37,4 +35,5 @@ namespace gqmps2 {
 
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_master.h"
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_slave.h"
+
 #endif

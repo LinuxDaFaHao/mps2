@@ -14,18 +14,17 @@
 #ifndef GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_NOISED_FINITE_VMPS_MPI_IMPL_H
 #define GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_NOISED_FINITE_VMPS_MPI_IMPL_H
 
-#include <stdlib.h>
 #include "gqten/gqten.h"
-#include "gqmps2/algorithm/lanczos_solver.h"                        //LanczosParams
-#include "boost/mpi.hpp"                                            //boost::mpi
-#include "gqmps2/algo_mpi/mps_algo_order.h"                              //VMPSORDER
-#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                     //MPI vmps initial
-#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"                     //MPI vmps initial
-#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
-#include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h" //TwoSiteMPINoisedVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi_master.h"                     //MPI Lanczos solver
+#include "gqmps2/algorithm/lanczos_params.h"                                  //LanczosParams
+#include "boost/mpi.hpp"                                                      //boost::mpi
+#include "gqmps2/algo_mpi/mps_algo_order.h"                                   //VMPSORDER
+#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                        //MPI vmps initial
+#include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"                         //MPI vmps initial
+#include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"             //TwoSiteMPIVMPSSweepParams
+#include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h"      //FiniteVMPSSweepParams
+#include "gqmps2/algo_mpi/lanczos_solver_mpi_master.h"                        //MPI Lanczos solver
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_master.h" //SlaveTwoSiteFiniteVMPS
-#include <thread>                                                       //thread
+#include <thread>                                                             //thread
 
 namespace gqmps2 {
 using namespace gqten;
@@ -38,7 +37,7 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
     const size_t left_boundary,
-    const TwoSiteMPINoisedVMPSSweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 );
 
 template<typename TenElemT, typename QNT>
@@ -48,7 +47,7 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
     const size_t right_boundary,
-    const TwoSiteMPINoisedVMPSSweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 );
 
 /**
@@ -56,15 +55,22 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(
  *       For the other threads used to read/dump tensors.
  */
 template<typename TenElemT, typename QNT>
-inline GQTEN_Double TwoSiteFiniteVMPS(
+inline GQTEN_Double TwoSiteFiniteVMPSWithNoise_(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    TwoSiteMPINoisedVMPSSweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     mpi::communicator &world
 ) {
   GQTEN_Double e0(0.0);
+  if (sweep_params.noises.size() == 0) {
+    if (sweep_params.noise_valid == true) {
+      std::cerr << "noise parameters setting conflict" << std::endl;
+      exit(-1);
+    }
+    TwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
+  }
   if (world.rank() == kMasterRank) {
-    e0 = MasterTwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
+    e0 = MasterTwoSiteFiniteVMPSWithNoise(mps, mpo, sweep_params, world);
   } else {
     SlaveTwoSiteFiniteVMPS<TenElemT, QNT>(mpo, world);
   }
@@ -72,10 +78,10 @@ inline GQTEN_Double TwoSiteFiniteVMPS(
 }
 
 template<typename TenElemT, typename QNT>
-GQTEN_Double MasterTwoSiteFiniteVMPS(
+GQTEN_Double MasterTwoSiteFiniteVMPSWithNoise(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    TwoSiteMPINoisedVMPSSweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     mpi::communicator world
 ) {
   assert(mps.size() == mpo.size());
@@ -101,7 +107,6 @@ GQTEN_Double MasterTwoSiteFiniteVMPS(
       std::cout << "]" << std::endl;
     }
   }
-  if (sweep_params.noises.empty()) { sweep_params.noises.push_back(0.0); }
   double e0(0.0);
   double noise;
   mps.LoadTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary));
@@ -130,14 +135,14 @@ template<typename TenElemT, typename QNT>
 double TwoSiteFiniteVMPSSweep(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPINoisedVMPSSweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const size_t left_boundary,
     const size_t right_boundary,
     const double noise,
     mpi::communicator world
 ) {
   auto N = mps.size();
-  SweepParams sweep_params_no_noise = (SweepParams) sweep_params;
+  FiniteVMPSSweepParams sweep_params_no_noise = (FiniteVMPSSweepParams) sweep_params;
   using TenT = GQTensor<TenElemT, QNT>;
   TenVec<TenT> lenvs(N - 1);
   TenVec<TenT> renvs(N - 1);
@@ -219,7 +224,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteMPINoisedVMPSSweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const char dir,
     const size_t target_site,
     double noise,
@@ -237,20 +242,24 @@ double MasterTwoSiteFiniteVMPSUpdate(
   size_t lsite_idx, rsite_idx;
   size_t lenv_len, renv_len;
   std::string lblock_file, rblock_file;
-  init_state_ctrct_axes = {{2}, {0}};
+  init_state_ctrct_axes = {{2},
+                           {0}};
   svd_ldims = 2;
   switch (dir) {
-    case 'r':lsite_idx = target_site;
+    case 'r':
+      lsite_idx = target_site;
       rsite_idx = target_site + 1;
       lenv_len = target_site;
       renv_len = N - (target_site + 2);
       break;
-    case 'l':lsite_idx = target_site - 1;
+    case 'l':
+      lsite_idx = target_site - 1;
       rsite_idx = target_site;
       lenv_len = target_site - 1;
       renv_len = N - target_site - 1;
       break;
-    default:std::cout << "dir must be 'r' or 'l', but " << dir << std::endl;
+    default:
+      std::cout << "dir must be 'r' or 'l', but " << dir << std::endl;
       exit(1);
   }
 
@@ -322,7 +331,7 @@ double MasterTwoSiteFiniteVMPSUpdate(
       noise = 0.0;
       need_expand = false;
     } else if (dir == 'l' &&
-        IsQNCovered(*qnscts_left, *qnscts_right)
+               IsQNCovered(*qnscts_left, *qnscts_right)
         ) {
       noise = 0.0;
       need_expand = false;
@@ -385,15 +394,20 @@ double MasterTwoSiteFiniteVMPSUpdate(
 
   TenT the_other_mps_ten;
   switch (dir) {
-    case 'r':mps[lsite_idx] = std::move(u);
-      Contract(&s, &vt, {{1}, {0}}, &the_other_mps_ten);
+    case 'r':
+      mps[lsite_idx] = std::move(u);
+      Contract(&s, &vt, {{1},
+                         {0}}, &the_other_mps_ten);
       mps[rsite_idx] = std::move(the_other_mps_ten);
       break;
-    case 'l':Contract(&u, &s, {{2}, {0}}, &the_other_mps_ten);
+    case 'l':
+      Contract(&u, &s, {{2},
+                        {0}}, &the_other_mps_ten);
       mps[lsite_idx] = std::move(the_other_mps_ten);
       mps[rsite_idx] = std::move(vt);
       break;
-    default:assert(false);
+    default:
+      assert(false);
   }
 
 #ifdef GQMPS2_TIMING_MODE
@@ -415,7 +429,8 @@ double MasterTwoSiteFiniteVMPSUpdate(
       renvs(renv_len + 1) = MasterGrowRightEnvironment(*eff_ham[3], mpo[target_site], mps[target_site], world);
     }
       break;
-    default:assert(false);
+    default:
+      assert(false);
   }
 
 #ifdef GQMPS2_TIMING_MODE
@@ -436,84 +451,6 @@ double MasterTwoSiteFiniteVMPSUpdate(
   return lancz_res.gs_eng;
 }
 
-template<typename TenElemT, typename QNT>
-inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(
-    FiniteMPS<TenElemT, QNT> &mps,
-    TenVec<GQTensor<TenElemT, QNT>> &lenvs,
-    TenVec<GQTensor<TenElemT, QNT>> &renvs,
-    const size_t target_site,
-    const size_t left_boundary,
-    const TwoSiteMPINoisedVMPSSweepParams &sweep_params
-) {
-#ifdef GQMPS2_TIMING_MODE
-  Timer preprocessing_timer("two_site_fvmps_preprocessing");
-#endif
-  auto N = mps.size();
-  if (target_site != left_boundary) {
-    mps.LoadTen(
-        target_site + 2,
-        GenMPSTenName(sweep_params.mps_path, target_site + 2)
-    );
-    auto renv_len = N - (target_site + 2);
-    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-    renvs.LoadTen(renv_len, renv_file);
-    RemoveFile(renv_file);
-  } else {
-    mps.LoadTen(
-        target_site + 2,
-        GenMPSTenName(sweep_params.mps_path, target_site + 2)
-    );
-    auto renv_len = (N - 1) - (target_site + 1);
-    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-    renvs.LoadTen(renv_len, renv_file);
-    RemoveFile(renv_file);
-    auto lenv_len = target_site;
-    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-    lenvs.LoadTen(lenv_len, lenv_file);
-  }
-#ifdef GQMPS2_TIMING_MODE
-  preprocessing_timer.PrintElapsed();
-#endif
-}
-
-template<typename TenElemT, typename QNT>
-inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(
-    FiniteMPS<TenElemT, QNT> &mps,
-    TenVec<GQTensor<TenElemT, QNT>> &lenvs,
-    TenVec<GQTensor<TenElemT, QNT>> &renvs,
-    const size_t target_site,
-    const size_t right_boundary,
-    const TwoSiteMPINoisedVMPSSweepParams &sweep_params
-) {
-#ifdef GQMPS2_TIMING_MODE
-  Timer preprocessing_timer("two_site_fvmps_preprocessing");
-#endif
-  const size_t N = mps.size();
-  if (target_site != right_boundary) {
-    mps.LoadTen(
-        target_site - 2,
-        GenMPSTenName(sweep_params.mps_path, target_site - 2)
-    );
-    auto lenv_len = (target_site + 1) - 2;
-    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-    lenvs.LoadTen(lenv_len, lenv_file);
-    RemoveFile(lenv_file);
-  } else {
-    mps.LoadTen(
-        target_site - 2,
-        GenMPSTenName(sweep_params.mps_path, target_site - 2)
-    );
-    auto renv_len = (N - 1) - target_site;
-    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-    renvs.LoadTen(renv_len, renv_file);
-    auto lenv_len = target_site - 1;
-    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-    RemoveFile(lenv_file);
-  }
-#ifdef GQMPS2_TIMING_MODE
-  preprocessing_timer.PrintElapsed();
-#endif
-}
 
 template<typename TenElemT, typename QNT>
 void MasterTwoSiteFiniteVMPSRightMovingExpand(
@@ -708,15 +645,18 @@ void SlaveTwoSiteFiniteVMPSRightMovingExpand(
       split_idx,
       task,
       &ground_state,
-      {{2}, {0}},
+      {{2},
+       {0}},
       &eff_ham0_times_state
   );
 
   ctrct_executor.Execute();
 
-  Contract(&eff_ham0_times_state, eff_ham[1], {{1, 2}, {0, 1}}, &temp);
+  Contract(&eff_ham0_times_state, eff_ham[1], {{1, 2},
+                                               {0, 1}}, &temp);
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
-  Contract(&temp, eff_ham[2], {{4, 1}, {0, 1}}, &res);
+  Contract(&temp, eff_ham[2], {{4, 1},
+                               {0, 1}}, &res);
   temp.GetBlkSparDataTen().Clear();
   res.FuseIndex(1, 4);
   TenT res1;
@@ -738,9 +678,11 @@ void SlaveTwoSiteFiniteVMPSRightMovingExpand(
     TenT temp, res;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&eff_ham0_times_state, eff_ham[1], {{1, 2}, {0, 1}}, &temp);
+    Contract(&eff_ham0_times_state, eff_ham[1], {{1, 2},
+                                                 {0, 1}}, &temp);
     eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
-    Contract(&temp, eff_ham[2], {{4, 1}, {0, 1}}, &res);
+    Contract(&temp, eff_ham[2], {{4, 1},
+                                 {0, 1}}, &res);
     temp.GetBlkSparDataTen().Clear();
     res.FuseIndex(1, 4);
     TenT res1;
@@ -957,14 +899,17 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
       split_idx,
       task,
       &ground_state,
-      {{2}, {3}},
+      {{2},
+       {3}},
       &eff_ham0_times_state
   );
 
   ctrct_executor.Execute();
-  Contract(&eff_ham0_times_state, eff_ham[2], {{4, 1}, {1, 3}}, &temp);
+  Contract(&eff_ham0_times_state, eff_ham[2], {{4, 1},
+                                               {1, 3}}, &temp);
   eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
-  Contract(&temp, eff_ham[1], {{2, 3}, {1, 3}}, &res);
+  Contract(&temp, eff_ham[1], {{2, 3},
+                               {1, 3}}, &res);
   temp.GetBlkSparDataTen().Clear();
   res.Transpose({1, 3, 4, 2, 0});
   res.FuseIndex(0, 1);
@@ -986,9 +931,11 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
     TenT temp, res;
     ctrct_executor.SetSelectedQNSect(task);
     ctrct_executor.Execute();
-    Contract(&eff_ham0_times_state, eff_ham[2], {{4, 1}, {1, 3}}, &temp);
+    Contract(&eff_ham0_times_state, eff_ham[2], {{4, 1},
+                                                 {1, 3}}, &temp);
     eff_ham0_times_state.GetBlkSparDataTen().Clear();// save for memory
-    Contract(&temp, eff_ham[1], {{2, 3}, {1, 3}}, &res);
+    Contract(&temp, eff_ham[1], {{2, 3},
+                                 {1, 3}}, &res);
     temp.GetBlkSparDataTen().Clear();
     res.Transpose({1, 3, 4, 2, 0});
     res.FuseIndex(0, 1);

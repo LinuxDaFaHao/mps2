@@ -8,27 +8,26 @@
 
 /**
 @file lanczos_solver_impl.h
-@brief Implementation details for Lanczos solver.
+@brief A Lanczos solver for the effective Hamiltonian in MPS-MPO based algorithms.
 */
 
 #ifndef GQMPS2_ALGORITHM_LANCZOS_SOLVER_IMPL_H
 #define GQMPS2_ALGORITHM_LANCZOS_SOLVER_IMPL_H
 
-#include "gqmps2/algorithm/lanczos_solver.h"    // LanczosParams
-#include "gqten/gqten.h"
-#include "gqten/utility/timer.h"                // Timer
-#include "gqmps2/utilities.h"                   // Real
-
-#include <iostream>
-#include <vector>     // vector
 #include <cstring>
 
+#include "gqten/gqten.h"
+
 #if defined(USE_OPENBLAS)
-#include <cblas.h> // Include CBLAS header when OpenBLAS is used
+#include <cblas.h>                              // Use CBLAS header
 #include <lapacke.h>
 #else
-#include "mkl.h"   // Include MKL header when MKL is used
+#include "mkl.h"                                // Use MKL header
 #endif
+
+#include "gqmps2/algorithm/lanczos_params.h"    // LanczosParams
+#include "gqten/utility/timer.h"                // Timer
+#include "gqmps2/utilities.h"                   // Real
 
 namespace gqmps2 {
 
@@ -40,6 +39,7 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
     const std::vector<GQTensor<TenElemT, QNT> *> &,
     GQTensor<TenElemT, QNT> *
 );
+
 template<typename TenElemT, typename QNT>
 GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
     const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
@@ -121,9 +121,11 @@ LanczosRes<TenT> LanczosSolver(
 
   std::vector<std::vector<size_t>> energy_measu_ctrct_axes;
   if (pinit_state->Rank() == 3) {            // For single site update algorithm
-    energy_measu_ctrct_axes = {{0, 1, 2}, {0, 1, 2}};
+    energy_measu_ctrct_axes = {{0, 1, 2},
+                               {0, 1, 2}};
   } else if (pinit_state->Rank() == 4) {    // For two site update algorithm
-    energy_measu_ctrct_axes = {{0, 1, 2, 3}, {0, 1, 2, 3}};
+    energy_measu_ctrct_axes = {{0, 1, 2, 3},
+                               {0, 1, 2, 3}};
   }
 
   std::vector<TenT *> bases(params.max_iterations, nullptr);
@@ -220,8 +222,8 @@ LanczosRes<TenT> LanczosSolver(
     auto energy0_new = eigval;
     if (
         ((energy0 - energy0_new) < params.error) ||
-            (m == eff_ham_eff_dim) ||
-            (m == params.max_iterations - 1)
+        (m == eff_ham_eff_dim) ||
+        (m == params.max_iterations - 1)
         ) {
       TridiagGsSolver(a, b, m + 1, eigval, eigvec, 'V');
       energy0 = energy0_new;
@@ -256,7 +258,8 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_two_site_state(
   using TenT = GQTensor<TenElemT, QNT>;
   auto res = new TenT;
   TenT temp_ten1, temp_ten2, temp_ten3;
-  Contract(eff_ham[0], state, {{2}, {0}}, &temp_ten1);
+  Contract(eff_ham[0], state, {{2},
+                               {0}}, &temp_ten1);
   Contract<TenElemT, QNT, true, true>(temp_ten1, *eff_ham[1], 1, 0, 2, temp_ten2);
   Contract<TenElemT, QNT, true, true>(temp_ten2, *eff_ham[2], 4, 0, 2, temp_ten3);
   Contract<TenElemT, QNT, true, false>(temp_ten3, *eff_ham[3], 4, 1, 2, *res);
@@ -288,7 +291,8 @@ GQTensor<TenElemT, QNT> *eff_ham_mul_single_site_state(
   using TenT = GQTensor<TenElemT, QNT>;
   auto res = new TenT;
   TenT temp_ten;
-  Contract(eff_ham[0], state, {{2}, {0}}, res);
+  Contract(eff_ham[0], state, {{2},
+                               {0}}, res);
   Contract<TenElemT, QNT, true, true>(*res, *eff_ham[1], 1, 0, 2, temp_ten);
   Contract<TenElemT, QNT, true, false>(temp_ten, *eff_ham[2], 3, 1, 2, *res);
   return res;
@@ -305,11 +309,14 @@ inline void TridiagGsSolver(
   auto stev_err_msg = "?stev error.";
   auto stev_jobz_err_msg = "jobz must be  'N' or 'V', but ";
   switch (jobz) {
-    case 'N':ldz = 1;
+    case 'N':
+      ldz = 1;
       break;
-    case 'V':ldz = n;
+    case 'V':
+      ldz = n;
       break;
-    default:std::cout << stev_jobz_err_msg << jobz << std::endl;
+    default:
+      std::cout << stev_jobz_err_msg << jobz << std::endl;
       std::cout << stev_err_msg << std::endl;
       exit(1);
   }
@@ -325,11 +332,14 @@ inline void TridiagGsSolver(
     exit(1);
   }
   switch (jobz) {
-    case 'N':break;
-    case 'V':gs_vec = new double[n];
+    case 'N':
+      break;
+    case 'V':
+      gs_vec = new double[n];
       for (size_t i = 0; i < n; ++i) { gs_vec[i] = z[i * n]; }
       break;
-    default:std::cout << stev_jobz_err_msg << jobz << std::endl;
+    default:
+      std::cout << stev_jobz_err_msg << jobz << std::endl;
       std::cout << stev_err_msg << std::endl;
       exit(1);
   }

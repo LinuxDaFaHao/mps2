@@ -73,7 +73,7 @@ template<typename TenElemT, typename QNT>
 void RunTestDMRGCase(
     FiniteMPS<TenElemT, QNT> &mps,
     const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-    const SweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const double benmrk_e0, const double precision
 ) {
   size_t start_flops = flop;
@@ -137,7 +137,7 @@ TEST_F(TestDMRGSpinSystem, 1DIsing) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       1, 10, 1.0E-5,
       LanczosParams(1.0E-7)
@@ -168,7 +168,7 @@ TEST_F(TestDMRGSpinSystem, 1DIsing) {
     zmpo_gen.AddTerm(1, {zsz, zsz}, {i, i + 1});
   }
   auto zmpo = zmpo_gen.GenMatReprMPO();
-  sweep_params = SweepParams(
+  sweep_params = FiniteVMPSSweepParams(
       4,
       1, 10, 1.0E-5,
       LanczosParams(1.0E-7)
@@ -195,7 +195,7 @@ TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -227,7 +227,7 @@ TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
   }
   auto zmpo = zmpo_gen.GenMatReprMPO();
 
-  sweep_params = SweepParams(
+  sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -260,7 +260,7 @@ TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -287,7 +287,7 @@ TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
   }
   auto zmpo = zmpo_gen.GenMatReprMPO();
 
-  sweep_params = SweepParams(
+  sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -320,7 +320,7 @@ TEST_F(TestDMRGSpinSystem, 2DKitaevSimpleCase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-4,
       LanczosParams(1.0E-10)
@@ -467,7 +467,7 @@ TEST(TestTwoSiteAlgorithmNoSymmetrySpinSystem, 2DKitaevComplexCase) {
       was_up = true;
     }
   }
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       60, 60, 1.0E-4,
       LanczosParams(1.0E-10)
@@ -555,7 +555,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem2U1Symm, 1DCase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       11,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -609,7 +609,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem2U1Symm, 2DCase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       10,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -760,7 +760,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem1U1Symm, RashbaTermCase) {
   }
   auto mpo = mpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       8,
       30, 30, 1.0E-4,
       LanczosParams(1.0E-14, 100)
@@ -921,7 +921,7 @@ TEST_F(TestTwoSiteAlgorithmHubbardSystem, 2Dcase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       10,
       16, 16, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -1089,7 +1089,7 @@ TEST_F(TestKondoInsulatorSystem, doublechain) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       5,
       64, 64, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -1231,7 +1231,7 @@ TEST_F(TestKondoInsulatorSystem, doublechain) {
 //qn_label=3-qn_label;
 //}
 //DirectStateInitMps(dmps, stat_labs, pb_set, qn0);
-//auto sweep_params = SweepParams(
+//auto sweep_params = FiniteVMPSSweepParams(
 //5,
 //256, 256, 1.0E-10,
 //true,

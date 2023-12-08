@@ -14,7 +14,7 @@
 #ifndef GQMPS2_ALGORITHM_LANCZOS_DMRG_SOLVER_IMPL_H
 #define GQMPS2_ALGORITHM_LANCZOS_DMRG_SOLVER_IMPL_H
 
-#include "gqmps2/algorithm/lanczos_solver.h"    // LanczosParams
+#include "gqmps2/algorithm/lanczos_params.h"    // LanczosParams
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"                // Timer
 #include "gqmps2/algorithm/dmrg/dmrg.h"         // EffectiveHamiltonianTerm

@@ -10,11 +10,11 @@
 #define GQMPS2_ALGORITHM_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_IMPL_H
 
 #include "gqten/gqten.h"
-#include "gqmps2/algorithm/tdvp/two_site_update_finite_tdvp.h"    // TDVPSweepParams
+#include "gqmps2/algorithm/tdvp/tdvp_evolve_params.h"    // TDVPEvolveParams
 #include "gqmps2/one_dim_tn/mpo/mpo.h"                            // MPO
 #include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"          // FiniteMPS
 #include "gqmps2/utilities.h"                                     // IsPathExist, CreatPath
-#include "gqmps2/algorithm/lanczos_expmv_solver_impl.h"           // LanczosExpmvSolver
+#include "lanczos_expmv_solver_impl.h"           // LanczosExpmvSolver
 #include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps_measu.h"    // DumpSites, DumpAvgVal
 #include "gqmps2/algorithm/vmps/two_site_update_finite_vmps_impl.h" //InitEnvs
 
@@ -60,7 +60,7 @@ void TwoSiteFiniteTDVPEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     const MPO<GQTensor<TenElemT, QNT>> &,
-    const TDVPSweepParams<QNT> &,
+    const TDVPEvolveParams<QNT> &,
     const size_t
 );
 
@@ -70,14 +70,14 @@ void SingleSiteFiniteTDVPBackwardEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &,
     TenVec<GQTensor<TenElemT, QNT>> &,
     const MPO<GQTensor<TenElemT, QNT>> &,
-    const TDVPSweepParams<QNT> &,
+    const TDVPEvolveParams<QNT> &,
     const size_t
 );
 
 template<typename TenElemT, typename QNT>
 std::vector<TenElemT> CalPsi1OpPsi2(
     const SiteVec<TenElemT, QNT> &,
-    const TDVPSweepParams<QNT> &
+    const TDVPEvolveParams<QNT> &
 );
 
 template<typename AvgT>
@@ -105,7 +105,7 @@ template<typename TenElemT, typename QNT>
 DynamicMeasuRes<TenElemT> TwoSiteFiniteTDVP(
     FiniteMPS<TenElemT, QNT> &mps, //initial state, empty, saved in disk
     const MPO<GQTensor<TenElemT, QNT>> &mpo, //saved in memory,
-    const TDVPSweepParams<QNT> &sweep_params,
+    const TDVPEvolveParams<QNT> &sweep_params,
     const std::string measure_file_base_name
 ) {
   //TenElemT == GQTEN_Complex
@@ -134,7 +134,7 @@ DynamicMeasuRes<TenElemT> TwoSiteFiniteTDVP(
   if (!IsPathExist(sweep_params.temp_path)) {
     CreatPath(sweep_params.temp_path);
   }
-  InitEnvs(mps, mpo, SweepParams(sweep_params), 1);
+  InitEnvs(mps, mpo, FiniteVMPSSweepParams(sweep_params), 1);
 
   if (!IsPathExist(sweep_params.measure_temp_path)) {
     CreatPath(sweep_params.measure_temp_path);
@@ -182,7 +182,7 @@ template<typename TenElemT, typename QNT>
 void TwoSiteFiniteTDVPSweep(
     const SiteVec<TenElemT, QNT> &site_vec,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TDVPSweepParams<QNT> &sweep_params
+    const TDVPEvolveParams<QNT> &sweep_params
 ) {
 
   using TenT = GQTensor<TenElemT, QNT>;
@@ -192,8 +192,8 @@ void TwoSiteFiniteTDVPSweep(
   TenVec<TenT> lenvs(N - 1);
   TenVec<TenT> renvs(N - 1);
 
-  SweepParams sweep_params_temp = SweepParams(sweep_params); //used to load and dump data
-  TDVPSweepParams<QNT> sweep_params_full_step = sweep_params;
+  FiniteVMPSSweepParams sweep_params_temp = FiniteVMPSSweepParams(sweep_params); //used to load and dump data
+  TDVPEvolveParams<QNT> sweep_params_full_step = sweep_params;
   sweep_params_full_step.tau = sweep_params.tau * 2; // used in last two site
 
   mps.LoadTen(
@@ -252,7 +252,7 @@ void TwoSiteFiniteTDVPEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TDVPSweepParams<QNT> &sweep_params,
+    const TDVPEvolveParams<QNT> &sweep_params,
     const size_t target_site
 ) {
   static_assert((dir == 'r' || dir == 'l'),
@@ -385,7 +385,7 @@ void SingleSiteFiniteTDVPBackwardEvolution(
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TDVPSweepParams<QNT> &sweep_params,
+    const TDVPEvolveParams<QNT> &sweep_params,
     const size_t target_site
 ) {
   Timer update_timer("single_site_ftdvp_update");
@@ -515,7 +515,7 @@ void SingleSiteFiniteTDVPBackwardEvolution(
 template<typename TenElemT, typename QNT>
 std::vector<TenElemT> CalPsi1OpPsi2(
     const SiteVec<TenElemT, QNT> &site_vec,
-    const TDVPSweepParams<QNT> &sweep_params
+    const TDVPEvolveParams<QNT> &sweep_params
 ) {
   const std::string mps1_path = sweep_params.mps_path;
   const std::string mps2_path = sweep_params.initial_mps_path;

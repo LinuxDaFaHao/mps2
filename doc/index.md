@@ -299,9 +299,9 @@ The type of the result MPO `mpo` is gqmps2::MPO which is an alias of gqmps2::Ten
 
 ### MPS optimization algorithms
 #### Two-site variational MPS algorithm
-GraceQ/MPS2 offer gqmps2::TwoSiteFiniteVMPS function to perform two-site DMRG algorithm in the language of one-dimensional tensor network (MPS and MPO). To call this function, we should define the runtime parameters first using gqmps2::SweepParams.
+GraceQ/MPS2 offer gqmps2::TwoSiteFiniteVMPS function to perform two-site DMRG algorithm in the language of one-dimensional tensor network (MPS and MPO). To call this function, we should define the runtime parameters first using gqmps2::FiniteVMPSSweepParams.
 ```cpp
-gqmps2::SweepParams sweep_params(
+gqmps2::FiniteVMPSSweepParams sweep_params(
     Sweeps,                   // Number of DMRG sweeps
     Dmin, Dmax, TruncErr,     // The minimal kept bond dimension, the maximal kept bond dimension, and the target truncation error
     gqmps2::LanczosParams(    // Parameters used by Lanczos matrix diagonalization algorithm
@@ -385,7 +385,7 @@ int main() {
   double TruncErr = 1e-7;
   double LanczErr = 1e-8;
   size_t MaxLanczIter = 100;
-  gqmps2::SweepParams sweep_params(
+  gqmps2::FiniteVMPSSweepParams sweep_params(
       Sweeps,
       Dmin, Dmax, TruncErr,
       gqmps2::LanczosParams(LanczErr, MaxLanczIter)

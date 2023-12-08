@@ -6,12 +6,12 @@
 * Description: GraceQ/MPS2 project. Implementation details for two site tdvp.
 */
 
-#ifndef GQMPS2_ALGORITHM_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_H
-#define GQMPS2_ALGORITHM_TDVP_TWO_SITE_UPDATE_FINITE_TDVP_H
+#ifndef GQMPS2_ALGORITHM_TDVP_TDVP_EVOLVE_PARAMS_H
+#define GQMPS2_ALGORITHM_TDVP_TDVP_EVOLVE_PARAMS_H
 
 #include "gqmps2/consts.h"                      // kMpsPath, kRuntimeTempPath
-#include "gqmps2/algorithm/lanczos_solver.h"    // LanczParams
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h" //SweepParams
+#include "gqmps2/algorithm/lanczos_params.h"    // LanczParams
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h" //FiniteVMPSSweepParams
 #include <string>                               // string
 
 
@@ -19,9 +19,9 @@ namespace gqmps2 {
 using namespace gqten;
 
 template <typename QNT>
-struct TDVPSweepParams {
-  TDVPSweepParams() = default;
-  TDVPSweepParams(
+struct TDVPEvolveParams {
+  TDVPEvolveParams() = default;
+  TDVPEvolveParams(
       const double tau, const size_t step,
       const size_t site_0,
       const GQTensor<GQTEN_Complex, QNT>& op0,
@@ -47,8 +47,8 @@ struct TDVPSweepParams {
       measure_temp_path(measure_temp_path) {}
 
 
-  operator SweepParams() const {
-    return SweepParams(
+  operator FiniteVMPSSweepParams() const {
+    return FiniteVMPSSweepParams(
         step, Dmin, Dmax, trunc_err,
         lancz_params,
         mps_path, temp_path

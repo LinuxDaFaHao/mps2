@@ -15,7 +15,7 @@
 @file lanczos_dmrg_solver_mpi_master.h
 @brief Implementation details for Lanczos solver in DMRG.
 */
-#include "gqmps2/algorithm/lanczos_solver.h"    // LanczosParams
+#include "gqmps2/algorithm/lanczos_params.h"    // LanczosParams
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"                // Timer
 #include "gqmps2/algorithm/dmrg/dmrg.h"         // EffectiveHamiltonianTerm

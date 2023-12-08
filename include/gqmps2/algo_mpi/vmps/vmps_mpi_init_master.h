@@ -27,7 +27,7 @@
 #include <map>
 #include "gqten/gqten.h"
 #include "gqmps2/one_dim_tn/mps_all.h"
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h"
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"
 #include "boost/mpi.hpp"
 #include "gqmps2/algorithm/vmps/vmps_init.h"                        // CheckAndUpdateBoundaryMPSTensors...
@@ -76,7 +76,7 @@ template<typename TenElemT, typename QNT>
 std::pair<size_t, size_t> TwoSiteFiniteVMPSInit(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const SweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     mpi::communicator world) {
 
   assert(world.rank() == 0);

@@ -15,43 +15,41 @@
 #define GQMPS2_ALGORITHM_VMPS_TWO_SITE_UPDATE_NOISE_FINITE_VMPS_IMPL_H
 
 
-#include "gqmps2/algorithm/vmps/single_site_update_finite_vmps.h"   // SingleVMPSSweepParams
-#include "gqmps2/algorithm/vmps/two_site_update_finite_vmps.h"      // helper functions
-#include "gqmps2/one_dim_tn/mpo/mpo.h"                              // MPO
-#include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"            // FiniteMPS
-#include "gqmps2/utilities.h"                                       // IsPathExist, CreatPath
-#include "gqmps2/one_dim_tn/framework/ten_vec.h"                    // TenVec
-#include "gqmps2/consts.h"
-#include "gqten/gqten.h"
-#include "gqten/utility/timer.h"                                    // Timer
-
-#include <iostream>
+#include <stdio.h>                                                // remove
 #include <iomanip>
-#include <vector>
-#include <string>
 
-#include <stdio.h>    // remove
+#include "gqten/gqten.h"
+#include "gqten/utility/timer.h"                                  // Timer
+
+#include "gqmps2/algorithm/vmps/vmps_init.h"                      // FiniteVMPSInit
+#include "gqmps2/algorithm/vmps/lanczos_vmps_solver_impl.h"       // LanczosSolver, LanczosParams
+#include "gqmps2/algorithm/finite_vmps_sweep_params.h"            // FiniteVMPSSweepParams
+#include "gqmps2/one_dim_tn/mpo/mpo.h"                            // MPO
+#include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"          // FiniteMPS
+#include "gqmps2/utilities.h"                                     // IsPathExist, CreatPath
+#include "gqmps2/one_dim_tn/framework/ten_vec.h"                  // TenVec
+#include "gqmps2/consts.h"
+
 #ifdef Release
 #define NDEBUG
 #endif
+
 #include <assert.h>
 
-namespace gqmps2{
+namespace gqmps2 {
 using namespace gqten;
 
 
-using TwoSiteVMPSSweepParams = SingleVMPSSweepParams;
-
 // Forward declarition
-template <typename DTenT>
+template<typename DTenT>
 inline double MeasureEE(const DTenT &s, const size_t sdim);
 
-template <typename TenElemT, typename QNT>
-std::pair<size_t,size_t> CheckAndUpdateBoundaryMPSTensors(FiniteMPS<TenElemT, QNT> &,
-                                                          const std::string&,
-                                                          const size_t);
+template<typename TenElemT, typename QNT>
+std::pair<size_t, size_t> CheckAndUpdateBoundaryMPSTensors(FiniteMPS<TenElemT, QNT> &,
+                                                           const std::string &,
+                                                           const size_t);
 
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void UpdateBoundaryEnvs(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
@@ -62,18 +60,18 @@ void UpdateBoundaryEnvs(
     const size_t update_site_num
 );
 
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 double TwoSiteFiniteVMPSSweep(//also a overload
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteVMPSSweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const size_t left_boundary,
     const size_t right_boundary,
-    double& noise_start
+    double &noise_start
 );
 
-template <typename QNT>
-bool IsQNCovered(const QNSectorVec<QNT>&, const QNSectorVec<QNT>&);
+template<typename QNT>
+bool IsQNCovered(const QNSectorVec<QNT> &, const QNSectorVec<QNT> &);
 
 /**
  Function to perform two-site noised update finite vMPS algorithm.
@@ -81,37 +79,39 @@ bool IsQNCovered(const QNSectorVec<QNT>&, const QNSectorVec<QNT>&);
  @note The input MPS will be considered an empty one.
  @note The canonical center of MPS should be set at around left side
 */
-template <typename TenElemT, typename QNT>
-GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of SweepParams
+template<typename TenElemT, typename QNT>
+GQTEN_Double TwoSiteFiniteVMPSWithNoise( //same function name, overload by class of FiniteVMPSSweepParams
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    TwoSiteVMPSSweepParams &sweep_params
-){
+    const FiniteVMPSSweepParams &sweep_params
+) {
+  if (sweep_params.noises.size() == 0) {
+    FiniteVMPSSweepParams sweep_params_copy = sweep_params;
+    sweep_params_copy.noise_valid = false;
+    TwoSiteFiniteVMPS(mps, mpo, sweep_params_copy);
+  }
   assert(mps.size() == mpo.size());
 
   std::cout << "\n";
   std::cout << "***** Two-Site Noised Update VMPS Program *****" << "\n";
-  auto [left_boundary, right_boundary] = FiniteVMPSInit(mps, mpo, (SweepParams)sweep_params);
+  auto [left_boundary, right_boundary] = FiniteVMPSInit(mps, mpo, sweep_params);
 
   std::cout << "Preseted noises: \t[";
-  for(size_t i = 0; i < sweep_params.noises.size(); i++){
+  for (size_t i = 0; i < sweep_params.noises.size(); i++) {
     std::cout << sweep_params.noises[i];
-    if (i!=sweep_params.noises.size()-1) {
+    if (i != sweep_params.noises.size() - 1) {
       std::cout << ", ";
     } else {
       std::cout << "]" << std::endl;
     }
   }
   GQTEN_Double e0;
-
-
-  if (sweep_params.noises.size() == 0) { sweep_params.noises.push_back(0.0); }
   double noise_start;
   mps.LoadTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary));
-  mps.LoadTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1));
+  mps.LoadTen(left_boundary + 1, GenMPSTenName(sweep_params.mps_path, left_boundary + 1));
   for (size_t sweep = 1; sweep <= sweep_params.sweeps; ++sweep) {
     if ((sweep - 1) < sweep_params.noises.size()) {
-      noise_start = sweep_params.noises[sweep-1];
+      noise_start = sweep_params.noises[sweep - 1];
     }
     std::cout << "sweep " << sweep << std::endl;
     Timer sweep_timer("sweep");
@@ -122,7 +122,7 @@ GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of Sweep
   }
   mps.LeftCanonicalizeTen(left_boundary); // make sure the central is at left_boundary + 1
   mps.DumpTen(left_boundary, GenMPSTenName(sweep_params.mps_path, left_boundary), true);
-  mps.DumpTen(left_boundary+1, GenMPSTenName(sweep_params.mps_path, left_boundary+1), true);
+  mps.DumpTen(left_boundary + 1, GenMPSTenName(sweep_params.mps_path, left_boundary + 1), true);
   return e0;
 }
 
@@ -130,14 +130,14 @@ GQTEN_Double TwoSiteFiniteVMPS( //same function name, overload by class of Sweep
 /**
 Two-site (noised) update DMRG algorithm refer to 10.1103/PhysRevB.91.155115
 */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 double TwoSiteFiniteVMPSSweep(//also a overload
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteVMPSSweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const size_t left_boundary,
     const size_t right_boundary,
-    double& noise_start
+    double &noise_start
 ) {
   auto N = mps.size();
   using TenT = GQTensor<TenElemT, QNT>;
@@ -149,23 +149,23 @@ double TwoSiteFiniteVMPSSweep(//also a overload
   const double noise_increase = sweep_params.noise_increase;
   const double max_noise = sweep_params.max_noise;
 
-  double& noise_running = noise_start;
-  for (size_t i = left_boundary; i < right_boundary-1; ++i) {
+  double &noise_running = noise_start;
+  for (size_t i = left_boundary; i < right_boundary - 1; ++i) {
     //The last two site [right_boudary-1, right_boundary] will update when sweep back
-    LoadRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params, left_boundary);    // note: here we need mps[i](do not need load),
+    LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(mps, lenvs, renvs, i, left_boundary, sweep_params);
     // mps[i+1](do not need load), mps[i+2](need load)
     // lenvs[i](do not need load), and mps[i+1]'s renvs
     // mps[i+1]'s renvs file can be removed
-    actual_e0 = CalEnergyEptTwoSite(mps, mpo,lenvs, renvs, i, i+1);
+    actual_e0 = CalEnergyEptTwoSite(mps, mpo, lenvs, renvs, i, i + 1);
     if ((actual_e0 - e0) <= 0.0) {
       // expand and truncate let the energy lower or not change
       // this case is very rare, but include the boundary mps tensor case
       // so we do nothing now
-    } else if ((actual_e0 - e0) >= alpha*fabs(actual_laststep_e0-e0)) {
+    } else if ((actual_e0 - e0) >= alpha * fabs(actual_laststep_e0 - e0)) {
       // below two case suppose actual_laststep_e0-laststep_e0>0, usually it is right
-      noise_running = noise_running*noise_decrease;
+      noise_running = noise_running * noise_decrease;
     } else {
-      noise_running = std::min(noise_running*noise_increase, max_noise);
+      noise_running = std::min(noise_running * noise_increase, max_noise);
     }
     e0 = TwoSiteFiniteVMPSUpdate(
         mps,
@@ -175,15 +175,16 @@ double TwoSiteFiniteVMPSSweep(//also a overload
         noise_running
     );
     actual_laststep_e0 = actual_e0;
-    DumpRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'r', sweep_params);    // note: here we need dump mps[i](free memory),
+    DumpRelatedTensTwoSiteAlgNoiseCase(mps, lenvs, renvs, i, 'r',
+                                       sweep_params);    // note: here we need dump mps[i](free memory),
     // lenvs[i+1](without free memory)
   }
 
-  for (size_t i = right_boundary; i > left_boundary+1; --i) {
-    LoadRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'l', sweep_params, right_boundary);
-    actual_e0 = CalEnergyEptTwoSite(mps, mpo,lenvs, renvs, i-1,i);
+  for (size_t i = right_boundary; i > left_boundary + 1; --i) {
+    LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(mps, lenvs, renvs, i, right_boundary, sweep_params);
+    actual_e0 = CalEnergyEptTwoSite(mps, mpo, lenvs, renvs, i - 1, i);
     if ((actual_e0 - e0) <= 0.0) {
-    } else if ((actual_e0 - e0) >= alpha*fabs(actual_laststep_e0 - e0)) {
+    } else if ((actual_e0 - e0) >= alpha * fabs(actual_laststep_e0 - e0)) {
       noise_running = noise_running * noise_decrease;
     } else {
       noise_running = std::min(noise_running * noise_increase, max_noise);
@@ -196,7 +197,7 @@ double TwoSiteFiniteVMPSSweep(//also a overload
         noise_running
     );
     actual_laststep_e0 = actual_e0;
-    DumpRelatedTensTwoSiteAlg(mps, lenvs, renvs, i, 'l', sweep_params);
+    DumpRelatedTensTwoSiteAlgNoiseCase(mps, lenvs, renvs, i, 'l', sweep_params);
   }
   return e0;
 }
@@ -212,13 +213,13 @@ This function includes below procedure:
 When using this function, one must make sure memory at least contains `mps[target]` tensor,
 `mps[next_site]`, its environment tensors, and `mps[next_next_site]`
 */
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 double TwoSiteFiniteVMPSUpdate(
     FiniteMPS<TenElemT, QNT> &mps,
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
-    const TwoSiteVMPSSweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const char dir,
     const size_t target_site,
     const double preset_noise
@@ -236,7 +237,8 @@ double TwoSiteFiniteVMPSUpdate(
   size_t lsite_idx, rsite_idx;
   size_t lenv_len, renv_len;
   std::string lblock_file, rblock_file;
-  init_state_ctrct_axes = {{2}, {0}};
+  init_state_ctrct_axes = {{2},
+                           {0}};
   svd_ldims = 2;
   switch (dir) {
     case 'r':
@@ -258,7 +260,7 @@ double TwoSiteFiniteVMPSUpdate(
 
   using TenT = GQTensor<TenElemT, QNT>;
 
-  std::vector<TenT *>eff_ham(4);
+  std::vector<TenT *> eff_ham(4);
   eff_ham[0] = lenvs(lenv_len);
   // Safe const casts for MPO local tensors.
   eff_ham[1] = const_cast<TenT *>(&mpo[lsite_idx]);
@@ -291,15 +293,15 @@ double TwoSiteFiniteVMPSUpdate(
   if (fabs(noise) < 1e-10) {
     noise = 0.0;    //just for output
     need_expand = false;
-  }else{
+  } else {
     const size_t physical_dim_l = mps[lsite_idx].GetShape()[1];
     const size_t physical_dim_r = mps[rsite_idx].GetShape()[1];
-    const QNSectorVec<QNT>* qnscts_right;
-    const QNSectorVec<QNT>* qnscts_left;
+    const QNSectorVec<QNT> *qnscts_right;
+    const QNSectorVec<QNT> *qnscts_left;
     Index<QNT> fused_index1, fused_index2;
-    if (physical_dim_l == 2){
-      qnscts_left  = &(mps[lsite_idx].GetIndexes()[0].GetQNScts());
-    }else{
+    if (physical_dim_l == 2) {
+      qnscts_left = &(mps[lsite_idx].GetIndexes()[0].GetQNScts());
+    } else {
       std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
       fused_index1 = FuseTwoIndexAndRecordInfo(
           mps[lsite_idx].GetIndexes()[0],
@@ -309,9 +311,9 @@ double TwoSiteFiniteVMPSUpdate(
       qnscts_left = &(fused_index1.GetQNScts());
     }
 
-    if (physical_dim_r == 2){
+    if (physical_dim_r == 2) {
       qnscts_right = &(mps[rsite_idx].GetIndexes()[2].GetQNScts());
-    }else{
+    } else {
       std::vector<gqten::QNSctsOffsetInfo> qnscts_offset_info_list;
       fused_index2 = FuseTwoIndexAndRecordInfo(
           mps[rsite_idx].GetIndexes()[1],
@@ -321,16 +323,16 @@ double TwoSiteFiniteVMPSUpdate(
       qnscts_right = &(fused_index2.GetQNScts());
     }
 
-    if( dir == 'r' &&
+    if (dir == 'r' &&
         IsQNCovered(*qnscts_right, *qnscts_left)
-        ){
+        ) {
       noise = 0.0;
-      need_expand= false;
-    }else if(dir == 'l' &&
-        IsQNCovered(*qnscts_left, *qnscts_right)
-        ){
+      need_expand = false;
+    } else if (dir == 'l' &&
+               IsQNCovered(*qnscts_left, *qnscts_right)
+        ) {
       noise = 0.0;
-      need_expand= false;
+      need_expand = false;
     }
   }
 
@@ -383,11 +385,13 @@ double TwoSiteFiniteVMPSUpdate(
   switch (dir) {
     case 'r':
       mps[lsite_idx] = std::move(u);
-      Contract(&s, &vt, {{1}, {0}}, &the_other_mps_ten);
+      Contract(&s, &vt, {{1},
+                         {0}}, &the_other_mps_ten);
       mps[rsite_idx] = std::move(the_other_mps_ten);
       break;
     case 'l':
-      Contract(&u, &s, {{2}, {0}}, &the_other_mps_ten);
+      Contract(&u, &s, {{2},
+                        {0}}, &the_other_mps_ten);
       mps[lsite_idx] = std::move(the_other_mps_ten);
       mps[rsite_idx] = std::move(vt);
       break;
@@ -405,12 +409,14 @@ double TwoSiteFiniteVMPSUpdate(
 #endif
 
   switch (dir) {
-    case 'r':{
+    case 'r': {
       lenvs[lenv_len + 1] = std::move(UpdateSiteLenvs(lenvs[lenv_len], mps[target_site], mpo[target_site]));
-    }break;
-    case 'l':{
-      renvs[renv_len + 1] = std::move(UpdateSiteRenvs(renvs[renv_len], mps[target_site], mpo[target_site])  );
-    }break;
+    }
+      break;
+    case 'l': {
+      renvs[renv_len + 1] = std::move(UpdateSiteRenvs(renvs[renv_len], mps[target_site], mpo[target_site]));
+    }
+      break;
     default:
       assert(false);
   }
@@ -420,11 +426,11 @@ double TwoSiteFiniteVMPSUpdate(
 #endif
 
 
-
   auto update_elapsed_time = update_timer.Elapsed();
   std::cout << "Site " << std::setw(4) << target_site
-            << " E0 = " << std::setw(20) << std::setprecision(kLanczEnergyOutputPrecision) << std::fixed << lancz_res.gs_eng
-            << " noise = " <<  std::setprecision(2) << std::scientific  << noise << std::fixed
+            << " E0 = " << std::setw(20) << std::setprecision(kLanczEnergyOutputPrecision) << std::fixed
+            << lancz_res.gs_eng
+            << " noise = " << std::setprecision(2) << std::scientific << noise << std::fixed
             << " TruncErr = " << std::setprecision(2) << std::scientific << actual_trunc_err << std::fixed
             << " D = " << std::setw(5) << D
             << " Iter = " << std::setw(3) << lancz_res.iters
@@ -436,27 +442,26 @@ double TwoSiteFiniteVMPSUpdate(
 }
 
 
-
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 void TwoSiteFiniteVMPSExpand(
     FiniteMPS<TenElemT, QNT> &mps,
     GQTensor<TenElemT, QNT> *gs_vec,
-    const std::vector< GQTensor<TenElemT, QNT> *> &eff_ham,
+    const std::vector<GQTensor<TenElemT, QNT> *> &eff_ham,
     const char dir,
     const size_t target_site,
     const double noise
 ) {
   // note: The expanded tensors are saved in *gs_vec, and mps[next_next_site]
   using TenT = GQTensor<TenElemT, QNT>;
-  TenT* ten_tmp = new TenT();
+  TenT *ten_tmp = new TenT();
   // we suppose mps contain mps[targe_site], mps[next_site],  mps[next_next_site]
-  if (dir=='r') {
+  if (dir == 'r') {
 #ifdef GQMPS2_TIMING_MODE
     Timer contract_timer("\t Contract time for expansion");
 #endif
     TenT temp_ten1, temp_ten2;
-    Contract(eff_ham[0], gs_vec, {{2}, {0}}, &temp_ten1);
+    Contract(eff_ham[0], gs_vec, {{2},
+                                  {0}}, &temp_ten1);
     Contract<TenElemT, QNT, true, true>(temp_ten1, *eff_ham[1], 1, 0, 2, temp_ten2);
     Contract<TenElemT, QNT, true, true>(temp_ten2, *eff_ham[2], 4, 0, 2, *ten_tmp);
 
@@ -474,10 +479,10 @@ void TwoSiteFiniteVMPSExpand(
     scalar_timer.PrintElapsed();
     Timer expansion_timer("\t Magic expansion time");
 #endif
-    gs_vec->Transpose({3,0,1,2});
+    gs_vec->Transpose({3, 0, 1, 2});
     TenT expanded_ten;
-    ExpandMC(gs_vec, ten_tmp, {0},  &expanded_ten);
-    expanded_ten.Transpose({1,2,3,0});
+    ExpandMC(gs_vec, ten_tmp, {0}, &expanded_ten);
+    expanded_ten.Transpose({1, 2, 3, 0});
     (*gs_vec) = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
     expansion_timer.PrintElapsed();
@@ -498,21 +503,24 @@ void TwoSiteFiniteVMPSExpand(
 #ifdef GQMPS2_TIMING_MODE
     expansion_timer.PrintElapsed();
 #endif
-  } else if (dir=='l') {
+  } else if (dir == 'l') {
     size_t next_next_site = target_site - 2;
 #ifdef GQMPS2_TIMING_MODE
     Timer contract_timer("\t Contract time for expansion");
 #endif
-    Contract(gs_vec, eff_ham[3], {{3}, {2}}, ten_tmp);
+    Contract(gs_vec, eff_ham[3], {{3},
+                                  {2}}, ten_tmp);
 
-    InplaceContract(ten_tmp, eff_ham[2], {{2,4}, {1, 3}});
-    InplaceContract(ten_tmp, eff_ham[1], {{1,3},{1,3}});
+    InplaceContract(ten_tmp, eff_ham[2], {{2, 4},
+                                          {1, 3}});
+    InplaceContract(ten_tmp, eff_ham[1], {{1, 3},
+                                          {1, 3}});
 #ifdef GQMPS2_TIMING_MODE
     contract_timer.PrintElapsed();
     Timer fuse_timer("\t Fuse index time for expansion");
 #endif
-    ten_tmp->Transpose({0, 3,4,2,1});
-    ten_tmp->FuseIndex(0,1);
+    ten_tmp->Transpose({0, 3, 4, 2, 1});
+    ten_tmp->FuseIndex(0, 1);
 #ifdef GQMPS2_TIMING_MODE
     fuse_timer.PrintElapsed();
     Timer scalar_timer("\t Scalar multiplication time fo expansion");
@@ -548,96 +556,100 @@ void TwoSiteFiniteVMPSExpand(
 }
 
 
-
-template <typename TenElemT, typename QNT>
-void LoadRelatedTensTwoSiteAlg(
+template<typename TenElemT, typename QNT>
+inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedRightMoving(
     FiniteMPS<TenElemT, QNT> &mps,
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
-    const char dir,
-    const TwoSiteVMPSSweepParams &sweep_params,
-    const size_t boundary
+    const size_t left_boundary,
+    const FiniteVMPSSweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
-  Timer preprocessing_timer("two_site_fvmps_load_tensors");
+  Timer preprocessing_timer("two_site_fvmps_preprocessing");
 #endif
   auto N = mps.size();
-  switch (dir) {
-    case 'r':
-      if (target_site == boundary) {//left_boundary
-        mps.LoadTen(
-            target_site+2,
-            GenMPSTenName(sweep_params.mps_path, target_site+2)
-        );
-
-        auto renv_len = (N - 1) - (target_site + 1);
-        auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-        renvs.LoadTen(renv_len, renv_file);
-        RemoveFile(renv_file);
-
-        auto lenv_len = target_site;
-        auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-        lenvs.LoadTen(lenv_len, lenv_file);
-      } else {
-        mps.LoadTen(
-            target_site + 2,
-            GenMPSTenName(sweep_params.mps_path, target_site + 2)
-        );
-        auto renv_len = N - (target_site + 2);
-        auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-        renvs.LoadTen(renv_len, renv_file);
-        RemoveFile(renv_file);
-      }
-      break;
-    case 'l':
-      if (target_site == boundary) { //right_boundary
-        mps.LoadTen(
-            target_site-2,
-            GenMPSTenName(sweep_params.mps_path, target_site-2)
-        );
-        auto renv_len = N-1-target_site;
-        auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
-        renvs.LoadTen(renv_len, renv_file);
-
-        auto lenv_len = target_site-1;
-        auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-        RemoveFile(lenv_file);
-      } else {
-        mps.LoadTen(
-            target_site - 2,
-            GenMPSTenName(sweep_params.mps_path, target_site - 2)
-        );
-        auto lenv_len = (target_site+1) - 2;
-        auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
-        lenvs.LoadTen(lenv_len, lenv_file);
-        RemoveFile(lenv_file);
-      }
-      break;
-    default:
-      assert(false);
+  if (target_site != left_boundary) {
+    mps.LoadTen(
+        target_site + 2,
+        GenMPSTenName(sweep_params.mps_path, target_site + 2)
+    );
+    auto renv_len = N - (target_site + 2);
+    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
+    renvs.LoadTen(renv_len, renv_file);
+    RemoveFile(renv_file);
+  } else {
+    mps.LoadTen(
+        target_site + 2,
+        GenMPSTenName(sweep_params.mps_path, target_site + 2)
+    );
+    auto renv_len = (N - 1) - (target_site + 1);
+    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
+    renvs.LoadTen(renv_len, renv_file);
+    RemoveFile(renv_file);
+    auto lenv_len = target_site;
+    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
+    lenvs.LoadTen(lenv_len, lenv_file);
   }
 #ifdef GQMPS2_TIMING_MODE
   preprocessing_timer.PrintElapsed();
 #endif
 }
 
+template<typename TenElemT, typename QNT>
+inline void LoadRelatedTensOnTwoSiteAlgWhenNoisedLeftMoving(
+    FiniteMPS<TenElemT, QNT> &mps,
+    TenVec<GQTensor<TenElemT, QNT>> &lenvs,
+    TenVec<GQTensor<TenElemT, QNT>> &renvs,
+    const size_t target_site,
+    const size_t right_boundary,
+    const FiniteVMPSSweepParams &sweep_params
+) {
+#ifdef GQMPS2_TIMING_MODE
+  Timer preprocessing_timer("two_site_fvmps_preprocessing");
+#endif
+  const size_t N = mps.size();
+  if (target_site != right_boundary) {
+    mps.LoadTen(
+        target_site - 2,
+        GenMPSTenName(sweep_params.mps_path, target_site - 2)
+    );
+    auto lenv_len = (target_site + 1) - 2;
+    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
+    lenvs.LoadTen(lenv_len, lenv_file);
+    RemoveFile(lenv_file);
+  } else {
+    mps.LoadTen(
+        target_site - 2,
+        GenMPSTenName(sweep_params.mps_path, target_site - 2)
+    );
+    auto renv_len = (N - 1) - target_site;
+    auto renv_file = GenEnvTenName("r", renv_len, sweep_params.temp_path);
+    renvs.LoadTen(renv_len, renv_file);
+    auto lenv_len = target_site - 1;
+    auto lenv_file = GenEnvTenName("l", lenv_len, sweep_params.temp_path);
+    RemoveFile(lenv_file);
+  }
+#ifdef GQMPS2_TIMING_MODE
+  preprocessing_timer.PrintElapsed();
+#endif
+}
 
-template <typename TenElemT, typename QNT>
-void DumpRelatedTensTwoSiteAlg(
+template<typename TenElemT, typename QNT>
+void DumpRelatedTensTwoSiteAlgNoiseCase(
     FiniteMPS<TenElemT, QNT> &mps,
     TenVec<GQTensor<TenElemT, QNT>> &lenvs,
     TenVec<GQTensor<TenElemT, QNT>> &renvs,
     const size_t target_site,
     const char dir,
-    const TwoSiteVMPSSweepParams &sweep_params
+    const FiniteVMPSSweepParams &sweep_params
 ) {
 #ifdef GQMPS2_TIMING_MODE
   Timer postprocessing_timer("two_site_fvmps_dump_tensors");
 #endif
   auto N = mps.size();
   switch (dir) {
-    case 'r':{
+    case 'r': {
       lenvs.dealloc(target_site);
       renvs.dealloc(N - (target_site + 2));
       mps.DumpTen(
@@ -649,10 +661,11 @@ void DumpRelatedTensTwoSiteAlg(
           target_site + 1,
           GenEnvTenName("l", target_site + 1, sweep_params.temp_path)
       );
-    }break;
-    case 'l':{
-      lenvs.dealloc((target_site+1) - 2);
-      renvs.dealloc(N - (target_site+1));
+    }
+      break;
+    case 'l': {
+      lenvs.dealloc((target_site + 1) - 2);
+      renvs.dealloc(N - (target_site + 1));
       mps.DumpTen(
           target_site,
           GenMPSTenName(sweep_params.mps_path, target_site),
@@ -663,7 +676,8 @@ void DumpRelatedTensTwoSiteAlg(
           next_renv_len,
           GenEnvTenName("r", next_renv_len, sweep_params.temp_path)
       );
-    }break;
+    }
+      break;
     default:
       assert(false);
   }
@@ -673,8 +687,7 @@ void DumpRelatedTensTwoSiteAlg(
 }
 
 
-
-template <typename TenElemT, typename QNT>
+template<typename TenElemT, typename QNT>
 double CalEnergyEptTwoSite(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<GQTensor<TenElemT, QNT>> &mpo,
@@ -696,11 +709,13 @@ double CalEnergyEptTwoSite(
   eff_ham[2] = const_cast<TenT *>(&mpo[rsite]);
   eff_ham[3] = renvs(renv_len);
   TenT wave_function;
-  Contract(mps(lsite), mps(rsite),{{2},{0}},&wave_function);
+  Contract(mps(lsite), mps(rsite), {{2},
+                                    {0}}, &wave_function);
   TenT *h_mul_state = eff_ham_mul_two_site_state(eff_ham, &wave_function);
   TenT scalar_ten;
   TenT wave_function_dag = Dag(wave_function);
-  Contract(h_mul_state, &wave_function_dag, {{0, 1, 2, 3}, {0, 1, 2, 3}}, &scalar_ten);
+  Contract(h_mul_state, &wave_function_dag, {{0, 1, 2, 3},
+                                             {0, 1, 2, 3}}, &scalar_ten);
   delete h_mul_state;
   double energy = Real(scalar_ten());
 #ifdef GQMPS2_TIMING_MODE
@@ -712,40 +727,40 @@ double CalEnergyEptTwoSite(
 /**
  * if qnsectors1's qn set contains qnsectors2's qn set
  */
-template <typename QNT>
-bool IsQNCovered(const QNSectorVec<QNT>& qnsectors1,
-                 const QNSectorVec<QNT>& qnsectors2){
-  size_t size1( qnsectors1.size() ), size2( qnsectors2.size() );
-  if(size1 < size2 ){
+template<typename QNT>
+bool IsQNCovered(const QNSectorVec<QNT> &qnsectors1,
+                 const QNSectorVec<QNT> &qnsectors2) {
+  size_t size1(qnsectors1.size()), size2(qnsectors2.size());
+  if (size1 < size2) {
     return false;
   }
-  std::vector<size_t> hash_set_of_qns_in_qnsectors1,hash_set_of_qns_in_qnsectors2;
-  hash_set_of_qns_in_qnsectors1.reserve( size1 );
-  hash_set_of_qns_in_qnsectors2.reserve( size2 );
-  for(const QNSector<QNT>& qnsector : qnsectors1){
-    hash_set_of_qns_in_qnsectors1.push_back( qnsector.GetQn().Hash() );
+  std::vector<size_t> hash_set_of_qns_in_qnsectors1, hash_set_of_qns_in_qnsectors2;
+  hash_set_of_qns_in_qnsectors1.reserve(size1);
+  hash_set_of_qns_in_qnsectors2.reserve(size2);
+  for (const QNSector<QNT> &qnsector: qnsectors1) {
+    hash_set_of_qns_in_qnsectors1.push_back(qnsector.GetQn().Hash());
   }
   std::sort(hash_set_of_qns_in_qnsectors1.begin(),
             hash_set_of_qns_in_qnsectors1.end());
-  for(const QNSector<QNT>& qnsector : qnsectors2){
-    hash_set_of_qns_in_qnsectors2.push_back( qnsector.GetQn().Hash() );
+  for (const QNSector<QNT> &qnsector: qnsectors2) {
+    hash_set_of_qns_in_qnsectors2.push_back(qnsector.GetQn().Hash());
   }
   std::sort(hash_set_of_qns_in_qnsectors2.begin(),
             hash_set_of_qns_in_qnsectors2.end());
 
-  if(hash_set_of_qns_in_qnsectors1.back() < hash_set_of_qns_in_qnsectors2.back() ) {
+  if (hash_set_of_qns_in_qnsectors1.back() < hash_set_of_qns_in_qnsectors2.back()) {
     return false;
   }
 
   auto iter1 = hash_set_of_qns_in_qnsectors1.begin();
   auto iter2 = hash_set_of_qns_in_qnsectors2.begin();
-  while( iter2 < hash_set_of_qns_in_qnsectors2.end() ) {
-    if( (*iter1) < (*iter2) ) {
+  while (iter2 < hash_set_of_qns_in_qnsectors2.end()) {
+    if ((*iter1) < (*iter2)) {
       iter1++;
-    }else if( (*iter1) == (*iter2) ) {
+    } else if ((*iter1) == (*iter2)) {
       iter1++;
       iter2++;
-    }else {
+    } else {
       return false;
     }
   }

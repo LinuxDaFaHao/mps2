@@ -20,7 +20,7 @@
 #define GQMPS2_ALGO_MPI_LANCZOS_SOLVER_MPI_H
 
 #include <stdlib.h>                             // size_t
-#include "gqmps2/algorithm/lanczos_solver.h"    // Lanczos Params
+#include "gqmps2/algorithm/lanczos_params.h"    // Lanczos Params
 #include "boost/mpi.hpp"                        // mpi::communicator
 #include "gqmps2/algo_mpi/mps_algo_order.h"          // order
 #include "gqten/gqten.h"                        // GQTensor

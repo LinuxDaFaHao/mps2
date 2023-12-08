@@ -8,19 +8,16 @@
 
 #define GQTEN_COUNT_FLOPS 1
 
-#include "gqmps2/gqmps2.h"
 #include "gtest/gtest.h"
 #include "gqten/gqten.h"
-#include "boost/mpi.hpp"
-
-#include <vector>
-#include <cstdlib>     // system
+#include "gqmps2/gqmps2.h"
+#include "../testing_utils.h"
 
 using namespace gqmps2;
 using namespace gqten;
 
-using U1QN = QN<U1QNVal>;
-using U1U1QN = QN<U1QNVal, U1QNVal>;
+using U1QN = special_qn::U1QN;
+using U1U1QN = special_qn::U1U1QN;
 
 using IndexT = Index<U1QN>;
 using IndexT2 = Index<U1U1QN>;
@@ -41,42 +38,13 @@ using DMPS2 = FiniteMPS<GQTEN_Double, U1U1QN>;
 using ZMPS = FiniteMPS<GQTEN_Complex, U1QN>;
 using ZMPS2 = FiniteMPS<GQTEN_Complex, U1U1QN>;
 
-boost::mpi::environment env(mpi::threading::multiple);
-
-// Helpers
-inline void KeepOrder(size_t &x, size_t &y) {
-  if (x > y) {
-    auto temp = y;
-    y = x;
-    x = temp;
-  }
-}
-
-inline size_t coors2idx(
-    const size_t x, const size_t y, const size_t Nx, const size_t Ny) {
-  return x * Ny + y;
-}
-
-inline size_t coors2idxSquare(
-    const int x, const int y, const size_t Nx, const size_t Ny) {
-  return x * Ny + y;
-}
-
-inline size_t coors2idxHoneycomb(
-    const int x, const int y, const size_t Nx, const size_t Ny) {
-  return Ny * (x % Nx) + y % Ny;
-}
-
-inline void RemoveFolder(const std::string &folder_path) {
-  std::string command = "rm -rf " + folder_path;
-  system(command.c_str());
-}
+boost::mpi::environment env;
 
 template<typename TenElemT, typename QNT>
 void RunTestDMRGCase(
     FiniteMPS<TenElemT, QNT> &mps,
     const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
-    const SweepParams &sweep_params,
+    const FiniteVMPSSweepParams &sweep_params,
     const double benmrk_e0, const double precision,
     mpi::communicator &world
 ) {
@@ -120,6 +88,7 @@ struct TestDMRGSpinSystem : public testing::Test {
   ZMPS zmps = ZMPS(zsite_vec_6);
 
   mpi::communicator world;
+
   void SetUp(void) {
 
     ::testing::TestEventListeners &listeners =
@@ -146,18 +115,13 @@ struct TestDMRGSpinSystem : public testing::Test {
 };
 
 TEST_F(TestDMRGSpinSystem, 1DIsing) {
-  if (env.thread_level() < mpi::threading::multiple) {
-    std::cout << "thread level of env is not right." << std::endl;
-    env.abort(-1);
-  }
-
   auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
   for (size_t i = 0; i < N - 1; ++i) {
     dmpo_gen.AddTerm(1, {dsz, dsz}, {i, i + 1});
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       1, 10, 1.0E-5,
       LanczosParams(1.0E-7)
@@ -192,7 +156,7 @@ TEST_F(TestDMRGSpinSystem, 1DIsing) {
     zmpo_gen.AddTerm(1, {zsz, zsz}, {i, i + 1});
   }
   auto zmpo = zmpo_gen.GenMatReprMPO();
-  sweep_params = SweepParams(
+  sweep_params = FiniteVMPSSweepParams(
       4,
       1, 10, 1.0E-5,
       LanczosParams(1.0E-7)
@@ -223,7 +187,7 @@ TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -259,7 +223,7 @@ TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
   }
   auto zmpo = zmpo_gen.GenMatReprMPO();
 
-  sweep_params = SweepParams(
+  sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -297,7 +261,7 @@ TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -328,7 +292,7 @@ TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
   }
   auto zmpo = zmpo_gen.GenMatReprMPO();
 
-  sweep_params = SweepParams(
+  sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-7)
@@ -364,7 +328,7 @@ TEST_F(TestDMRGSpinSystem, 2DKitaevSimpleCase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-4,
       LanczosParams(1.0E-10)
@@ -522,7 +486,7 @@ TEST(TestTwoSiteAlgorithmNoSymmetrySpinSystem, 2DKitaevComplexCase) {
       was_up = true;
     }
   }
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       4,
       60, 60, 1.0E-4,
       LanczosParams(1.0E-10)
@@ -573,6 +537,7 @@ struct TestTwoSiteAlgorithmTjSystem2U1Symm : public testing::Test {
   ZMPS2 zmps = ZMPS2(zsite_vec_4);
 
   boost::mpi::communicator world;
+
   void SetUp(void) {
     df({0, 0}) = -1;
     df({1, 1}) = -1;
@@ -619,7 +584,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem2U1Symm, 1DCase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       11,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -681,7 +646,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem2U1Symm, 2DCase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       10,
       8, 8, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -749,6 +714,7 @@ struct TestTwoSiteAlgorithmTjSystem1U1Symm : public testing::Test {
   ZGQTensor zid = ZGQTensor({pb_in, pb_out});
 
   boost::mpi::communicator world;
+
   void SetUp(void) {
     zf({0, 0}) = -1;
     zf({1, 1}) = -1;
@@ -846,7 +812,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem1U1Symm, RashbaTermCase) {
   }
   auto mpo = mpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       8,
       30, 30, 1.0E-4,
       LanczosParams(1.0E-14, 100)
@@ -1017,7 +983,7 @@ TEST_F(TestTwoSiteAlgorithmHubbardSystem, 2Dcase) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       10,
       16, 16, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -1139,6 +1105,7 @@ struct TestKondoInsulatorSystem : public testing::Test {
   std::vector<IndexT> pb_set = std::vector<IndexT>(N);
 
   mpi::communicator world;
+
   void SetUp(void) {
     ::testing::TestEventListeners &listeners =
         ::testing::UnitTest::GetInstance()->listeners();
@@ -1198,7 +1165,7 @@ TEST_F(TestKondoInsulatorSystem, doublechain) {
   }
   auto dmpo = dmpo_gen.GenMatReprMPO();
 
-  auto sweep_params = SweepParams(
+  auto sweep_params = FiniteVMPSSweepParams(
       5,
       64, 64, 1.0E-9,
       LanczosParams(1.0E-8, 20)
@@ -1354,7 +1321,7 @@ TEST_F(TestKondoInsulatorSystem, doublechain) {
 //  for (size_t i = 0; i < N; ++i) { stat_labs.push_back(i % 2); }
 //  DirectStateInitMps(dmps, stat_labs);
 //
-//  auto sweep_params = SweepParams(
+//  auto sweep_params = FiniteVMPSSweepParams(
 //      4,
 //      10, 10, 1.0E-9,
 //      LanczosParams(1.0E-7)
@@ -1367,7 +1334,7 @@ TEST_F(TestKondoInsulatorSystem, doublechain) {
 //
 //  FiniteDMRG(dmps, dmpo, sweep_params, world);
 //
-//  sweep_params = SweepParams(
+//  sweep_params = FiniteVMPSSweepParams(
 //      4,
 //      100, 100, 1.0E-9,
 //      LanczosParams(1.0E-7)
