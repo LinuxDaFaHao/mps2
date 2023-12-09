@@ -13,7 +13,7 @@
 #include "gqmps2/algo_mpi/mps_algo_order.h"                            //kMasterRank, Order...
 #include "gqmps2/algo_mpi/tdvp/two_site_update_finite_tdvp_mpi.h" //MPITDVPSweepParams
 #include "gqmps2/algorithm/tdvp/tdvp_evolve_params.h"    //DynamicMeasuRes..
-#include "gqmps2/algo_mpi/lanczos_expmv_solver_mpi.h"             //MasterLanczosExpmvSolver, SlaveLanczosExpmvSolver
+#include "lanczos_expmv_solver_mpi.h"             //MasterLanczosExpmvSolver, SlaveLanczosExpmvSolver
 #include "gqmps2/algo_mpi/env_tensor_update_slave.h"
 
 namespace gqmps2 {

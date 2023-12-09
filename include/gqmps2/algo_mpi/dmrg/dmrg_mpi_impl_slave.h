@@ -433,8 +433,10 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
 #ifdef GQMPS2_MPI_TIMING_MODE
     slave_hamil_multiply_state_computation_timer.Suspend();
 #endif
-    send_gqten(world_, kMasterRank, id_, sub_sum);
+  } else {
+    sub_sum = Tensor(state.GetIndexes());
   }
+  send_gqten(world_, kMasterRank, 10086, sub_sum);
 
   Tensor temp_scalar_ten;
   GQTEN_Double sub_overlap = 0.0;
@@ -453,11 +455,8 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
 #ifdef GQMPS2_MPI_TIMING_MODE
     slave_hamil_multiply_state_computation_timer.Suspend();
 #endif
-    MPI_Barrier(MPI_Comm(world_));
-    world_.send(kMasterRank, id_, sub_overlap);
-  } else {
-    MPI_Barrier(MPI_Comm(world_));
   }
+  world_.send(kMasterRank, 10087, sub_overlap);
 #ifdef GQMPS2_MPI_TIMING_MODE
   slave_hamil_multiply_state_computation_timer.PrintElapsed();
   slave_hamil_multiply_state_timer.PrintElapsed();

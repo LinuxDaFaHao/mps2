@@ -10,7 +10,7 @@
 #include "../testing_utils.h"
 #include "gqten/gqten.h"
 #include "gqten/utility/timer.h"
-#include "gqmps2/algo_mpi/lanczos_solver_mpi_master.h"
+#include "gqmps2/algo_mpi/vmps/lanczos_solver_mpi_master.h"
 #include "boost/mpi.hpp"
 
 #include "gtest/gtest.h"

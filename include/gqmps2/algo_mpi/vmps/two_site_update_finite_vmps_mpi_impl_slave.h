@@ -18,7 +18,7 @@
 #include "gqmps2/algo_mpi/env_tensor_update_slave.h"                //MasterGrowLeftEnvironment, MasterGrowRightEnvironment
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"               //InitEnvsSlave
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi_slave.h"
+#include "lanczos_solver_mpi_slave.h"
 namespace gqmps2 {
 using namespace gqten;
 namespace mpi = boost::mpi;

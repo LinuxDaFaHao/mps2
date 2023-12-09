@@ -323,9 +323,12 @@ MPOGenerator<TenElemT, QNT>::GenMatReprMPO(const bool show_matrix) {
   auto label_coef_mapping = coef_label_convertor_.GetLabelObjMapping();
   auto label_op_mapping = op_label_convertor_.GetLabelObjMapping();
   // Print MPO tensors virtual bond dimension.
+  std::cout << "[";
   for (auto &mpo_ten_repr: fsm_comp_mat_repr) {
-    std::cout << std::setw(3) << mpo_ten_repr.cols << std::endl;
+    std::cout << std::setw(3) << mpo_ten_repr.cols;
   }
+  std::cout << "]" << std::endl;
+
 
   MatReprMPO<GQTensorT> mat_repr_mpo(N_);
   for (size_t i = 0; i < N_; ++i) {

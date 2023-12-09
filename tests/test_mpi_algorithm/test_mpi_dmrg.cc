@@ -10,7 +10,11 @@
 
 #include "gtest/gtest.h"
 #include "gqten/gqten.h"
-#include "gqmps2/gqmps2.h"
+#include "gqmps2/one_dim_tn/mpo/mpo.h"                              // MPO
+#include "gqmps2/one_dim_tn/mpo/mpogen/mpogen.h"                    // MPOGenerator
+#include "gqmps2/algorithm/dmrg/dmrg.h"
+#include "gqmps2/algo_mpi/mps_algo_order.h"
+#include "gqmps2/algo_mpi/dmrg/dmrg_mpi.h"
 #include "../testing_utils.h"
 
 using namespace gqmps2;
@@ -158,8 +162,8 @@ TEST_F(TestDMRGSpinSystem, 1DIsing) {
   auto zmpo = zmpo_gen.GenMatReprMPO();
   sweep_params = FiniteVMPSSweepParams(
       4,
-      1, 10, 1.0E-5,
-      LanczosParams(1.0E-7)
+      1, 10, 1.0E-9,
+      LanczosParams(1.0E-8)
   );
   DirectStateInitMps(zmps, stat_labs);
   if (world.rank() == kMasterRank) {
@@ -173,9 +177,10 @@ TEST_F(TestDMRGSpinSystem, 1DIsing) {
   MeasureOneSiteOp(zmps, zsz, "zsz");
   MeasureTwoSiteOp(zmps, {zsz, zsz}, zid, sites_set, "zszzsz");
   zmps.clear();
-
-  RemoveFolder(sweep_params.mps_path);
-  RemoveFolder(sweep_params.temp_path);
+  if (world.rank() == kMasterRank) {
+    RemoveFolder(sweep_params.mps_path);
+    RemoveFolder(sweep_params.temp_path);
+  }
 }
 
 TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
@@ -190,7 +195,7 @@ TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
   auto sweep_params = FiniteVMPSSweepParams(
       4,
       8, 8, 1.0E-9,
-      LanczosParams(1.0E-7)
+      LanczosParams(1.0E-8)
   );
   std::vector<size_t> stat_labs;
   for (size_t i = 0; i < N; ++i) { stat_labs.push_back(i % 2); }
@@ -199,7 +204,10 @@ TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
     RemoveFolder(sweep_params.mps_path);
     RemoveFolder(sweep_params.temp_path);
     dmps.Dump(sweep_params.mps_path, true);
+
   }
+  world.barrier();
+  assert(IsPathExist(sweep_params.mps_path));
   RunTestDMRGCase(
       dmps, dmpo, sweep_params,
       -2.493577133888, 1.0E-12,
@@ -239,8 +247,10 @@ TEST_F(TestDMRGSpinSystem, 1DHeisenberg) {
       -2.493577133888, 1.0E-12,
       world
   );
-  RemoveFolder(sweep_params.mps_path);
-  RemoveFolder(sweep_params.temp_path);
+  if (world.rank() == kMasterRank) {
+    RemoveFolder(sweep_params.mps_path);
+    RemoveFolder(sweep_params.temp_path);
+  }
 }
 
 TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
@@ -254,7 +264,7 @@ TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
       std::make_pair(3, 5),
       std::make_pair(4, 5)
   };
-  for (auto &p: nn_pairs) {
+  for (auto &p : nn_pairs) {
     dmpo_gen.AddTerm(1, {dsz, dsz}, {p.first, p.second});
     dmpo_gen.AddTerm(0.5, {dsp, dsm}, {p.first, p.second});
     dmpo_gen.AddTerm(0.5, {dsm, dsp}, {p.first, p.second});
@@ -272,8 +282,8 @@ TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
   for (size_t i = 0; i < N; ++i) { stat_labs.push_back(i % 2); }
   DirectStateInitMps(dmps, stat_labs);
   if (world.rank() == kMasterRank) {
-    RemoveFolder(sweep_params.mps_path);
-    RemoveFolder(sweep_params.temp_path);
+//    RemoveFolder(sweep_params.mps_path);
+//    RemoveFolder(sweep_params.temp_path);
     dmps.Dump(sweep_params.mps_path, true);
   }
   RunTestDMRGCase(
@@ -285,7 +295,7 @@ TEST_F(TestDMRGSpinSystem, 2DHeisenberg) {
 
   // Complex Hamiltonian
   auto zmpo_gen = MPOGenerator<GQTEN_Complex, U1QN>(zsite_vec_6, qn0);
-  for (auto &p: nn_pairs) {
+  for (auto &p : nn_pairs) {
     zmpo_gen.AddTerm(1, {zsz, zsz}, {p.first, p.second});
     zmpo_gen.AddTerm(0.5, {zsp, zsm}, {p.first, p.second});
     zmpo_gen.AddTerm(0.5, {zsm, zsp}, {p.first, p.second});
@@ -635,7 +645,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem2U1Symm, 2DCase) {
       std::make_pair(0, 2),
       std::make_pair(2, 3),
       std::make_pair(1, 3)};
-  for (auto &p: nn_pairs) {
+  for (auto &p : nn_pairs) {
     dmpo_gen.AddTerm(-t, dcdagup, p.first, dcup, p.second, df);
     dmpo_gen.AddTerm(-t, dcdagdn, p.first, dcdn, p.second, df);
     dmpo_gen.AddTerm(-t, dcup, p.first, dcdagup, p.second, df);
@@ -671,7 +681,7 @@ TEST_F(TestTwoSiteAlgorithmTjSystem2U1Symm, 2DCase) {
 
   // Complex Hamiltonian
   auto zmpo_gen = MPOGenerator<GQTEN_Complex, U1U1QN>(zsite_vec_4, qn0);
-  for (auto &p: nn_pairs) {
+  for (auto &p : nn_pairs) {
     zmpo_gen.AddTerm(-t, zcdagup, p.first, zcup, p.second, zf);
     zmpo_gen.AddTerm(-t, zcdagdn, p.first, zcdn, p.second, zf);
     zmpo_gen.AddTerm(-t, zcup, p.first, zcdagup, p.second, zf);

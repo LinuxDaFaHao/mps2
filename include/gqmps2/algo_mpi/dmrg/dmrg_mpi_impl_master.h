@@ -23,7 +23,7 @@ class DMRGMPIMasterExecutor : public Executor {
   DMRGMPIMasterExecutor(
       const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
       const FiniteVMPSSweepParams &sweep_params,
-      mpi::communicator &world
+      boost::mpi::communicator &world
   );
 
   ~DMRGMPIMasterExecutor() = default;
@@ -84,7 +84,7 @@ class DMRGMPIMasterExecutor : public Executor {
   // H_eff = \sum_i block_site_ops_[i] direct product site_block_ops_[i]
   SuperBlockHamiltonianTerms<Tensor> hamiltonian_terms_;
 
-  mpi::communicator &world_;
+  boost::mpi::communicator &world_;
   const size_t slave_num_;
 };
 
@@ -92,7 +92,7 @@ template<typename TenElemT, typename QNT>
 DMRGMPIMasterExecutor<TenElemT, QNT>::DMRGMPIMasterExecutor(
     const MatReprMPO<GQTensor<TenElemT, QNT>> &mat_repr_mpo,
     const FiniteVMPSSweepParams &sweep_params,
-    mpi::communicator &world
+    boost::mpi::communicator &world
 ):
     sweep_params(sweep_params),
     N_(mat_repr_mpo.size()),
@@ -183,7 +183,7 @@ double DMRGMPIMasterExecutor<TenElemT, QNT>::TwoSiteUpdate_() {
   //lanczos,
   Timer lancz_timer("two_site_dmrg_lancz");
   MasterBroadcastOrder(lanczos, world_);
-  mpi::broadcast(world_, l_site_, kMasterRank);
+  boost::mpi::broadcast(world_, l_site_, kMasterRank);
   auto lancz_res = LanczosSolver_(init_state);
   auto lancz_elapsed_time = lancz_timer.Elapsed();
 #ifdef GQMPS2_TIMING_MODE
@@ -470,7 +470,7 @@ RightBlockOperatorGroup<GQTensor<TenElemT, QNT>> DMRGMPIMasterExecutor<TenElemT,
     const SparMat<GQTensor<TenElemT, QNT>> &mat_repr_mpo   // site i
 ) {
   size_t res_op_num = mat_repr_mpo.rows;
-  std::cout << "operator number = " << res_op_num << std::endl;
+  std::cout << "right block operator number : " << res_op_num << std::endl;
   size_t &task_num = res_op_num;
   broadcast(world_, task_num, kMasterRank);
 #ifdef GQMPS2_MPI_TIMING_MODE
@@ -579,7 +579,7 @@ void UpdateBoundaryBlockOpsMaster(
     const std::string &temp_path,
     const size_t left_boundary,
     const size_t right_boundary,
-    mpi::communicator &world
+    boost::mpi::communicator &world
 ) {
   using TenT = GQTensor<TenElemT, QNT>;
   auto N = mps.size();
@@ -664,6 +664,6 @@ void DMRGMPIMasterExecutor<TenElemT, QNT>::GrowRightBlockOps_() {
 
 }//gqmps2
 
-#include "gqmps2/algo_mpi/lanczos_dmrg_solver_mpi_master.h"
+#include "lanczos_dmrg_solver_mpi_master.h"
 
 #endif //GQMPS2_ALGO_MPI_DMRG_DMRG_MPI_IMPL_MASTER_H

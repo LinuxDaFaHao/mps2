@@ -24,7 +24,7 @@
 #include "gqmps2/algo_mpi/env_tensor_update_master.h"               //MasterGrowLeftEnvironment, MasterGrowRightEnvironment
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_master.h"                     //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"   //TwoSiteMPIVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi_master.h"                     //MPI Lanczos solver
+#include "lanczos_solver_mpi_master.h"                     //MPI Lanczos solver
 
 namespace gqmps2 {
 using namespace gqten;

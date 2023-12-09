@@ -22,7 +22,7 @@
 #include "gqmps2/algo_mpi/vmps/vmps_mpi_init_slave.h"                         //MPI vmps initial
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi.h"             //TwoSiteMPIVMPSSweepParams
 #include "gqmps2/algo_mpi/vmps/two_site_update_noised_finite_vmps_mpi.h"      //FiniteVMPSSweepParams
-#include "gqmps2/algo_mpi/lanczos_solver_mpi_master.h"                        //MPI Lanczos solver
+#include "lanczos_solver_mpi_master.h"                        //MPI Lanczos solver
 #include "gqmps2/algo_mpi/vmps/two_site_update_finite_vmps_mpi_impl_master.h" //SlaveTwoSiteFiniteVMPS
 #include <thread>                                                             //thread
 

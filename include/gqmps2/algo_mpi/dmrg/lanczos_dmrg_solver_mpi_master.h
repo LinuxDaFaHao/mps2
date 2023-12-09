@@ -260,15 +260,14 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonian
   broadcast_state_timer.PrintElapsed();
 #endif
   const size_t num_terms = hamiltonian_terms_.size();
-  const size_t gather_terms = std::min(num_terms, slave_num_);
-  auto multiplication_res = std::vector<Tensor>(gather_terms);
-  auto pmultiplication_res = std::vector<Tensor *>(gather_terms);
-  const std::vector<TenElemT> &coefs = std::vector<TenElemT>(gather_terms, TenElemT(1.0));
-  for (size_t i = 0; i < gather_terms; i++) {
+  auto multiplication_res = std::vector<Tensor>(slave_num_);
+  auto pmultiplication_res = std::vector<Tensor *>(slave_num_);
+  const std::vector<TenElemT> &coefs = std::vector<TenElemT>(slave_num_, TenElemT(1.0));
+  for (size_t i = 0; i < slave_num_; i++) {
     pmultiplication_res[i] = &multiplication_res[i];
   }
-  for (size_t i = 0; i < gather_terms; i++) {
-    recv_gqten(world_, mpi::any_source, mpi::any_tag, multiplication_res[i]);
+  for (size_t i = 0; i < slave_num_; i++) {
+    recv_gqten(world_, mpi::any_source, 10086, multiplication_res[i]);
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer sum_state_timer("parallel_summation_reduce");
@@ -278,10 +277,9 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonian
 #ifdef GQMPS2_MPI_TIMING_MODE
   sum_state_timer.PrintElapsed();
 #endif
-  MPI_Barrier(MPI_Comm(world_));
-  for (size_t i = 1; i <= gather_terms; i++) {
+  for (size_t i = 1; i <= slave_num_; i++) {
     GQTEN_Double sub_overlap;
-    world_.recv(mpi::any_source, mpi::any_tag, sub_overlap);
+    world_.recv(mpi::any_source, 10087, sub_overlap);
     overlap += sub_overlap;
   }
   return res;
