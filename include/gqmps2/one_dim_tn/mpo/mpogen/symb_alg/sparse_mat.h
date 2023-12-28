@@ -40,12 +40,12 @@ class SparMat {
   /**
    * Element getter and setter.
    *
-   * @param x   row number
-   * @param y   column number
+   * @param row   row number
+   * @param col   column number
    * @return
    */
-  const ElemType &operator()(const size_t x, const size_t y) const {
-    auto offset = CalcOffset(x, y);
+  const ElemType &operator()(const size_t row, const size_t col) const {
+    auto offset = CalcOffset(row, col);
     if (indexes[offset] == -1) {
       return nullelem;
     } else {
@@ -205,8 +205,8 @@ class SparMat {
     indexes = new_indexes;
   }
 
-  size_t CalcOffset(const size_t x, const size_t y) const {
-    return x * cols + y;
+  size_t CalcOffset(const size_t row, const size_t col) const {
+    return row * cols + col;
   }
 
   void Print() const {

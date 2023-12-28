@@ -1,7 +1,7 @@
 
 // SPDX-License-Identifier: LGPL-3.0-only
 /*
-* Author: Hao-Xin Wang <wanghx18@mails.tsinghua.edu.cn>
+* Author: Hao-Xin Wang <wanghaoxin1996@gmail.com>
 * Creation Date: 2023-04-23
 *
 * Description: GraceQ/mps2 project. Unittest for DMRG.
@@ -18,8 +18,8 @@
 using namespace gqmps2;
 using namespace gqten;
 
-using U1QN = QN<U1QNVal>;
-using U1U1QN = QN<U1QNVal, U1QNVal>;
+using special_qn::U1QN;
+using special_qn::U1U1QN;
 
 using IndexT = Index<U1QN>;
 using IndexT2 = Index<U1U1QN>;

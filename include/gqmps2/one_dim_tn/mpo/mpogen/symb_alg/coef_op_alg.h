@@ -107,7 +107,7 @@ class CoefRepr {
   template<typename CoefT>
   CoefT Realize(const std::vector<CoefT> &label_coef_mapping) const {
     CoefT coef = 0;
-    for (auto coef_label: coef_label_list_) {
+    for (auto coef_label : coef_label_list_) {
       coef += label_coef_mapping[coef_label];
     }
     return coef;
@@ -270,15 +270,15 @@ class OpRepr {
       return OpT();
     } else if (base_op_num == 1) {
       return op_label_coef_repr_map_.begin()->second.Realize(label_coef_mapping) *
-             label_op_mapping[op_label_coef_repr_map_.begin()->first];
+          label_op_mapping[op_label_coef_repr_map_.begin()->first];
     } else {
       op = op_label_coef_repr_map_.begin()->second.Realize(label_coef_mapping) *
-           label_op_mapping[op_label_coef_repr_map_.begin()->first];
+          label_op_mapping[op_label_coef_repr_map_.begin()->first];
       auto iter = op_label_coef_repr_map_.begin();
       iter++;
       for (; iter != op_label_coef_repr_map_.end(); iter++) {
         op += iter->second.Realize(label_coef_mapping) *
-              label_op_mapping[iter->first];
+            label_op_mapping[iter->first];
       }
     }
     return op;
@@ -443,8 +443,12 @@ class SparOpReprMat : public SparOpReprMatBase {
     return sorted_col_idxs;
   }
 
-  ///< Find some overall factor
-  CoefRepr CalcRowCoef(const size_t row_idx) {
+  /**
+   * A rough implementation. Only work when the coefs are all the same
+   * @param row_idx
+   * @return
+   */
+  CoefRepr TryCatchRowCommonDivisorCoef(const size_t row_idx) {
     size_t nonull_op_repr_coefs_num = 0;
     CoefRepr res_coef, res_coef_last;
     std::vector<CoefRepr> nonull_op_repr_coefs;
@@ -465,7 +469,13 @@ class SparOpReprMat : public SparOpReprMatBase {
     return res_coef;
   }
 
-  CoefRepr CalcColCoef(const size_t col_idx) {
+  /**
+   * A rough implementation. Only work when the coefs are all the same
+   *
+   * @param col_idx
+   * @return
+   */
+  CoefRepr TryCatchColCommonDivisorCoef(const size_t col_idx) {
     size_t nonull_op_repr_coefs_num = 0;
     CoefRepr res_coef, res_coef_last;
     std::vector<CoefRepr> nonull_op_repr_coefs;
@@ -495,6 +505,10 @@ class SparOpReprMat : public SparOpReprMatBase {
     }
   }
 
+  /**
+   * Remove all the coefficients in one columns
+   * @param col_idx
+   */
   void RemoveColCoef(const size_t col_idx) {
     for (size_t x = 0; x < rows; ++x) {
       if (indexes[CalcOffset(x, col_idx)] != -1) {
@@ -630,7 +644,7 @@ inline OpRepr CoefReprOpReprIncompleteMulti(const CoefRepr &coef, const OpRepr &
   if (op == kNullOpRepr) { return kNullOpRepr; }
   if (coef == kIdCoefRepr) { return op; }
 #ifndef NDEBUG
-  for (auto &[sub_op, c]: op.op_label_coef_repr_map_) {
+  for (auto &[sub_op, c] : op.op_label_coef_repr_map_) {
     if (c != kIdCoefRepr) {
       std::cout << "CoefReprOpReprIncompleteMulti fail!" << std::endl;
       exit(1);
@@ -638,7 +652,7 @@ inline OpRepr CoefReprOpReprIncompleteMulti(const CoefRepr &coef, const OpRepr &
   }
 #endif
   OpRepr res_op_repr(op);
-  for (auto &[sub_op, c]: res_op_repr.op_label_coef_repr_map_) {
+  for (auto &[sub_op, c] : res_op_repr.op_label_coef_repr_map_) {
     c = coef;
   }
   return res_op_repr;
@@ -649,13 +663,19 @@ inline void SparCoefReprMatSparOpReprMatIncompleteMultiKernel(
     const size_t coef_mat_row_idx, const size_t op_mat_col_idx,
     SparOpReprMat &res) {
   OpRepr res_elem;
+  size_t coef_elem_offset = coef_mat_row_idx * coef_mat.cols;
+  size_t op_elem_offset = op_mat_col_idx;
   for (size_t i = 0; i < coef_mat.cols; ++i) {
-    if (coef_mat.indexes[coef_mat.CalcOffset(coef_mat_row_idx, i)] != -1 &&
-        op_mat.indexes[op_mat.CalcOffset(i, op_mat_col_idx)] != -1) {
+    int coef_mat_index = coef_mat.indexes[coef_elem_offset];
+    int op_mat_idx = op_mat.indexes[op_elem_offset];
+    if (coef_mat_index != -1 &&
+        op_mat_idx != -1) {
       res_elem += CoefReprOpReprIncompleteMulti(
-          coef_mat(coef_mat_row_idx, i),
-          op_mat(i, op_mat_col_idx));
+          coef_mat.data[coef_mat_index],
+          op_mat.data[op_mat_idx]);
     }
+    coef_elem_offset++;
+    op_elem_offset += op_mat.cols;
   }
   if (res_elem != kNullOpRepr) {
     res.SetElem(coef_mat_row_idx, op_mat_col_idx, res_elem);
@@ -680,6 +700,7 @@ inline void SparOpReprMatSparCoefReprMatIncompleteMultiKernel(
   }
 }
 
+///< performance hot pots
 inline SparOpReprMat SparCoefReprMatSparOpReprMatIncompleteMulti(
     const SparCoefReprMat &coef_mat, const SparOpReprMat &op_mat) {
   assert(coef_mat.cols == op_mat.rows);
@@ -742,7 +763,7 @@ inline OpReprVec CalcSparOpReprMatRowLinCmb(
     } else {
       for (size_t j = 0; j < m.cols; ++j) {
         auto elem = row[j];
-        for (auto &[sub_op, coef_repr]: elem.op_label_coef_repr_map_) {
+        for (auto &[sub_op, coef_repr] : elem.op_label_coef_repr_map_) {
           assert(coef_repr == kIdCoefRepr); //To Do other case
           coef_repr = cmb_coef;
         }
@@ -770,7 +791,7 @@ inline OpReprVec CalcSparOpReprMatColLinCmb(
     } else {
       for (size_t j = 0; j < m.rows; ++j) {
         auto elem = m(j, i);
-        for (auto &[sub_op, coef_repr]: elem.op_label_coef_repr_map_) {
+        for (auto &[sub_op, coef_repr] : elem.op_label_coef_repr_map_) {
           assert(coef_repr == kIdCoefRepr); //todo : support other case
           coef_repr = cmb_coef;
         }
@@ -859,7 +880,7 @@ inline void SparOpReprMatRowCompresser(
   bool need_separate_row_coef = false;
   SparCoefReprMat row_coef_trans_mat(row_num, row_num);
   for (size_t row_idx = 0; row_idx < row_num; ++row_idx) {
-    auto row_coef = target.CalcRowCoef(row_idx);
+    auto row_coef = target.TryCatchRowCommonDivisorCoef(row_idx);
     if (row_coef != kNullCoefRepr) {
       row_coef_trans_mat.SetElem(row_idx, row_idx, row_coef);
     } else {
@@ -878,6 +899,14 @@ inline void SparOpReprMatRowCompresser(
   SparOpReprMatRowDelinearize(target, follower);
 }
 
+/**
+ * Compress Sparse Operator Representation Matrix by Column Delinearlization
+ * This function is the performance hot spot of MPO generation.
+ *
+ * @param target    The target mpo's matrix representation
+ * @param follower  The next site mpo's matrix representation
+ *
+ */
 inline void SparOpReprMatColCompresser(
     SparOpReprMat &target, SparOpReprMat &follower) {
   assert(target.cols == follower.rows);
@@ -890,7 +919,7 @@ inline void SparOpReprMatColCompresser(
   bool need_separate_col_coef = false;
   SparCoefReprMat col_coef_trans_mat(col_num, col_num);
   for (size_t col_idx = 0; col_idx < col_num; ++col_idx) {
-    auto col_coef = target.CalcColCoef(col_idx);
+    auto col_coef = target.TryCatchColCommonDivisorCoef(col_idx);
     if (col_coef != kNullCoefRepr) {
       col_coef_trans_mat.SetElem(col_idx, col_idx, col_coef);
     } else {
@@ -898,7 +927,8 @@ inline void SparOpReprMatColCompresser(
     }
     if ((col_coef != kNullCoefRepr) && (col_coef != kIdCoefRepr)) {
       need_separate_col_coef = true;
-      target.RemoveColCoef(col_idx);
+      target.RemoveColCoef(col_idx);  //should be division.
+      // Here removing coefficients is work because the realization of TryCatchColCommonDivisorCoef is very crude.
     }
   }
   if (need_separate_col_coef) {

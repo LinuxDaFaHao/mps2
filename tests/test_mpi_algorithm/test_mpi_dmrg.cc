@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 /*
-* Author: Hao-Xin Wang <wanghx18@mails.tsinghua.edu.cn>
+* Author: Hao-Xin Wang <wanghaoxin1996@gmail.com>
 * Creation Date: 2023-04-23
 *
 * Description: GraceQ/mps2 project. Unittest for DMRG.
@@ -53,12 +53,13 @@ void RunTestDMRGCase(
     mpi::communicator &world
 ) {
   size_t start_flops = flop;
-  Timer contract_timer("dmrg");
+  Timer dmrg_timer("dmrg");
   auto e0 = FiniteDMRG(mps, mat_repr_mpo, sweep_params, world);
-  double elapsed_time = contract_timer.Elapsed();
+  double elapsed_time = dmrg_timer.Elapsed();
   size_t end_flops = flop;
   double Gflops_s = (end_flops - start_flops) * 1.e-9 / elapsed_time;
   std::cout << "flops = " << end_flops - start_flops << std::endl;
+  std::cout << "Gflops/s = " << Gflops_s << std::endl;
   if (world.rank() == kMasterRank) {
     EXPECT_NEAR(e0, benmrk_e0, precision);
     EXPECT_TRUE(mps.empty());
@@ -1201,194 +1202,6 @@ TEST_F(TestKondoInsulatorSystem, doublechain) {
   }
 }
 
-
-
-//// Test noised tow-site vMPS algorithm.
-//// Electron-phonon interaction Holstein chain, ref 10.1103/PhysRevB.57.6376
-//struct TestHolsteinChain : public testing::Test {
-//int L = 4;           // The number of electron
-//int Np = 3;          // per electron has Np pseudosite
-//double t = 1;         // electron hopping
-//double g = 1;         // electron-phonon interaction
-//double U = 8;         // Hubbard U
-//double omega = 5;     // phonon on-site potential
-//int N = (1+Np)*L;     // The length of the mps/mpo
-
-//QN qn0 = QN({ QNNameVal("Nf", 0), QNNameVal("Sz", 0) });
-////Fermion(electron)
-//Index pb_outF = Index({
-//QNSector(
-//QN( {QNNameVal("Nf", 2), QNNameVal("Sz",  0)}),
-//1
-//),
-//QNSector(
-//QN( {QNNameVal("Nf", 1), QNNameVal("Sz",  1)} ),
-//1
-//),
-//QNSector(
-//QN( {QNNameVal("Nf", 1), QNNameVal("Sz", -1)} ),
-//1
-//),
-//QNSector(
-//QN( {QNNameVal("Nf", 0), QNNameVal("Sz",  0)} ),
-//1
-//)
-//}, OUT);
-//Index pb_inF = InverseIndex(pb_outF);
-////Boson(Phonon)
-//Index pb_outB = Index({
-//QNSector(
-//QN( {QNNameVal("Nf", 0), QNNameVal("Sz",  0)} ),
-//2
-//)
-//},OUT);
-//Index pb_inB = InverseIndex(pb_outB);
-//DGQTensor nf = DGQTensor({pb_inF, pb_outF}); //fermion number
-//DGQTensor bupcF =DGQTensor({pb_inF,pb_outF});
-//DGQTensor bupaF = DGQTensor({pb_inF,pb_outF});
-//DGQTensor Fbdnc = DGQTensor({pb_inF,pb_outF});
-//DGQTensor Fbdna = DGQTensor({pb_inF,pb_outF});
-//DGQTensor bupc =DGQTensor({pb_inF,pb_outF});
-//DGQTensor bupa = DGQTensor({pb_inF,pb_outF});
-//DGQTensor bdnc = DGQTensor({pb_inF,pb_outF});
-//DGQTensor bdna = DGQTensor({pb_inF,pb_outF});
-//DGQTensor Uterm = DGQTensor({pb_inF,pb_outF}); // Hubbard Uterm, nup*ndown
-
-//DGQTensor a = DGQTensor({pb_inB, pb_outB}); //bosonic annihilation
-//DGQTensor adag = DGQTensor({pb_inB, pb_outB}); //bosonic creation
-//DGQTensor n_a =  DGQTensor({pb_inB, pb_outB}); // the number of phonon
-//DGQTensor idB =  DGQTensor({pb_inB, pb_outB}); // bosonic identity
-//DGQTensor &P1 = n_a;
-//DGQTensor P0 = DGQTensor({pb_inB, pb_outB});
-
-//DTenPtrVec dmps    = DTenPtrVec(N);
-//std::vector<Index> pb_set = std::vector<Index>(N);
-
-
-//void SetUp(void) {
-//  did({0, 0}) = 1;
-//  did({1, 1}) = 1;
-//  dsz({0, 0}) = 0.5;
-//  dsz({1, 1}) = -0.5;
-//  dsp({0, 1}) = 1;
-//  dsm({1, 0}) = 1;
-//
-//  zid({0, 0}) = 1;
-//  zid({1, 1}) = 1;
-//  zsz({0, 0}) = 0.5;
-//  zsz({1, 1}) = -0.5;
-//  zsp({0, 1}) = 1;
-//  zsm({1, 0}) = 1;
-//
-//  auto iter = nn_pairs.begin();
-//  for (size_t i = 0; i < Lx; i++) {
-//    for (size_t j = 0; j < Ly; j++) {
-//      size_t site_a = i * Ly + j;
-//      if (j != Ly - 1) {
-//        size_t site_b = site_a + 1;
-//        iter->first = site_a;
-//        iter->second = site_b;
-//      } else {
-//        size_t site_b = i * Ly;
-//        iter->first = site_b;
-//        iter->second = site_a;
-//      }
-//      iter++;
-//    }
-//  }
-//  for (size_t i = 0; i < Lx - 1; i++) {
-//    for (size_t j = 0; j < Ly; j++) {
-//      size_t site_a = i * Ly + j;
-//      size_t site_b = (i + 1) * Ly + j;
-//      iter->first = site_a;
-//      iter->second = site_b;
-//      iter++;
-//    }
-//  }
-//  assert(iter == nn_pairs.end());
-//
-//}
-//// };
-//
-//
-//
-//// TEST_F(Test2DSpinSystem, 2DHeisenberg) {
-//int main() {
-//  namespace mpi = boost::mpi;
-//  mpi::environment env(mpi::threading::multiple);
-//  mpi::communicator world;
-//  SetUp();
-//  auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_2d, qn0);
-//
-//  for (auto &p: nn_pairs) {
-//    dmpo_gen.AddTerm(1, {dsz, dsz}, {p.first, p.second});
-//    dmpo_gen.AddTerm(0.5, {dsp, dsm}, {p.first, p.second});
-//    dmpo_gen.AddTerm(0.5, {dsm, dsp}, {p.first, p.second});
-//  }
-//  auto dmpo = dmpo_gen.GenMatReprMPO();
-//
-//  std::vector<size_t> stat_labs;
-//  for (size_t i = 0; i < N; ++i) { stat_labs.push_back(i % 2); }
-//  DirectStateInitMps(dmps, stat_labs);
-//
-//  auto sweep_params = FiniteVMPSSweepParams(
-//      4,
-//      10, 10, 1.0E-9,
-//      LanczosParams(1.0E-7)
-//  );
-//
-//  if (world.rank() == 0) {
-//    dmps.Dump(sweep_params.mps_path, true);
-//    RemoveFolder(sweep_params.temp_path);
-//  }
-//
-//  FiniteDMRG(dmps, dmpo, sweep_params, world);
-//
-//  sweep_params = FiniteVMPSSweepParams(
-//      4,
-//      100, 100, 1.0E-9,
-//      LanczosParams(1.0E-7)
-//  );
-//  double e0 = FiniteDMRG(dmps, dmpo, sweep_params, world);
-//
-//  ::MPI_Barrier(MPI_Comm(world));
-//  if (world.rank() == 0) {
-//    std::cout << "e0 = " << e0 << std::endl;
-//    EXPECT_NEAR(e0, -10.264281906484872, 1e-5);
-//    RemoveFolder(sweep_params.mps_path);
-//    RemoveFolder(sweep_params.temp_path);
-//  }
-//
-//  //Complex case
-//  auto zmpo_gen = MPOGenerator<GQTEN_Complex, U1QN>(zsite_vec_2d, qn0);
-//
-//  for (auto &p: nn_pairs) {
-//    zmpo_gen.AddTerm(1, {zsz, zsz}, {p.first, p.second});
-//    zmpo_gen.AddTerm(0.5, {zsp, zsm}, {p.first, p.second});
-//    zmpo_gen.AddTerm(0.5, {zsm, zsp}, {p.first, p.second});
-//  }
-//  auto zmpo = zmpo_gen.GenMatReprMPO();
-//
-//  DirectStateInitMps(zmps, stat_labs);
-//  if (world.rank() == 0) {
-//    zmps.Dump(sweep_params.mps_path, true);
-//    if (IsPathExist(sweep_params.temp_path)) {
-//      RemoveFolder(sweep_params.temp_path);
-//    }
-//    FiniteDMRG(zmps, zmpo, sweep_params);
-//    RemoveFolder(sweep_params.temp_path);
-//  }
-//
-//  e0 = FiniteDMRG(zmps, zmpo, sweep_params, world);
-//
-//  if (world.rank() == 0) {
-//    std::cout << "e0 = " << e0 << std::endl;
-//    EXPECT_NEAR(e0, -10.264281906484872, 1e-5);
-//    RemoveFolder(sweep_params.mps_path);
-//    RemoveFolder(sweep_params.temp_path);
-//  }
-//  return 0;
-//}
 
 
 

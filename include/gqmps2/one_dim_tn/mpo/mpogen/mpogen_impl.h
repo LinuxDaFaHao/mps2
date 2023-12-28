@@ -35,7 +35,6 @@ void AddOpToTailMpoTen(TenT *, const TenT &, const size_t);
 template<typename TenT>
 void AddOpToCentMpoTen(TenT *, const TenT &, const size_t, const size_t);
 
-
 template<typename TenElemT, typename QNT>
 MPOGenerator<TenElemT, QNT>::MPOGenerator(const SiteVec<TenElemT, QNT> &site_vec)
     :MPOGenerator(site_vec, site_vec.sites[0].GetQNSct(0).GetQn() - site_vec.sites[0].GetQNSct(0).GetQn()) {}
@@ -97,7 +96,13 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
     std::cout << "warning: too small hamiltonian coefficient. Neglect the term." << coef << std::endl;
     return;
   }   // If coef is zero, do nothing.
-
+#ifndef NDEBUG
+  for (size_t i = 0; i < local_ops.size(); i++) {
+    const auto &op = local_ops[i];
+    const size_t site = local_ops_idxs[i];
+    assert(site_vec_.sites[site] == op.GetIndex(1));
+  }
+#endif
   // sort the site idxs
   if (!std::is_sorted(local_ops_idxs.cbegin(), local_ops_idxs.cend())) {
     std::cout << "sort operators and sites according the site order. " << std::endl;
@@ -183,7 +188,7 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
   assert(phys_ops.size() == phys_ops_idxs.size());
   assert(
       (inst_ops.size() == phys_ops.size() - 1) ||
-      (inst_ops.size() == phys_ops.size())
+          (inst_ops.size() == phys_ops.size())
   );
   if (inst_ops_idxs_set != kNullUintVecVec) {
     assert(inst_ops_idxs_set.size() == inst_ops.size());
@@ -200,7 +205,7 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
         local_ops_idxs.push_back(j);
       }
     } else {
-      for (auto inst_op_idx: inst_ops_idxs_set[i]) {
+      for (auto inst_op_idx : inst_ops_idxs_set[i]) {
         local_ops.push_back(inst_ops[i]);
         local_ops_idxs.push_back(inst_op_idx);
       }
@@ -217,7 +222,7 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
         local_ops_idxs.push_back(j);
       }
     } else {
-      for (auto inst_op_idx: inst_ops_idxs_set.back()) {
+      for (auto inst_op_idx : inst_ops_idxs_set.back()) {
         local_ops.push_back(inst_ops.back());
         local_ops_idxs.push_back(inst_op_idx);
       }
@@ -274,15 +279,18 @@ void MPOGenerator<TenElemT, QNT>::AddTerm(
 
 template<typename TenElemT, typename QNT>
 MPO<typename MPOGenerator<TenElemT, QNT>::GQTensorT>
-MPOGenerator<TenElemT, QNT>::Gen(const bool show_matrix) {
-  auto fsm_comp_mat_repr = fsm_.GenCompressedMatRepr(show_matrix);
+MPOGenerator<TenElemT, QNT>::Gen(const bool compress, const bool show_matrix) {
+  SparOpReprMatVec fsm_mat_repr;
+  if (compress) { fsm_mat_repr = fsm_.GenCompressedMatRepr(show_matrix); }
+  else { fsm_mat_repr = fsm_.GenMatRepr(); }
+
   auto label_coef_mapping = coef_label_convertor_.GetLabelObjMapping();
   auto label_op_mapping = op_label_convertor_.GetLabelObjMapping();
 
   // Print MPO tensors virtual bond dimension.
   std::cout << "[";
-  for (auto &mpo_ten_repr: fsm_comp_mat_repr) {
-    std::cout << std::setw(3) << mpo_ten_repr.cols;
+  for (auto &mpo_ten_repr : fsm_mat_repr) {
+    std::cout << "\t" << mpo_ten_repr.cols;
   }
   std::cout << "]" << std::endl;
 
@@ -292,23 +300,23 @@ MPOGenerator<TenElemT, QNT>::Gen(const bool show_matrix) {
   for (size_t i = 0; i < N_; ++i) {
     if (i == 0) {
       transposed_idxs = SortSparOpReprMatColsByQN_(
-          fsm_comp_mat_repr[i], trans_vb, label_op_mapping);
+          fsm_mat_repr[i], trans_vb, label_op_mapping);
       mpo[i] = HeadMpoTenRepr2MpoTen_(
-          fsm_comp_mat_repr[i], trans_vb,
+          fsm_mat_repr[i], trans_vb,
           label_coef_mapping, label_op_mapping);
     } else if (i == N_ - 1) {
-      fsm_comp_mat_repr[i].TransposeRows(transposed_idxs);
+      fsm_mat_repr[i].TransposeRows(transposed_idxs);
       auto lvb = InverseIndex(trans_vb);
       mpo[i] = TailMpoTenRepr2MpoTen_(
-          fsm_comp_mat_repr[i], lvb,
+          fsm_mat_repr[i], lvb,
           label_coef_mapping, label_op_mapping);
     } else {
-      fsm_comp_mat_repr[i].TransposeRows(transposed_idxs);
+      fsm_mat_repr[i].TransposeRows(transposed_idxs);
       auto lvb = InverseIndex(trans_vb);
       transposed_idxs = SortSparOpReprMatColsByQN_(
-          fsm_comp_mat_repr[i], trans_vb, label_op_mapping);
+          fsm_mat_repr[i], trans_vb, label_op_mapping);
       mpo[i] = CentMpoTenRepr2MpoTen_(
-          fsm_comp_mat_repr[i], lvb, trans_vb,
+          fsm_mat_repr[i], lvb, trans_vb,
           label_coef_mapping, label_op_mapping, i);
     }
   }
@@ -324,11 +332,10 @@ MPOGenerator<TenElemT, QNT>::GenMatReprMPO(const bool show_matrix) {
   auto label_op_mapping = op_label_convertor_.GetLabelObjMapping();
   // Print MPO tensors virtual bond dimension.
   std::cout << "[";
-  for (auto &mpo_ten_repr: fsm_comp_mat_repr) {
-    std::cout << std::setw(3) << mpo_ten_repr.cols;
+  for (auto &mpo_ten_repr : fsm_comp_mat_repr) {
+    std::cout << "\t" << mpo_ten_repr.cols;
   }
   std::cout << "]" << std::endl;
-
 
   MatReprMPO<GQTensorT> mat_repr_mpo(N_);
   for (size_t i = 0; i < N_; ++i) {
@@ -394,7 +401,7 @@ std::vector<size_t> MPOGenerator<TenElemT, QNT>::SortSparOpReprMatColsByQN_(
           has_ntrvl_op = true;
           bool has_qn = false;
           size_t offset = 0;
-          for (auto &qn_dim: rvb_qn_dim_pairs) {
+          for (auto &qn_dim : rvb_qn_dim_pairs) {
             if (qn_dim.first == rvb_qn) {
               qn_dim.second += 1;
               auto beg_it = transposed_idxs.begin();
@@ -419,7 +426,7 @@ std::vector<size_t> MPOGenerator<TenElemT, QNT>::SortSparOpReprMatColsByQN_(
   op_repr_mat.TransposeCols(transposed_idxs);
   std::vector<QNSctT> rvb_qnscts;
   rvb_qnscts.reserve(rvb_qn_dim_pairs.size());
-  for (auto &qn_dim: rvb_qn_dim_pairs) {
+  for (auto &qn_dim : rvb_qn_dim_pairs) {
     rvb_qnscts.push_back(QNSctT(qn_dim.first, qn_dim.second));
   }
   trans_vb = IndexT(rvb_qnscts, OUT);

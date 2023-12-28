@@ -14,7 +14,6 @@
 #ifndef GQMPS2_ONE_DIM_TN_MPO_FINITE_MPO_FINITE_MPO_H
 #define GQMPS2_ONE_DIM_TN_MPO_FINITE_MPO_FINITE_MPO_H
 
-
 #include "gqten/gqten.h"
 #include "gqmps2/one_dim_tn/mps_all.h"
 
@@ -57,7 +56,7 @@ template<typename TenElemT, typename QNT>
 class FiniteMPO;
 
 template<typename TenElemT, typename QNT>
-double MpoProduct(
+void MpoProduct(
     const FiniteMPO<TenElemT, QNT> &mpo1,
     const FiniteMPO<TenElemT, QNT> &mpo2,
     FiniteMPO<TenElemT, QNT> &output_mpo,
@@ -66,12 +65,13 @@ double MpoProduct(
     const double trunc_err, // truncation error when svd decomposition
     const size_t sweep_time_max,   // max sweep time when variational sweep
     const double sweep_converge_tolerance,
-    const std::string temp_path
+    const std::string temp_path,
+    const bool output_info = false
 );
 
 inline std::string GenMPOTenName(const std::string &mpo_path, const size_t idx) {
   return mpo_path + "/" +
-         kMpoTenBaseName + std::to_string(idx) + "." + kGQTenFileSuffix;
+      kMpoTenBaseName + std::to_string(idx) + "." + kGQTenFileSuffix;
 }
 
 using MPOTenCanoType = MPSTenCanoType;
@@ -100,7 +100,6 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
 
   FiniteMPO(const MPO<LocalTenT> &mpo) : TenVec<LocalTenT>(mpo), center_(kUncentralizedCenterIdx),
                                          tens_cano_type_(mpo.size()) {}
-
 
   operator MPO<LocalTenT>() {
     return MPO<LocalTenT>(*this);
@@ -186,22 +185,21 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
 
   }
 
-
   /**
    * square the MPO without normalization
    *
    * @param optimize_params
    * @return
    */
-  double Square(const MpoVOptimizeParams &optimize_params) {
+  void Square(const MpoVOptimizeParams &optimize_params) {
     const size_t N = this->size();
 
     FiniteMPO result(N);
     result.Load(optimize_params.initial_mpo_path);
-    double norm2 = MpoProduct(*this, *this, result,
-                              optimize_params.Dmin, optimize_params.Dmax, optimize_params.trunc_err,
-                              optimize_params.sweeps, optimize_params.converge_tolerance,
-                              optimize_params.temp_path);
+    MpoProduct(*this, *this, result,
+               optimize_params.Dmin, optimize_params.Dmax, optimize_params.trunc_err,
+               optimize_params.sweeps, optimize_params.converge_tolerance,
+               optimize_params.temp_path);
     size_t result_center = result.center_;
     for (size_t i = 0; i < N; i++) {
       assert((*this)(i) != nullptr);
@@ -212,7 +210,7 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
     center_ = result_center;
     assert(center_ != kUncentralizedCenterIdx);
     SetCenter_();
-    return norm2;
+    return;
   }
 
   double SquareAndNormlize(const MpoVOptimizeParams &optimize_params) {
@@ -232,7 +230,7 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
 
   void RightCanonicalizeTen(const size_t);
 
-  double Truncate(const GQTEN_Double, const size_t, const size_t);
+  void Truncate(const GQTEN_Double, const size_t, const size_t);
 
   void Dump(const std::string &mpo_path = kMpoPath) const {
     if (!IsPathExist(mpo_path)) { CreatPath(mpo_path); }
@@ -332,7 +330,7 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
   }
 
   template<typename TenElemT2, typename QNT2>
-  friend double MpoProduct(
+  friend void MpoProduct(
       const FiniteMPO<TenElemT2, QNT2> &mpo1,
       const FiniteMPO<TenElemT2, QNT2> &mpo2,
       FiniteMPO<TenElemT2, QNT2> &output_mpo,
@@ -341,7 +339,8 @@ class FiniteMPO : public TenVec<GQTensor<TenElemT, QNT>> {
       const double trunc_err, // truncation error when svd decomposition
       const size_t sweep_time_max,   // max sweep time when variational sweep
       const double sweep_converge_tolerance,
-      const std::string temp_path
+      const std::string temp_path,
+      const bool
   );
 };
 
@@ -427,13 +426,13 @@ void FiniteMPO<TenElemT, QNT>::RightCanonicalizeTen(const size_t site_idx) {
 }
 
 template<typename TenElemT, typename QNT>
-double FiniteMPO<TenElemT, QNT>::Truncate(const GQTEN_Double trunc_err,
-                                          const size_t Dmin,
-                                          const size_t Dmax) {
+void FiniteMPO<TenElemT, QNT>::Truncate(const GQTEN_Double trunc_err,
+                                        const size_t Dmin,
+                                        const size_t Dmax) {
   auto N = this->size();
   assert(N >= 2);
   this->Centralize(N - 1);
-  double norm2 = (*this)(N - 1)->Normalize();
+//  double norm2 = (*this)(N - 1)->Normalize();
 
   GQTEN_Double actual_trunc_err;
   size_t D;
@@ -445,7 +444,7 @@ double FiniteMPO<TenElemT, QNT>::Truncate(const GQTEN_Double trunc_err,
               << ", D = " << std::setw(5) << D
               << std::endl;
   }
-  return norm2;
+  return;
 }
 
 /** the trace of the operator

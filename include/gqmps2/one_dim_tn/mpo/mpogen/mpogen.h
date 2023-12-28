@@ -75,7 +75,7 @@ class MPOGenerator {
 
   FSM GetFSM(void) { return fsm_; }
 
-  MPO<GQTensorT> Gen(const bool show_matrix = false);
+  MPO<GQTensorT> Gen(const bool compress = true, const bool show_matrix = false);
 
   MatReprMPO<GQTensorT> GenMatReprMPO(const bool show_matrix = false);
 

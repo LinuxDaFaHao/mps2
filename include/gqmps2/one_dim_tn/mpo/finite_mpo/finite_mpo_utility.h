@@ -9,7 +9,6 @@
 #ifndef GQMPS2_ONE_DIM_TN_MPO_FINITE_MPO_FINITE_MPO_UTILITY_H
 #define GQMPS2_ONE_DIM_TN_MPO_FINITE_MPO_FINITE_MPO_UTILITY_H
 
-
 #include "gqten/gqten.h"
 
 namespace gqmps2 {
@@ -28,6 +27,9 @@ using namespace gqten;
 
 
 //Forward declaration
+template<typename DTenT>
+inline double MeasureEE(const DTenT &s, const size_t sdim);
+
 inline std::string GenEnvTenName(
     const std::string &dir, const long blk_len, const std::string temp_path
 );
@@ -43,7 +45,7 @@ void Generate3MPOEnvs(
 );
 
 template<typename TenElemT, typename QNT, char dir>
-void MPOProductVariationalSingleStep(
+std::pair<size_t, double> MPOProductVariationalSingleStep(
     const GQTensor<TenElemT, QNT> &lenv,
     const GQTensor<TenElemT, QNT> &renv,
     const GQTensor<TenElemT, QNT> &mpo1l,
@@ -54,7 +56,8 @@ void MPOProductVariationalSingleStep(
     const size_t Dmin,
     const size_t Dmax,
     GQTensor<TenElemT, QNT> &mpo_out_l,
-    GQTensor<TenElemT, QNT> &mpo_out_r
+    GQTensor<TenElemT, QNT> &mpo_out_r,
+    bool output_info = false
 );
 
 template<typename TenElemT, typename QNT>
@@ -102,7 +105,7 @@ void MpoScale(
     FiniteMPO<TenElemT, QNT> &mpo,
     const TenElemT factor
 ) {
-  for (GQTensor<TenElemT, QNT> *ptensor: mpo) {
+  for (GQTensor<TenElemT, QNT> *ptensor : mpo) {
     ptensor->MultiplyByScalar(factor);
   }
   return;
@@ -219,7 +222,7 @@ void MpoProduct(
  * @return the 2 norm of the output MPO
  */
 template<typename TenElemT, typename QNT>
-double MpoProduct(
+void MpoProduct(
     const FiniteMPO<TenElemT, QNT> &mpo1,
     const FiniteMPO<TenElemT, QNT> &mpo2,
     FiniteMPO<TenElemT, QNT> &output_mpo,
@@ -228,18 +231,19 @@ double MpoProduct(
     const double trunc_err, // truncation error when svd decomposition
     const size_t sweep_time_max,   // max sweep time when variational sweep
     const double sweep_converge_tolerance,
-    const std::string temp_path
+    const std::string temp_path,
+    const bool output_info
 ) {
   using Tensor = GQTensor<TenElemT, QNT>;
   const size_t N = mpo1.size();
-  double output_mpo_valid(true);
+  double output_mpo_inited(true);
   for (size_t i = 0; i < N; i++) {
     if (output_mpo(i) == nullptr) {
-      output_mpo_valid = false;
+      output_mpo_inited = false;
       break;
     }
   }
-  if (!output_mpo_valid) {
+  if (!output_mpo_inited) {
     output_mpo = mpo1;
   }
   const size_t indent_level = 1;
@@ -249,12 +253,18 @@ double MpoProduct(
 //  Timer initial_timer("product_initial");
   output_mpo.Centralize(0);
 
+  if (!IsPathExist(temp_path)) {
+    CreatPath(temp_path);
+  }
+
   Generate3MPOEnvs(output_mpo, mpo1, mpo2, temp_path);
 
 //  initial_timer.PrintElapsed();
 
 
   double norm2(0.0);
+  double trunc_err_max(0.0);
+  size_t trunc_D_max(0);
   for (size_t sweep = 0; sweep < sweep_time_max; sweep++) {
     std::cout << IndentPrinter(indent_level) << "sweep " << sweep << std::endl;
     Timer sweep_timer("sweep");
@@ -271,17 +281,21 @@ double MpoProduct(
       ReadGQTensorFromFile(renv, renv_file);
       RemoveFile(renv_file);
       //update lsite, lsite+1, direction 'r'
-      std::cout << IndentPrinter(indent_level)
-                << " site = ("
-                << std::setw(4) << lsite
-                << ", "
-                << std::setw(4) << rsite
-                << ")"
-                << std::scientific;
-      MPOProductVariationalSingleStep<TenElemT, QNT, 'r'>(lenv, renv, mpo1[lsite], mpo1[rsite],
-                                                          mpo2[lsite], mpo2[rsite], trunc_err, Dmin, Dmax,
-                                                          output_mpo[lsite], output_mpo[rsite]);
-
+      if (output_info) {
+        std::cout << IndentPrinter(indent_level)
+                  << " site = ("
+                  << std::setw(4) << lsite
+                  << ", "
+                  << std::setw(4) << rsite
+                  << ")"
+                  << std::scientific;
+      }
+      auto [actual_D, actual_trunc_err] =
+          MPOProductVariationalSingleStep<TenElemT, QNT, 'r'>(lenv, renv, mpo1[lsite], mpo1[rsite],
+                                                              mpo2[lsite], mpo2[rsite], trunc_err, Dmin, Dmax,
+                                                              output_mpo[lsite], output_mpo[rsite], output_info);
+      trunc_err_max = std::max(trunc_err_max, actual_trunc_err);
+      trunc_D_max = std::max(trunc_D_max, actual_D);
       //update lenv_next, dump it;
       lenv = std::move(UpdateLenv(lenv, output_mpo[lsite], mpo1[lsite], mpo2[lsite]));
       std::string lenv_file = GenEnvTenName("l", rsite, temp_path);
@@ -301,30 +315,31 @@ double MpoProduct(
       RemoveFile(lenv_file);
 
       //update lsite, lsite+1, direction 'l'
-      std::cout << IndentPrinter(indent_level)
-                << " site = ("
-                << std::setw(4) << lsite
-                << ", "
-                << std::setw(4) << rsite
-                << ")"
-                << std::scientific;
-      MPOProductVariationalSingleStep<TenElemT, QNT, 'l'>(lenv, renv, mpo1[lsite], mpo1[rsite],
-                                                          mpo2[lsite], mpo2[rsite], trunc_err, Dmin, Dmax,
-                                                          output_mpo[lsite], output_mpo[rsite]);
-
+      if (output_info) {
+        std::cout << IndentPrinter(indent_level)
+                  << " site = ("
+                  << std::setw(4) << lsite
+                  << ", "
+                  << std::setw(4) << rsite
+                  << ")"
+                  << std::scientific;
+      }
+      auto [actual_D, actual_trunc_err] =
+          MPOProductVariationalSingleStep<TenElemT, QNT, 'l'>(lenv, renv, mpo1[lsite], mpo1[rsite],
+                                                              mpo2[lsite], mpo2[rsite], trunc_err, Dmin, Dmax,
+                                                              output_mpo[lsite], output_mpo[rsite], output_info);
+      trunc_err_max = std::max(trunc_err_max, actual_trunc_err);
+      trunc_D_max = std::max(trunc_D_max, actual_D);
       //update renv_next, dump it;
       renv = std::move(UpdateRenv(renv, output_mpo[rsite], mpo1[rsite], mpo2[rsite]));
       std::string renv_file = GenEnvTenName("r", N - lsite - 1, temp_path);
       WriteGQTensorTOFile(renv, renv_file);
     }
-    //future: write Norm() function for GQTensor
-    Tensor mpo1_dag = Dag(output_mpo[1]);
-    Tensor scalar_ten;
-    Contract(output_mpo(1), &mpo1_dag, {{0, 1, 2, 3},
-                                        {0, 1, 2, 3}}, &scalar_ten);
-
-    double new_norm2 = std::sqrt(scalar_ten());
-    std::cout << IndentPrinter(indent_level) << "norm2 = " << new_norm2 << std::endl;
+    double new_norm2 = output_mpo[1].Get2Norm();
+    std::cout << IndentPrinter(indent_level) << "norm2 = " << new_norm2
+              << " tunc_err : " << trunc_err_max
+              << " Dmax :" << trunc_D_max
+              << std::endl;
     sweep_timer.PrintElapsed();
     std::cout << "\n";
     if (sweep >= 1 && std::abs(new_norm2 - norm2) / norm2 < sweep_converge_tolerance) {
@@ -340,7 +355,7 @@ double MpoProduct(
     output_mpo.tens_cano_type_[i] = MPOTenCanoType::RIGHT;
   }
   output_mpo.center_ = 1;
-  return norm2;
+  return;
 }
 
 /*
@@ -361,7 +376,7 @@ double MpoProduct(
  *
  */
 template<typename TenElemT, typename QNT, char dir>
-void MPOProductVariationalSingleStep(
+std::pair<size_t, double> MPOProductVariationalSingleStep(
     const GQTensor<TenElemT, QNT> &lenv,
     const GQTensor<TenElemT, QNT> &renv,
     const GQTensor<TenElemT, QNT> &mpo1l,
@@ -372,27 +387,23 @@ void MPOProductVariationalSingleStep(
     const size_t Dmin,
     const size_t Dmax,
     GQTensor<TenElemT, QNT> &mpo_out_l,
-    GQTensor<TenElemT, QNT> &mpo_out_r
+    GQTensor<TenElemT, QNT> &mpo_out_r,
+    bool output_info
 ) {
   Timer update_timer("two_site_fvmpo_update");
   using Tensor = GQTensor<TenElemT, QNT>;
   Tensor *ptemp0 = new Tensor();
   Tensor *ptemp1 = new Tensor();
   Tensor *ptemp2 = new Tensor();
-  Contract(&lenv, &mpo2l, {{2},
-                           {0}}, ptemp0);
-  Contract(ptemp0, &mpo1l, {{1, 3},
-                            {0, 1}}, ptemp1);
+  Contract(&lenv, &mpo2l, {{2}, {0}}, ptemp0);
+  Contract(ptemp0, &mpo1l, {{1, 3}, {0, 1}}, ptemp1);
 
   (*ptemp0) = Tensor();
-  Contract(&mpo2r, &renv, {{3},
-                           {2}}, ptemp0);
-  Contract(ptemp0, &mpo1r, {{2, 4},
-                            {1, 3}}, ptemp2);
+  Contract(&mpo2r, &renv, {{3}, {2}}, ptemp0);
+  Contract(ptemp0, &mpo1r, {{2, 4}, {1, 3}}, ptemp2);
 
   (*ptemp0) = Tensor();
-  Contract(ptemp1, ptemp2, {{2, 4},
-                            {0, 3}}, ptemp0);
+  Contract(ptemp1, ptemp2, {{2, 4}, {0, 3}}, ptemp0);
   delete ptemp1;
   delete ptemp2;
   ptemp0->Transpose({0, 1, 2, 3, 5, 4});
@@ -407,15 +418,13 @@ void MPOProductVariationalSingleStep(
     mpo_out_l = Tensor();
     mpo_out_r = Tensor();
     SVD(ptemp0, 3, Div(mpo1l), trunc_err, Dmin, Dmax, &mpo_out_l, &s, &vt, &actual_trunc_err, &D);
-    Contract(&s, &vt, {{1},
-                       {0}}, &mpo_out_r);
+    Contract(&s, &vt, {{1}, {0}}, &mpo_out_r);
   } else if (dir == 'l') {
     Tensor u;
     mpo_out_l = Tensor();
     mpo_out_r = Tensor();
     SVD(ptemp0, 3, Div(mpo1l), trunc_err, Dmin, Dmax, &u, &s, &mpo_out_r, &actual_trunc_err, &D);
-    Contract(&u, &s, {{3},
-                      {0}}, &mpo_out_l);
+    Contract(&u, &s, {{3}, {0}}, &mpo_out_l);
   } else {
     assert(false);
   }
@@ -425,11 +434,14 @@ void MPOProductVariationalSingleStep(
 
   auto update_elapsed_time = update_timer.Elapsed();
   //cout site i at out_side of the function
-  std::cout << " TruncErr = " << std::setprecision(2) << std::scientific << actual_trunc_err << std::fixed
-            << " D = " << std::setw(5) << D
-            << " Time = " << std::setw(8) << update_elapsed_time
-            << " S = " << std::setw(10) << std::setprecision(7) << ee;
-  std::cout << std::scientific << std::endl;
+  if (output_info) {
+    std::cout << " TruncErr = " << std::setprecision(2) << std::scientific << actual_trunc_err << std::fixed
+              << " D = " << std::setw(5) << D
+              << " Time = " << std::setw(8) << update_elapsed_time
+              << " S = " << std::setw(10) << std::setprecision(7) << ee;
+    std::cout << std::scientific << std::endl;
+  }
+  return std::make_pair(D, actual_trunc_err);
 }
 
 /**
@@ -496,13 +508,10 @@ GQTensor<TenElemT, QNT> UpdateRenv(
   mpo_ten_o_dag.Transpose({0, 2, 1, 3});
 //  mpo_ten_o.Show();
 //  renv.Show();
-  Contract(&mpo_ten_o_dag, &renv, {{3},
-                                   {0}}, &temp0);
+  Contract(&mpo_ten_o_dag, &renv, {{3}, {0}}, &temp0);
 
-  Contract(&temp0, &mpo_ten1, {{1, 3},
-                               {2, 3}}, &temp1);
-  Contract(&temp1, &mpo_ten2, {{1, 4, 2},
-                               {1, 2, 3}}, &renv_next);
+  Contract(&temp0, &mpo_ten1, {{1, 3}, {2, 3}}, &temp1);
+  Contract(&temp1, &mpo_ten2, {{1, 4, 2}, {1, 2, 3}}, &renv_next);
   return renv_next;
 }
 
@@ -533,12 +542,9 @@ GQTensor<TenElemT, QNT> UpdateLenv(
   TenT lenv_next, temp0, temp1;
   TenT mpo_ten_o_dag = Dag(mpo_ten_o);
   mpo_ten_o_dag.Transpose({0, 2, 1, 3});
-  Contract(&mpo_ten_o_dag, &lenv, {{0},
-                                   {0}}, &temp0);
-  Contract(&temp0, &mpo_ten1, {{0, 3},
-                               {2, 0}}, &temp1);
-  Contract(&temp1, &mpo_ten2, {{2, 0, 3},
-                               {0, 1, 2}}, &lenv_next);
+  Contract(&mpo_ten_o_dag, &lenv, {{0}, {0}}, &temp0);
+  Contract(&temp0, &mpo_ten1, {{0, 3}, {2, 0}}, &temp1);
+  Contract(&temp1, &mpo_ten2, {{2, 0, 3}, {0, 1, 2}}, &lenv_next);
   return lenv_next;
 }
 

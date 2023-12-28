@@ -646,16 +646,16 @@ TEST(TestSparOpReprMat, TestSparOpReprMatCalcRowAndColCoefs) {
   spar_mat.SetElem(3, 3, OpRepr(coef1, 6));
   spar_mat.SetElem(4, 2, OpRepr(coef3, 7));
 
-  EXPECT_EQ(spar_mat.CalcRowCoef(0), kIdCoefRepr);
-  EXPECT_EQ(spar_mat.CalcRowCoef(1), kIdCoefRepr);
-  EXPECT_EQ(spar_mat.CalcRowCoef(2), kNullCoefRepr);
-  EXPECT_EQ(spar_mat.CalcRowCoef(3), coef1);
-  EXPECT_EQ(spar_mat.CalcRowCoef(4), coef3);
-  EXPECT_EQ(spar_mat.CalcColCoef(0), kNullCoefRepr);
-  EXPECT_EQ(spar_mat.CalcColCoef(1), coef1);
-  EXPECT_EQ(spar_mat.CalcColCoef(2), coef3);
-  EXPECT_EQ(spar_mat.CalcColCoef(3), kIdCoefRepr);
-  EXPECT_EQ(spar_mat.CalcColCoef(4), kIdCoefRepr);
+  EXPECT_EQ(spar_mat.TryCatchRowCommonDivisorCoef(0), kIdCoefRepr);
+  EXPECT_EQ(spar_mat.TryCatchRowCommonDivisorCoef(1), kIdCoefRepr);
+  EXPECT_EQ(spar_mat.TryCatchRowCommonDivisorCoef(2), kNullCoefRepr);
+  EXPECT_EQ(spar_mat.TryCatchRowCommonDivisorCoef(3), coef1);
+  EXPECT_EQ(spar_mat.TryCatchRowCommonDivisorCoef(4), coef3);
+  EXPECT_EQ(spar_mat.TryCatchColCommonDivisorCoef(0), kNullCoefRepr);
+  EXPECT_EQ(spar_mat.TryCatchColCommonDivisorCoef(1), coef1);
+  EXPECT_EQ(spar_mat.TryCatchColCommonDivisorCoef(2), coef3);
+  EXPECT_EQ(spar_mat.TryCatchColCommonDivisorCoef(3), kIdCoefRepr);
+  EXPECT_EQ(spar_mat.TryCatchColCommonDivisorCoef(4), kIdCoefRepr);
 }
 
 

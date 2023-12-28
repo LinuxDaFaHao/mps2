@@ -216,7 +216,7 @@ inline void FSM::CastFSMPathToMatRepr_(
 }
 
 inline SparOpReprMatVec FSM::GenCompressedMatRepr(const bool show_matrix) const {
-  auto comp_mat_repr = GenMatRepr();
+  SparOpReprMatVec comp_mat_repr = GenMatRepr();
   //  for (size_t i = phys_site_num_-1; i >= phys_site_num_/2; --i) {
 //    SparOpReprMatRowCompresser(comp_mat_repr[i], comp_mat_repr[i-1]);
 //  }
