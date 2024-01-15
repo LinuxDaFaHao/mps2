@@ -7,13 +7,14 @@
 * Description: GraceQ/MPS2 project. Unittests for MPS .
 */
 
-#include "gqten/gqten.h"
-#include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps.h"
-#include "gqmps2/one_dim_tn/mps/finite_mps/finite_mps_ops.h"
-
+#include <utility>    // move
 #include "gtest/gtest.h"
 
-#include <utility>    // move
+#include "gqten/gqten.h"
+#include "gqmps2/one_dim_tn/mpo/mpo.h"                              // MPO
+#include "gqmps2/one_dim_tn/mpo/mpogen/mpogen.h"                    // MPOGenerator
+#include "gqmps2/algorithm/vmps/vmps_all.h"
+#include "../../testing_utils.h"                                       //RemoveFolder
 
 using namespace gqmps2;
 using namespace gqten;
@@ -25,6 +26,7 @@ using QNSctT = QNSector<U1QN>;
 using QNSctVecT = QNSectorVec<U1QN>;
 
 using DGQTensor = GQTensor<GQTEN_Double, U1QN>;
+using ZGQTensor = GQTensor<GQTEN_Complex, U1QN>;
 using Tensor = DGQTensor;
 
 using SiteVecT = SiteVec<GQTEN_Double, U1QN>;
@@ -250,4 +252,107 @@ TEST_F(TestMPS, TestOperation) {
   mps.Centralize(0);
   mps(0)->Normalize();
   EXPECT_NEAR(FiniteMPSInnerProd(mps, mps), 1.0, 1e-14);
+}
+
+using DSiteVec = SiteVec<GQTEN_Double, U1QN>;
+using ZSiteVec = SiteVec<GQTEN_Complex, U1QN>;
+using DMPS = FiniteMPS<GQTEN_Double, U1QN>;
+using ZMPS = FiniteMPS<GQTEN_Complex, U1QN>;
+
+// Test spin systems
+struct TestTwoSiteAlgorithmSpinSystem : public testing::Test {
+  size_t N = 6;
+
+  U1QN qn0 = U1QN({QNCard("Sz", U1QNVal(0))});
+  IndexT pb_out = IndexT({
+                             QNSctT(U1QN({QNCard("Sz", U1QNVal(1))}), 1),
+                             QNSctT(U1QN({QNCard("Sz", U1QNVal(-1))}), 1)},
+                         GQTenIndexDirType::OUT
+  );
+  IndexT pb_in = InverseIndex(pb_out);
+  DSiteVec dsite_vec_6 = DSiteVec(N, pb_out);
+  ZSiteVec zsite_vec_6 = ZSiteVec(N, pb_out);
+
+  DGQTensor did = DGQTensor({pb_in, pb_out});
+  DGQTensor dsz = DGQTensor({pb_in, pb_out});
+  DGQTensor dsp = DGQTensor({pb_in, pb_out});
+  DGQTensor dsm = DGQTensor({pb_in, pb_out});
+  DMPS dmps = DMPS(dsite_vec_6);
+
+  ZGQTensor zid = ZGQTensor({pb_in, pb_out});
+  ZGQTensor zsz = ZGQTensor({pb_in, pb_out});
+  ZGQTensor zsp = ZGQTensor({pb_in, pb_out});
+  ZGQTensor zsm = ZGQTensor({pb_in, pb_out});
+  ZMPS zmps = ZMPS(zsite_vec_6);
+
+  void SetUp(void) {
+    did({0, 0}) = 1;
+    did({1, 1}) = 1;
+    dsz({0, 0}) = 0.5;
+    dsz({1, 1}) = -0.5;
+    dsp({0, 1}) = 1;
+    dsm({1, 0}) = 1;
+
+    zid({0, 0}) = 1;
+    zid({1, 1}) = 1;
+    zsz({0, 0}) = 0.5;
+    zsz({1, 1}) = -0.5;
+    zsp({0, 1}) = 1;
+    zsm({1, 0}) = 1;
+  }
+};
+
+TEST_F(TestTwoSiteAlgorithmSpinSystem, Test1DHeisenbergEntanglementEntropy) {
+  auto dmpo_gen = MPOGenerator<GQTEN_Double, U1QN>(dsite_vec_6, qn0);
+  for (size_t i = 0; i < N - 1; ++i) {
+    dmpo_gen.AddTerm(1, {dsz, dsz}, {i, i + 1});
+    dmpo_gen.AddTerm(0.5, {dsp, dsm}, {i, i + 1});
+    dmpo_gen.AddTerm(0.5, {dsm, dsp}, {i, i + 1});
+  }
+  auto dmpo = dmpo_gen.Gen();
+
+  auto sweep_params = FiniteVMPSSweepParams(
+      4,
+      16, 16, 1.0E-9,
+      LanczosParams(1.0E-9)
+  );
+  std::vector<size_t> stat_labs;
+  for (size_t i = 0; i < N; ++i) { stat_labs.push_back(i % 2); }
+  DirectStateInitMps(dmps, stat_labs);
+  dmps.Dump(sweep_params.mps_path, true);
+  auto e0 = TwoSiteFiniteVMPS(dmps, dmpo, sweep_params);
+
+  dmps.Load(sweep_params.mps_path);
+  std::vector<double> ee_list_std = {0.6931472, 0.3756033, 0.7113730, 0.3756033, 0.6931472};
+  std::vector<double> ee_list = dmps.GetEntanglementEntropy(1);
+  for (size_t i = 0; i < ee_list.size(); i++) {
+    EXPECT_NEAR(ee_list[i], ee_list_std[i], 1e-6);
+  }
+
+  dmps.clear();
+  RemoveFolder(sweep_params.mps_path);
+  RemoveFolder(sweep_params.temp_path);
+
+  // Complex Hamiltonian
+  auto zmpo_gen = MPOGenerator<GQTEN_Complex, U1QN>(zsite_vec_6, qn0);
+  for (size_t i = 0; i < N - 1; ++i) {
+    zmpo_gen.AddTerm(1, {zsz, zsz}, {i, i + 1});
+    zmpo_gen.AddTerm(0.5, {zsp, zsm}, {i, i + 1});
+    zmpo_gen.AddTerm(0.5, {zsm, zsp}, {i, i + 1});
+  }
+  auto zmpo = zmpo_gen.Gen();
+  DirectStateInitMps(zmps, stat_labs);
+  zmps.Dump(sweep_params.mps_path, true);
+  e0 = TwoSiteFiniteVMPS(zmps, zmpo, sweep_params);
+
+  zmps.Load(sweep_params.mps_path);
+  ee_list = zmps.GetEntanglementEntropy(1);
+  for (size_t i = 0; i < ee_list.size(); i++) {
+    EXPECT_NEAR(ee_list[i], ee_list_std[i], 1e-6);
+  }
+
+  zmps.clear();
+
+  RemoveFolder(sweep_params.mps_path);
+  RemoveFolder(sweep_params.temp_path);
 }

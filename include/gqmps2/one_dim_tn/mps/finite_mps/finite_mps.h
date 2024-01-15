@@ -248,7 +248,8 @@ std::vector<double> FiniteMPS<TenElemT, QNT>::GetEntanglementEntropy(size_t n) {
     auto s = RightCanonicalizeTen(i);
     double ee = 0;
     double sum_of_p2n = 0.0;
-    for (size_t k = 0; k < s.GetShape()[0]; ++k) { // indices of singular value matrix
+    const size_t sdim = s.GetShape()[0];
+    for (size_t k = 0; k < sdim; ++k) { // indices of singular value matrix
       double singular_value = s(k, k);
       double p = singular_value * singular_value;
       if (n == 1) {
@@ -286,12 +287,12 @@ void FiniteMPS<TenElemT, QNT>::Reverse() {
   for (size_t i = 0; i < N; i++) {
     (*this)(i)->Transpose({2, 1, 0});
   }
-  if(center_ != kUncentralizedCenterIdx) {
+  if (center_ != kUncentralizedCenterIdx) {
     center_ = N - 1 - center_;
-    for(size_t i = 0; i < N; i++) {
-      if(tens_cano_type_[i] == MPSTenCanoType::RIGHT) {
+    for (size_t i = 0; i < N; i++) {
+      if (tens_cano_type_[i] == MPSTenCanoType::RIGHT) {
         tens_cano_type_[i] = MPSTenCanoType::LEFT;
-      } else if(tens_cano_type_[i] == MPSTenCanoType::LEFT) {
+      } else if (tens_cano_type_[i] == MPSTenCanoType::LEFT) {
         tens_cano_type_[i] = MPSTenCanoType::RIGHT;
       }
     }

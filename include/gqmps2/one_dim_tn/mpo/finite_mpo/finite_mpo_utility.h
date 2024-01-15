@@ -337,7 +337,7 @@ void MpoProduct(
     }
     double new_norm2 = output_mpo[1].Get2Norm();
     std::cout << IndentPrinter(indent_level) << "norm2 = " << new_norm2
-              << " tunc_err : " << trunc_err_max
+              << " tunc_err : " << std::scientific << trunc_err_max
               << " Dmax :" << trunc_D_max
               << std::endl;
     sweep_timer.PrintElapsed();
