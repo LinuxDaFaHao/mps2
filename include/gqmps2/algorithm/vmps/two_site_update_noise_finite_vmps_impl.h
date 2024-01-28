@@ -481,7 +481,7 @@ void TwoSiteFiniteVMPSExpand(
 #endif
     gs_vec->Transpose({3, 0, 1, 2});
     TenT expanded_ten;
-    ExpandMC(gs_vec, ten_tmp, {0}, &expanded_ten);
+    ExpandQNBlocks(gs_vec, ten_tmp, {0}, &expanded_ten);
     expanded_ten.Transpose({1, 2, 3, 0});
     (*gs_vec) = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
@@ -497,7 +497,7 @@ void TwoSiteFiniteVMPSExpand(
                                       mps[next_next_site].GetIndexes()[2]
                                   });
     (*ten_tmp) = TenT();
-    ExpandMC(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
+    ExpandQNBlocks(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
     delete mps(next_next_site);
     mps(next_next_site) = ten_tmp;
 #ifdef GQMPS2_TIMING_MODE
@@ -531,7 +531,7 @@ void TwoSiteFiniteVMPSExpand(
     Timer expansion_timer("\t Magic expansion time");
 #endif
     TenT expanded_ten;
-    ExpandMC(gs_vec, ten_tmp, {0}, &expanded_ten);
+    ExpandQNBlocks(gs_vec, ten_tmp, {0}, &expanded_ten);
     *gs_vec = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
     expansion_timer.PrintElapsed();
@@ -546,7 +546,7 @@ void TwoSiteFiniteVMPSExpand(
                                       expanded_index
                                   });
     *ten_tmp = TenT();
-    ExpandMC(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
+    ExpandQNBlocks(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
     delete mps(next_next_site);
     mps(next_next_site) = ten_tmp;
 #ifdef GQMPS2_TIMING_MODE

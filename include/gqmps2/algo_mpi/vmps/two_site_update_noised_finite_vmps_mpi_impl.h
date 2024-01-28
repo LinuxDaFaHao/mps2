@@ -578,7 +578,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
 #endif
   gs_vec->Transpose({3, 0, 1, 2});
   TenT expanded_ten;
-  ExpandMC(gs_vec, ten_tmp, {0}, &expanded_ten);
+  ExpandQNBlocks(gs_vec, ten_tmp, {0}, &expanded_ten);
   expanded_ten.Transpose({1, 2, 3, 0});
   (*gs_vec) = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
@@ -594,7 +594,7 @@ void MasterTwoSiteFiniteVMPSRightMovingExpand(
                                     mps[next_next_site].GetIndexes()[2]
                                 });
   (*ten_tmp) = TenT();
-  ExpandMC(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
+  ExpandQNBlocks(mps(next_next_site), &expanded_zero_ten, {0}, ten_tmp);
   delete mps(next_next_site);
   mps(next_next_site) = ten_tmp;
 #ifdef GQMPS2_TIMING_MODE
@@ -660,7 +660,7 @@ void SlaveTwoSiteFiniteVMPSRightMovingExpand(
   temp.GetBlkSparDataTen().Clear();
   res.FuseIndex(1, 4);
   TenT res1;
-  ExpandMC(&state_shell, &res, {0}, &res1);
+  ExpandQNBlocks(&state_shell, &res, {0}, &res1);
   res1 *= noise;
   res.GetBlkSparDataTen().Clear();
 
@@ -686,7 +686,7 @@ void SlaveTwoSiteFiniteVMPSRightMovingExpand(
     temp.GetBlkSparDataTen().Clear();
     res.FuseIndex(1, 4);
     TenT res1;
-    ExpandMC(&state_shell, &res, {0}, &res1);
+    ExpandQNBlocks(&state_shell, &res, {0}, &res1);
     res1 *= noise;
     res.GetBlkSparDataTen().Clear();
 
@@ -834,7 +834,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
   Timer expansion_timer("\t Magic expansion time");
 #endif
   TenT expanded_ten;
-  ExpandMC(gs_vec, ten_tmp, {0}, &expanded_ten);
+  ExpandQNBlocks(gs_vec, ten_tmp, {0}, &expanded_ten);
   *gs_vec = std::move(expanded_ten);
 #ifdef GQMPS2_TIMING_MODE
   expansion_timer.PrintElapsed();
@@ -849,7 +849,7 @@ void MasterTwoSiteFiniteVMPSLeftMovingExpand(
                                     expanded_index
                                 });
   *ten_tmp = TenT();
-  ExpandMC(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
+  ExpandQNBlocks(mps(next_next_site), &expanded_zero_ten, {2}, ten_tmp);
   delete mps(next_next_site);
   mps(next_next_site) = ten_tmp;
 #ifdef GQMPS2_TIMING_MODE
@@ -914,7 +914,7 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
   res.Transpose({1, 3, 4, 2, 0});
   res.FuseIndex(0, 1);
   TenT res1;
-  ExpandMC(&state_shell, &res, {0}, &res1);
+  ExpandQNBlocks(&state_shell, &res, {0}, &res1);
   res1 *= noise;
   auto &bsdt = res1.GetBlkSparDataTen();
   res.GetBlkSparDataTen().Clear();
@@ -940,7 +940,7 @@ void SlaveTwoSiteFiniteVMPSLeftMovingExpand(
     res.Transpose({1, 3, 4, 2, 0});
     res.FuseIndex(0, 1);
     TenT res1;
-    ExpandMC(&state_shell, &res, {0}, &res1);
+    ExpandQNBlocks(&state_shell, &res, {0}, &res1);
 
     res1 *= noise;
     auto &bsdt = res1.GetBlkSparDataTen();

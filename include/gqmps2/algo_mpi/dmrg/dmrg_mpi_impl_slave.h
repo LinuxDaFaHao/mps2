@@ -436,7 +436,8 @@ void DMRGMPISlaveExecutor<TenElemT, QNT>::WorkForStaticHamiltonianMultiplyState_
   } else {
     sub_sum = Tensor(state.GetIndexes());
   }
-  send_gqten(world_, kMasterRank, 10086, sub_sum);
+  auto &bsdt = sub_sum.GetBlkSparDataTen();
+  bsdt.MPISend(world_, kMasterRank, 10085);
 
   Tensor temp_scalar_ten;
   GQTEN_Double sub_overlap = 0.0;

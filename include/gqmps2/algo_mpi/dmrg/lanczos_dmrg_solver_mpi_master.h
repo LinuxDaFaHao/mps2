@@ -252,6 +252,7 @@ template<typename TenElemT, typename QNT>
 GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonianMultiplyState_(
     DMRGMPIMasterExecutor::Tensor &state,
     GQTEN_Double &overlap) {
+  using Tensor = GQTensor<TenElemT, QNT>;
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer broadcast_state_timer("broadcast_state_send");
 #endif
@@ -259,15 +260,15 @@ GQTensor<TenElemT, QNT> *DMRGMPIMasterExecutor<TenElemT, QNT>::StaticHamiltonian
 #ifdef GQMPS2_MPI_TIMING_MODE
   broadcast_state_timer.PrintElapsed();
 #endif
-  const size_t num_terms = hamiltonian_terms_.size();
-  auto multiplication_res = std::vector<Tensor>(slave_num_);
+  auto multiplication_res = std::vector<Tensor>(slave_num_, Tensor(state.GetIndexes()));
   auto pmultiplication_res = std::vector<Tensor *>(slave_num_);
   const std::vector<TenElemT> &coefs = std::vector<TenElemT>(slave_num_, TenElemT(1.0));
   for (size_t i = 0; i < slave_num_; i++) {
     pmultiplication_res[i] = &multiplication_res[i];
   }
   for (size_t i = 0; i < slave_num_; i++) {
-    recv_gqten(world_, mpi::any_source, 10086, multiplication_res[i]);
+    auto& bsdt = multiplication_res[i].GetBlkSparDataTen();
+    bsdt.MPIRecv(world_, mpi::any_source, 10085);
   }
 #ifdef GQMPS2_MPI_TIMING_MODE
   Timer sum_state_timer("parallel_summation_reduce");
